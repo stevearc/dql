@@ -39,8 +39,17 @@ installed.
 TODO
 ====
 * Select should have 'limit' clause
+* Count query
+* Select should allow table scans
+* Select should be able to grab multiple items (batch get)
 * Update statement
 * Parse and run a file
+* Select allows an ordering (reverse)
+* Select allows consistent reads
+* Select can fetch only specific attributes
+* Dump schema
 * Engine should use table metadata to figure out the index name
-* More complex "where" clauses
+* Support for the 'set' data types
+* More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)
 * Full documentation
+* Create indexes with different projection mappings
