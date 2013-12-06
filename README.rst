@@ -1,5 +1,8 @@
 DQL
 ===
+.. image:: https://travis-ci.org/mathcamp/dql.png?branch=master
+    :target: https://travis-ci.org/mathcamp/dql
+
 A simple, SQL-ish language for DynamoDB
 
 Getting Started
