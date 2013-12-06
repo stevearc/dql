@@ -76,7 +76,7 @@ class TestSystem(TestCase):
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         # FIXME: I think dynamodb local has a bug related to this...
-        # results = self.query("SELECT FROM foobar WHERE id = 'a'")
+        # results = self.query("SELECT * FROM foobar WHERE id = 'a'")
         # self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
     def test_select_hash_range(self):
@@ -84,7 +84,7 @@ class TestSystem(TestCase):
         self.query("CREATE TABLE foobar (id STRING HASH KEY, "
                    "bar NUMBER RANGE KEY)")
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        results = self.query("SELECT FROM foobar WHERE id = 'a' and bar = 1")
+        results = self.query("SELECT * FROM foobar WHERE id = 'a' and bar = 1")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
@@ -94,7 +94,7 @@ class TestSystem(TestCase):
                    "bar NUMBER RANGE KEY, ts NUMBER INDEX('ts-index'))")
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
-        results = self.query("SELECT FROM foobar WHERE id = 'a' "
+        results = self.query("SELECT * FROM foobar WHERE id = 'a' "
                              "and ts < 150 USING 'ts-index'")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
@@ -105,8 +105,19 @@ class TestSystem(TestCase):
                    "bar NUMBER RANGE KEY, ts NUMBER INDEX('ts-index'))")
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
-        results = self.query("SELECT FROM foobar WHERE id = 'a' LIMIT 1")
+        results = self.query("SELECT * FROM foobar WHERE id = 'a' LIMIT 1")
         self.assertEquals(len(list(results)), 1)
+
+    def test_select_attrs(self):
+        """ SELECT statement can fetch only certain attrs """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY," +
+                   "bar NUMBER RANGE KEY)")
+        self.query("INSERT INTO foobar (id, bar, order) VALUES "
+                   "('a', 1, 'first'), ('a', 2, 'second')")
+        results = self.query("SELECT order FROM foobar "
+                             "WHERE id = 'a' and bar = 1")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'order': 'first'}])
 
     def test_delete(self):
         """ DELETE statement removes items """

@@ -114,6 +114,8 @@ class Engine(object):
             kwargs['limit'] = self.resolve(tree.limit[1])
         if tree.using:
             kwargs['index'] = self.resolve(tree.using[1])
+        if tree.attrs.asList() != ['*']:
+            kwargs['attributes'] = tree.attrs.asList()
 
         table = Table(tablename, connection=self.connection)
         return table.query(**kwargs)

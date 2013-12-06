@@ -11,7 +11,12 @@ from .query import where, limit, if_exists, if_not_exists, using
 def create_select():
     """ Create the grammar for the 'select' statement """
     select = Upcase(Keyword("select", caseless=True)).setResultsName('action')
-    return (select + from_ + table + where +
+    attrs = Group(Keyword('*') |
+                  (Optional(Suppress('(')) + delimitedList(var) +
+                   Optional(Suppress(')'))))\
+        .setResultsName('attrs')
+
+    return (select + attrs + from_ + table + where +
             Optional(using + value).setResultsName('using') +
             Optional(limit))
 

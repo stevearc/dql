@@ -10,22 +10,27 @@ from .. import parser
 
 TEST_CASES = {
     'select': [
-        ('SELECT FROM foobars WHERE foo = 0', ['SELECT', 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
-        ('SELECT FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
-        ('SELECT FROM foobars WHERE (foo = 0 and bar = "green")', ['SELECT', 'FROM', 'foobars', 'where', ['(', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']], ')']]),
-        ('SELECT FROM foobars', 'error'),
-        ('SELECT foobars WHERE foo = 0', 'error'),
-        ('SELECT FROM "foobars" WHERE foo = 0', 'error'),
-        ('SELECT FROM foobars WHERE foo = 0 garbage', 'error'),
+        ('SELECT * FROM foobars WHERE foo = 0', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
+        ('SELECT * FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
+        ('SELECT * FROM foobars WHERE (foo = 0 and bar = "green")', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['(', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']], ')']]),
+        ('SELECT * FROM foobars', 'error'),
+        ('SELECT * foobars WHERE foo = 0', 'error'),
+        ('SELECT * FROM "foobars" WHERE foo = 0', 'error'),
+        ('SELECT * FROM foobars WHERE foo = 0 garbage', 'error'),
     ],
     'select_using': [
-        ('SELECT FROM foobars WHERE foo = 0 USING my_index', ['SELECT', 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'USING', ['my_index']]),
-        ('SELECT FROM foobars WHERE foo = 0 AND bar < 4 USING my_index', ['SELECT', 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '<', ['4']], 'USING', ['my_index']]),
+        ('SELECT * FROM foobars WHERE foo = 0 USING my_index', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'USING', ['my_index']]),
+        ('SELECT * FROM foobars WHERE foo = 0 AND bar < 4 USING my_index', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '<', ['4']], 'USING', ['my_index']]),
     ],
     'select_limit': [
-        ('SELECT FROM foobars WHERE foo = 0 LIMIT 5', ['SELECT', 'FROM', 'foobars', 'where', ['foo', '=', ['0']], ['LIMIT', ['5']]]),
-        ('SELECT FROM foobars WHERE foo = 0 USING my_index LIMIT 2', ['SELECT', 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'USING', ['my_index'], ['LIMIT', ['2']]]),
-        ('SELECT FROM foobars WHERE foo > 0 LIMIT 4 garbage', 'error'),
+        ('SELECT * FROM foobars WHERE foo = 0 LIMIT 5', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], ['LIMIT', ['5']]]),
+        ('SELECT * FROM foobars WHERE foo = 0 USING my_index LIMIT 2', ['SELECT', ['*'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'USING', ['my_index'], ['LIMIT', ['2']]]),
+        ('SELECT * FROM foobars WHERE foo > 0 LIMIT 4 garbage', 'error'),
+    ],
+    'select_attrs': [
+        ('SELECT foo, bar FROM foobars WHERE foo = 0', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
+        ('SELECT (foo, bar) FROM foobars WHERE foo = 0', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
+        ('SELECT foo, bar FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
     ],
     'delete': [
         ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
@@ -100,6 +105,10 @@ class TestParser(TestCase):
     def test_select_limit(self):
         """ SELECT tests with the LIMIT clause """
         self._run_tests('select_limit')
+
+    def test_select_attrs(self):
+        """ SELECT may fetch only specific attributes """
+        self._run_tests('select_attrs')
 
     def test_delete(self):
         """ Run tests for DELETE statements """

@@ -38,7 +38,6 @@ installed.
 
 TODO
 ====
-* Select can fetch only specific attributes
 * Select returns a generator
 * Count query
 * Select should allow table scans
