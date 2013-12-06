@@ -39,15 +39,22 @@ def repl_command(fxn):
     return wrapper
 
 
-def connect(region, host='localhost', port=8000):
+def connect(region, host='localhost', port=8000, access_key=None,
+            secret_key=None):
     """ Create a DynamoDB connection """
     if region == 'local':
         return DynamoDBConnection(
             host=host,
             port=port,
-            is_secure=False)
+            is_secure=False,
+            aws_access_key_id='',
+            aws_secret_access_key='')
     else:
-        return boto.dynamodb2.connect_to_region(region)
+        return boto.dynamodb2.connect_to_region(
+            region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key
+        )
 
 
 class DQLREPL(cmd.Cmd):
@@ -66,11 +73,16 @@ class DQLREPL(cmd.Cmd):
     running = False
     ddb = None
     engine = None
+    _access_key = None
+    _secret_key = None
 
-    def initialize(self, region='us-west-1', host='localhost', port=8000):
+    def initialize(self, region='us-west-1', host='localhost', port=8000,
+                   access_key=None, secret_key=None):
         """ Set up the repl for execution """
+        self._access_key = access_key
+        self._secret_key = secret_key
         self.prompt = region + '> '
-        self.ddb = connect(region, host, port)
+        self.ddb = connect(region, host, port, access_key, secret_key)
         self.engine = Engine(parser, self.ddb)
 
     def start(self):
@@ -134,7 +146,8 @@ class DQLREPL(cmd.Cmd):
 
         """
         self.prompt = region + '> '
-        self.ddb = connect(region, host, port)
+        self.ddb = connect(region, host, port, self._access_key,
+                           self._secret_key)
         self.engine.connection = self.ddb
 
     def default(self, command):

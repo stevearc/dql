@@ -1,3 +1,4 @@
+""" Testing tools for DQL """
 import os
 
 import inspect
@@ -11,6 +12,7 @@ from urllib import urlretrieve
 
 
 DYNAMO_LOCAL = 'https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz'
+
 
 class DynamoLocalPlugin(nose.plugins.Plugin):
 
@@ -68,7 +70,9 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
             self._dynamo = DynamoDBConnection(
                 host='localhost',
                 port=self.port,
-                is_secure=False)
+                is_secure=False,
+                aws_access_key_id='',
+                aws_secret_access_key='')
         return self._dynamo
 
     def startContext(self, context):  # pylint: disable=C0103
