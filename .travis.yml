@@ -1,0 +1,10 @@
+language: python
+python: "2.7"
+install:
+  - pip install -r requirements_dev.txt --use-mirrors
+  - pip install coveralls coverage --use-mirrors
+script:
+  - coverage run --source=dql --branch setup.py nosetests
+  - pylint --rcfile=.pylintrc dql
+  - pep8 --config=.pep8.ini dql
+after_success: coveralls

@@ -34,3 +34,10 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+dql_env
+.ropeproject
+_version.py
+db.sqlite
+
+# vim
+*.swp
