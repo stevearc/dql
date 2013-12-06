@@ -15,6 +15,12 @@ REQUIREMENTS = [
     'pyparsing',
 ]
 
+# python 2.6 doesn't have OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    REQUIREMENTS.append('ordereddict')
+
 if __name__ == "__main__":
     setup(
         name='dql',
@@ -22,6 +28,7 @@ if __name__ == "__main__":
         long_description=README + '\n\n' + CHANGES,
         classifiers=[
             'Programming Language :: Python',
+            'Programming Language :: Python :: 2.6',
             'Programming Language :: Python :: 2.7',
             'Intended Audience :: Developers',
             'License :: OSI Approved :: MIT License',

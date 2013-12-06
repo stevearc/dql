@@ -1,11 +1,10 @@
 language: python
 python: "2.7"
+env:
+  - TOXENV=py26
+  - TOXENV=py27
 install:
-  - pip install -r requirements_dev.txt --use-mirrors
-  - pip install coveralls coverage --use-mirrors
-  - pip install .
-script:
-  - coverage run --source=dql --branch setup.py nosetests
-  - pylint --rcfile=.pylintrc dql
-  - pep8 --config=.pep8.ini dql
-after_success: coveralls
+  - pip install coveralls --use-mirrors
+script: tox
+after_success:
+  if [ "$TOXENV" == "py27" ]; then coveralls; fi

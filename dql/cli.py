@@ -8,7 +8,10 @@ import subprocess
 import traceback
 from boto.dynamodb2.layer1 import DynamoDBConnection
 from boto.dynamodb2.results import ResultSet
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict  # pylint: disable=F0401
 from pyparsing import ParseException
 
 from .engine import Engine
@@ -117,7 +120,8 @@ class DQLREPL(cmd.Cmd):
         """ List all tables or print details of one table """
         # TODO: add autocompletion for table names
         if table is None:
-            fields = OrderedDict([('Name', 'name'), ('Status', 'status'),
+            fields = OrderedDict([('Name', 'name'),
+                                  ('Status', 'status'),
                                   ('Read', 'read_throughput'),
                                   ('Write', 'write_throughput')])
             tables = self.engine.describe_all()
