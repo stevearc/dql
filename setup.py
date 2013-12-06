@@ -20,6 +20,11 @@ try:
     from collections import OrderedDict
 except ImportError:
     REQUIREMENTS.append('ordereddict')
+# python 2.6 doesn't have argparse
+try:
+    import argparse
+except ImportError:
+    REQUIREMENTS.append('argparse')
 
 if __name__ == "__main__":
     setup(
