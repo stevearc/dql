@@ -1,5 +1,6 @@
 """ Setup file """
 import os
+import sys
 
 from setuptools import setup, find_packages
 from version_helper import git_version
@@ -15,16 +16,11 @@ REQUIREMENTS = [
     'pyparsing',
 ]
 
-# python 2.6 doesn't have OrderedDict
-try:
-    from collections import OrderedDict
-except ImportError:
-    REQUIREMENTS.append('ordereddict')
-# python 2.6 doesn't have argparse
+# python 2.6 needs special attention
 try:
     import argparse
 except ImportError:
-    REQUIREMENTS.append('argparse')
+    REQUIREMENTS.extend(['ordereddict', 'argparse', 'unittest2'])
 
 if __name__ == "__main__":
     setup(

@@ -1,5 +1,8 @@
 """ System tests """
-import unittest
+try:
+    from unittest2 import TestCase  # pylint: disable=F0401
+except ImportError:
+    from unittest import TestCase
 from boto.dynamodb2.table import Table
 from boto.exception import JSONResponseError
 
@@ -7,7 +10,7 @@ from .. import parser, Engine
 from ..models import TableField
 
 
-class TestSystem(unittest.TestCase):
+class TestSystem(TestCase):
 
     """ System tests """
     dynamo = None

@@ -6,7 +6,6 @@ import logging
 import nose
 import subprocess
 import tempfile
-import unittest
 from boto.dynamodb2.layer1 import DynamoDBConnection
 from urllib import urlretrieve
 

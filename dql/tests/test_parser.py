@@ -1,5 +1,8 @@
 """ Tests for the language parser """
-import unittest
+try:
+    from unittest2 import TestCase  # pylint: disable=F0401
+except ImportError:
+    from unittest import TestCase
 from pyparsing import ParseException
 
 from .. import parser
@@ -60,7 +63,7 @@ TEST_CASES = {
 }
 
 
-class TestParser(unittest.TestCase):
+class TestParser(TestCase):
 
     """ Tests for the language parser """
 
