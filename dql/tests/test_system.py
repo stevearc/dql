@@ -99,6 +99,15 @@ class TestSystem(TestCase):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
+    def test_select_limit(self):
+        """ SELECT statement should be able to specify limit """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
+                   "bar NUMBER RANGE KEY, ts NUMBER INDEX('ts-index'))")
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200)")
+        results = self.query("SELECT FROM foobar WHERE id = 'a' LIMIT 1")
+        self.assertEquals(len(list(results)), 1)
+
     def test_delete(self):
         """ DELETE statement removes items """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, "

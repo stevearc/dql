@@ -15,7 +15,7 @@ except ImportError:
 from pyparsing import ParseException
 
 from .engine import Engine
-from .lang import parser
+from .grammar import parser
 
 
 def repl_command(fxn):

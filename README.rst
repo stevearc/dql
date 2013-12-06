@@ -1,7 +1,7 @@
 DQL
 ===
 .. image:: https://travis-ci.org/mathcamp/dql.png?branch=master
-    :target: https://travis-ci.org/mathcamp/dql
+  :target: https://travis-ci.org/mathcamp/dql
 .. image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
   :target: https://coveralls.io/r/mathcamp/dql?branch=master
 
@@ -38,16 +38,20 @@ installed.
 
 TODO
 ====
-* Select should have 'limit' clause
+* Select can fetch only specific attributes
+* Select returns a generator
 * Count query
 * Select should allow table scans
 * Select should be able to grab multiple items (batch get)
 * Update statement
+* Create should be able to specify throughput
+* Alter table modify throughput
+* Dump schema
 * Parse and run a file
+* CLI allows multi-line queries
 * Select allows an ordering (reverse)
 * Select allows consistent reads
-* Select can fetch only specific attributes
-* Dump schema
+* Insert supports inserting items with different attrs
 * Engine should use table metadata to figure out the index name
 * Support for the 'set' data types
 * More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)

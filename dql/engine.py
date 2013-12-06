@@ -111,10 +111,9 @@ class Engine(object):
             key, op, val = tree.where[i]
             kwargs[key + '__' + OPS[op]] = self.resolve(val)
         if tree.limit:
-            kwargs['limit'] = self.resolve(tree.limit)
+            kwargs['limit'] = self.resolve(tree.limit[1])
         if tree.using:
             kwargs['index'] = self.resolve(tree.using[1])
-        # TODO: cache table metadata & smart resolve the index
 
         table = Table(tablename, connection=self.connection)
         return table.query(**kwargs)

@@ -7,7 +7,7 @@ import boto.dynamodb2
 
 from .cli import DQLREPL
 from .engine import Engine
-from .lang import parser
+from .grammar import parser
 
 
 def main():
