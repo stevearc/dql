@@ -56,6 +56,13 @@ class TestSystem(TestCase):
         self.assertItemsEqual(desc.indexes.values(),
                               [TableField('ts', 'NUMBER', 'INDEX', 'ts-index')])
 
+    def test_create_throughput(self):
+        """ CREATE statement can specify throughput """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY) THROUGHPUT (1, 2)")
+        desc = self.engine.describe('foobar')
+        self.assertEquals(desc.read_throughput, 1)
+        self.assertEquals(desc.write_throughput, 2)
+
     def test_create_if_not_exists(self):
         """ CREATE IF NOT EXISTS shouldn't fail if table exists """
         self.query("CREATE TABLE foobar (owner STRING HASH KEY)")

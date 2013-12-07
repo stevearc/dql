@@ -9,6 +9,25 @@ from boto.exception import JSONResponseError
 from .models import TableMeta
 
 
+OPS = {
+    '=': 'eq',
+    '!=': 'ne',
+    '>': 'gt',
+    '>=': 'gte',
+    '<': 'lt',
+    '<=': 'lte',
+}
+
+TYPES = {
+    'NUMBER': NUMBER,
+    'STRING': STRING,
+    'BINARY': BINARY,
+    'NUMBER_SET': NUMBER_SET,
+    'STRING_SET': STRING_SET,
+    'BINARY_SET': BINARY_SET,
+}
+
+
 class LossyFloatDynamizer(Dynamizer):
 
     """ Use float/int instead of Decimal for numeric types """
@@ -29,24 +48,6 @@ class LossyFloatDynamizer(Dynamizer):
 
     def _decode_ns(self, attr):
         return set(map(self._decode_n, attr))
-
-OPS = {
-    '=': 'eq',
-    '!=': 'ne',
-    '>': 'gt',
-    '>=': 'gte',
-    '<': 'lt',
-    '<=': 'lte',
-}
-
-TYPES = {
-    'NUMBER': NUMBER,
-    'STRING': STRING,
-    'BINARY': BINARY,
-    'NUMBER_SET': NUMBER_SET,
-    'STRING_SET': STRING_SET,
-    'BINARY_SET': BINARY_SET,
-}
 
 
 class Engine(object):
@@ -312,9 +313,17 @@ class Engine(object):
                     RangeKey(name, data_type=TYPES[type_])
                 ]))
 
+        if tree.throughput:
+            throughput = {
+                'read': self.resolve(tree.throughput[0]),
+                'write': self.resolve(tree.throughput[1]),
+            }
+        else:
+            throughput = None
+
         try:
             Table.create(tablename, schema=schema, indexes=indexes,
-                         connection=self.connection)
+                         throughput=throughput, connection=self.connection)
         except JSONResponseError as e:
             if e.status != 400 or not tree.not_exists:
                 raise

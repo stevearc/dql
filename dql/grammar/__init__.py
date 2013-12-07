@@ -52,11 +52,17 @@ def create_create():
         .setName('index specification').setResultsName('index')
     attr_declaration = Group(var.setResultsName('name') + type_ + index_type)\
         .setName('attr').setResultsName('attr')
-    attrs_declaration = Group(delimitedList(attr_declaration))\
-        .setName('attrs').setResultsName('attrs')
+    attrs_declaration = (Suppress('(') +
+                         Group(delimitedList(attr_declaration))
+                         .setName('attrs').setResultsName('attrs')
+                         + Suppress(')'))
+
+    throughput = (upkey('throughput') + Suppress('(') +
+                  Group(value + Suppress(',') +
+                        value).setResultsName('throughput') + Suppress(')'))
 
     return (create + table_key + Optional(if_not_exists) + table +
-            '(' + attrs_declaration + ')')
+            attrs_declaration + Optional(throughput))
 
 
 def create_delete():

@@ -12,7 +12,7 @@ Getting Started
 Here are some basic examples to get you started::
 
     $ dql
-    us-west-1> CREATE TABLE forum_threads (name STRING HASH KEY, subject STRING RANGE KEY)
+    us-west-1> CREATE TABLE forum_threads (name STRING HASH KEY, subject STRING RANGE KEY) THROUGHPUT (4, 2)
     us-west-1> INSERT INTO forum_threads (name, subject, views, replies) VALUES ('Self Defense', 'Defense from Banana', 67, 4), ('Self Defense', 'Defense from Strawberry', 10, 0), ('Cheese Shop', 'Anyone seen the camembert?', 16, 1)
     us-west-1> SCAN forum_threads
     us-west-1> COUNT forum_threads WHERE name = 'Self Defense'
@@ -41,7 +41,6 @@ installed.
 
 TODO
 ====
-* Create should be able to specify throughput
 * Alter table modify throughput
 * Dump schema
 * Parse and run a file
