@@ -41,7 +41,6 @@ _localhost.db
 
 # docs
 _build
-ref
 
 # vim
 *.swp
