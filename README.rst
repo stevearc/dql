@@ -40,7 +40,6 @@ installed.
 
 TODO
 ====
-* Select should be able to grab multiple items (batch get)
 * Update statement
 * Create should be able to specify throughput
 * Alter table modify throughput

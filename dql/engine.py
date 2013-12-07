@@ -109,20 +109,38 @@ class Engine(object):
     def _select(self, tree):
         """ Run a SELECT statement """
         tablename = tree.table
-        kwargs = {}
-        # Skip the 'AND's
-        for i in xrange(0, len(tree.where), 2):
-            key, op, val = tree.where[i]
-            kwargs[key + '__' + OPS[op]] = self.resolve(val)
-        if tree.limit:
-            kwargs['limit'] = self.resolve(tree.limit[1])
-        if tree.using:
-            kwargs['index'] = self.resolve(tree.using[1])
-        if tree.attrs.asList() != ['*']:
-            kwargs['attributes'] = tree.attrs.asList()
-
         table = Table(tablename, connection=self.connection)
-        return table.query(**kwargs)
+        kwargs = {}
+
+        if tree.where[:2] == ['KEYS', 'IN']:
+            # Do a batch get by ids
+            if tree.limit:
+                raise SyntaxError("Cannot use LIMIT with WHERE KEYS IN")
+            elif tree.using:
+                raise SyntaxError("Cannot use USING with WHERE KEYS IN")
+            elif tree.attrs.asList() != ['*']:
+                raise SyntaxError("Must SELECT * when using WHERE KEYS IN")
+            desc = self.describe(tablename)
+            keys = []
+            for keypair in tree.where[2]:
+                search_key = {
+                    desc.hash_key.name: self.resolve(keypair[0])
+                }
+                if desc.range_key is not None:
+                    search_key[desc.range_key.name] = self.resolve(keypair[1])
+                keys.append(search_key)
+            return table.batch_get(keys=keys)
+        else:
+            for key, op, val in tree.where:
+                kwargs[key + '__' + OPS[op]] = self.resolve(val)
+            if tree.limit:
+                kwargs['limit'] = self.resolve(tree.limit[1])
+            if tree.using:
+                kwargs['index'] = self.resolve(tree.using[1])
+            if tree.attrs.asList() != ['*']:
+                kwargs['attributes'] = tree.attrs.asList()
+
+            return table.query(**kwargs)
 
     def _scan(self, tree):
         """ Run a SCAN statement """

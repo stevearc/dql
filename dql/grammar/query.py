@@ -1,11 +1,16 @@
 """ Grammars for parsing query strings """
-from pyparsing import (CaselessLiteral, Upcase, Group, Forward, ZeroOrMore,
-                       Keyword)
+from pyparsing import (Upcase, Group, Forward, ZeroOrMore, delimitedList,
+                       Keyword, Suppress, Optional)
 
-from .common import var, op, value, and_
+from .common import var, op, value, and_, in_
 
+
+# pylint: disable=C0103
+where_ = Upcase(Keyword('where', caseless=True))
+# pylint: enable=C0103
 
 # pylint: disable=W0104,W0106
+
 
 def create_where():
     """ Create the grammar for a 'where' clause """
@@ -15,7 +20,21 @@ def create_where():
         ("(" + where_exp + ")")
     )
     where_exp << where_clause + ZeroOrMore(and_ + where_clause)
-    return Upcase(Keyword('where', caseless=True)) + where_exp.setResultsName('where')
+    return where_ + where_exp.setResultsName('where')
+
+
+def create_select_where():
+    """ Create a grammar for the 'where' clause used by 'select' """
+    clause = Group(var + op + value)
+    where_exp = (Optional(Suppress('(')) + clause +
+                 ZeroOrMore(Suppress(and_) + clause) + Optional(Suppress(')')))
+
+    # SELECT can also use WHERE KEYS IN ('key1', 'key2'), ('key3', 'key4)
+    keys = Group(Suppress('(') + delimitedList(value) + Suppress(')'))
+    multiget = (Upcase(Keyword('keys', caseless=True)) + in_ +
+                Group(delimitedList(keys)).setResultsName('keys'))
+
+    return where_ + Group(where_exp | multiget).setResultsName('where')
 
 
 def create_limit():
@@ -34,4 +53,5 @@ if_not_exists = Group(Upcase(Keyword('if', caseless=True)) +
     .setResultsName('not_exists')
 
 where = create_where()
+select_where = create_select_where()
 limit = create_limit()

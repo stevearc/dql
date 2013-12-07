@@ -88,6 +88,17 @@ class TestSystem(TestCase):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
+    def test_select_get(self):
+        """ SELECT statement can fetch items directly """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
+                   "bar NUMBER RANGE KEY)")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        results = self.query("SELECT * FROM foobar WHERE "
+                             "KEYS IN ('a', 1), ('b', 2)")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
+                                        {'id': 'b', 'bar': 2}])
+
     def test_select_hash_index(self):
         """ SELECT statement filters by indexes """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, "

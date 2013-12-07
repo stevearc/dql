@@ -4,7 +4,7 @@ from pyparsing import (Upcase, delimitedList, Optional, Group, Forward,
 
 from .common import (and_, op, from_, table, var, value, table_key, into,
                      type_)
-from .query import where, limit, if_exists, if_not_exists, using
+from .query import where, select_where, limit, if_exists, if_not_exists, using
 
 
 # pylint: disable=W0104,W0106
@@ -17,7 +17,7 @@ def create_select():
                    Optional(Suppress(')'))))\
         .setResultsName('attrs')
 
-    return (select + attrs + from_ + table + where +
+    return (select + attrs + from_ + table + select_where +
             Optional(using + value).setResultsName('using') +
             Optional(limit))
 
