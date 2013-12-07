@@ -8,13 +8,15 @@ import subprocess
 import traceback
 from boto.dynamodb2.layer1 import DynamoDBConnection
 from boto.dynamodb2.results import ResultSet
+from pyparsing import ParseException
+
+from .engine import FragmentEngine
+
+
 try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict  # pylint: disable=F0401
-from pyparsing import ParseException
-
-from .engine import Engine
 
 
 def repl_command(fxn):
@@ -59,7 +61,7 @@ def connect(region, host='localhost', port=8000, access_key=None,
         )
 
 
-class DQLREPL(cmd.Cmd):
+class DQLClient(cmd.Cmd):
 
     """
     Interactive commandline interface
@@ -69,12 +71,13 @@ class DQLREPL(cmd.Cmd):
     running : bool
         True while session is active, False after quitting
     ddb : :class:`boto.dynamodb2.layer1.DynamoDBConnection`
-    engine : :class:`dql.engine.Engine`
+    engine : :class:`dql.engine.FragmentEngine`
 
     """
     running = False
     ddb = None
     engine = None
+    region = None
     _access_key = None
     _secret_key = None
 
@@ -83,14 +86,15 @@ class DQLREPL(cmd.Cmd):
         """ Set up the repl for execution """
         self._access_key = access_key
         self._secret_key = secret_key
-        self.prompt = region + '> '
+        self.region = region
         self.ddb = connect(region, host, port, access_key, secret_key)
-        self.engine = Engine(self.ddb)
+        self.engine = FragmentEngine(self.ddb)
 
     def start(self):
         """ Start running the interactive session (blocking) """
         self.running = True
         while self.running:
+            self.update_prompt()
             try:
                 self.cmdloop()
             except KeyboardInterrupt:
@@ -101,10 +105,20 @@ class DQLREPL(cmd.Cmd):
                 except KeyError:
                     print e
             except ParseException as e:
-                print " " * (e.loc + len(self.prompt)) + "^"
-                print e
+                print self.engine.pformat_exc(e)
             except:
                 traceback.print_exc()
+
+    def postcmd(self, stop, line):
+        self.update_prompt()
+        return stop
+
+    def update_prompt(self):
+        """ Update the prompt """
+        if self.engine.partial:
+            self.prompt = '> '
+        else:
+            self.prompt = self.region + '> '
 
     def help_help(self):
         """Print the help text for help"""
@@ -147,23 +161,19 @@ class DQLREPL(cmd.Cmd):
         DynamoDB Local service
 
         """
-        self.prompt = region + '> '
+        self.region = region
         self.ddb = connect(region, host, port, self._access_key,
                            self._secret_key)
         self.engine.connection = self.ddb
 
     def default(self, command):
-        command = command.strip()
-        if not command:
-            print
-            return
         results = self.engine.execute(command)
         if isinstance(results, ResultSet):
             for result in results:
                 print(20 * '-')
                 for key, val in result.items():
                     print("{0}: {1:<.100}".format(key, repr(val)))
-        else:
+        elif results is not None:
             print results
 
     @repl_command

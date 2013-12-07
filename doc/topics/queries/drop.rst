@@ -13,8 +13,8 @@ Examples
 --------
 .. code-block:: sql
 
-    DROP TABLE foobars
-    DROP TABLE IF EXISTS foobars
+    DROP TABLE foobars;
+    DROP TABLE IF EXISTS foobars;
 
 Description
 -----------

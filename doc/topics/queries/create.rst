@@ -15,10 +15,14 @@ Examples
 --------
 .. code-block:: sql
 
-    CREATE TABLE foobars (id STRING HASH KEY)
-    CREATE TABLE IF NOT EXISTS foobars (id STRING HASH KEY)
-    CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY) THROUGHPUT (1, 1)
-    CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY, ts NUMBER INDEX('ts-index'), views NUMBER INDEX('views-index'))
+    CREATE TABLE foobars (id STRING HASH KEY);
+    CREATE TABLE IF NOT EXISTS foobars (id STRING HASH KEY);
+    CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY)
+        THROUGHPUT (1, 1);
+    CREATE TABLE foobars (id STRING HASH KEY,
+                          foo BINARY RANGE KEY,
+                          ts NUMBER INDEX('ts-index'),
+                          views NUMBER INDEX('views-index'));
 
 Description
 -----------

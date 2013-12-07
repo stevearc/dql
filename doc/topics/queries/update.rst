@@ -14,9 +14,9 @@ Examples
 --------
 .. code-block:: sql
 
-    UPDATE foobars SET foo = 'a'
-    UPDATE foobars SET foo = 'a', bar += 4 WHERE id = 1 AND foo = 'b'
-    UPDATE foobars SET foo = 'a', bar += 4 RETURNS ALL NEW
+    UPDATE foobars SET foo = 'a';
+    UPDATE foobars SET foo = 'a', bar += 4 WHERE id = 1 AND foo = 'b';
+    UPDATE foobars SET foo = 'a', bar += 4 RETURNS ALL NEW;
 
 Description
 -----------

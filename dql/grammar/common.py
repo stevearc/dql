@@ -11,7 +11,7 @@ def upkey(name):
 and_, from_, into, in_, table_key, null, where_, set_ = \
     map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where', 'set'])
 
-var = Word(alphas, alphanums + '_').setName('variable')
+var = Word(alphas, alphanums + '_-').setName('variable')
 table = var.setResultsName('table')
 type_ = (upkey('string') |
          upkey('number') |

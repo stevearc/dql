@@ -12,7 +12,7 @@ Examples
 --------
 .. code-block:: sql
 
-    ALTER TABLE foobars SET THROUGHPUT (4, 8)
+    ALTER TABLE foobars SET THROUGHPUT (4, 8);
 
 Description
 -----------

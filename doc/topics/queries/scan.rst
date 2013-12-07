@@ -13,9 +13,9 @@ Examples
 --------
 .. code-block:: sql
 
-    SCAN foobars
-    SCAN foobars FILTER id = 'a' AND foo = 4
-    SCAN foobars FILTER (id = 'a' AND foo = 4) LIMIT 100
+    SCAN foobars;
+    SCAN foobars FILTER id = 'a' AND foo = 4;
+    SCAN foobars FILTER (id = 'a' AND foo = 4) LIMIT 100;
 
 Description
 -----------

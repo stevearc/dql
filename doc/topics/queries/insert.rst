@@ -13,8 +13,8 @@ Examples
 --------
 .. code-block:: sql
 
-    INSERT INTO foobars (id) VALUES (1)
-    INSERT INTO foobars (id, bar) VALUES (1, 'hi'), (2, 'yo')
+    INSERT INTO foobars (id) VALUES (1);
+    INSERT INTO foobars (id, bar) VALUES (1, 'hi'), (2, 'yo');
 
 Description
 -----------

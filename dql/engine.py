@@ -5,9 +5,10 @@ from boto.dynamodb2.items import Item
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
                                   STRING_SET, BINARY_SET, Dynamizer)
 from boto.exception import JSONResponseError
+from pyparsing import ParseException
 
 from .models import TableMeta
-from .grammar import parser
+from .grammar import parser, line_parser
 
 
 OPS = {
@@ -65,7 +66,7 @@ class Engine(object):
     def __init__(self,  connection):
         self._connection = connection
         self._metadata = {}
-        self.dynamizer = LossyFloatDynamizer()
+        self.dynamizer = Dynamizer()
         self.lossy_dynamizer = LossyFloatDynamizer()
 
     @property
@@ -95,7 +96,7 @@ class Engine(object):
         return self._metadata[tablename]
 
     def execute(self, commands):
-        """ Run """
+        """ Parse and run a DQL string """
         tree = parser.parseString(commands)
         for statement in tree:
             result = self._run(statement)
@@ -401,3 +402,57 @@ class Engine(object):
                 schema.append(table.schema)
 
         return '\n\n'.join(schema)
+
+
+class FragmentEngine(Engine):
+
+    """
+    A DQL execution engine that can handle query fragments
+
+    """
+
+    def __init__(self, connection):
+        super(FragmentEngine, self).__init__(connection)
+        self.fragments = ''
+        self.last_query = ''
+
+    @property
+    def partial(self):
+        """ True if there is a partial query stored """
+        return len(self.fragments) > 0
+
+    def execute(self, fragment):
+        """
+        Run or aggregate a query fragment
+
+        Concat the fragment to any stored fragments. If they form a complete
+        query, run it and return the result. If not, store them and return
+        None.
+
+        """
+        self.fragments = (self.fragments + '\n' + fragment).strip()
+        try:
+            line_parser.parseString(self.fragments)
+        except ParseException:
+            pass
+        else:
+            self.last_query = self.fragments
+            self.fragments = ''
+            return super(FragmentEngine, self).execute(self.last_query)
+        return None
+
+    def pformat_exc(self, exc):
+        """ Format an exception message for the last query's parse error """
+        lines = []
+        try:
+            pre_nl = self.last_query.rindex('\n', 0, exc.loc) + 1
+        except ValueError:
+            pre_nl = 0
+        try:
+            post_nl = self.last_query.index('\n', exc.loc)
+        except ValueError:
+            post_nl = len(self.last_query)
+        lines.append(self.last_query[:post_nl])
+        lines.append(' ' * (exc.loc - pre_nl) + '^')
+        lines.append(str(exc))
+        return '\n'.join(lines)

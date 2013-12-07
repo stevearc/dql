@@ -5,7 +5,7 @@ Simple SQL-like query language for dynamo
 import argparse
 import boto.dynamodb2
 
-from .cli import DQLREPL
+from .cli import DQLClient
 from .engine import Engine
 
 
@@ -28,7 +28,7 @@ def main():
 
     args = parse.parse_args()
 
-    cli = DQLREPL()
+    cli = DQLClient()
     cli.initialize(region=args.region, host=args.host, port=args.port,
                    access_key=args.access_key, secret_key=args.secret_key)
 

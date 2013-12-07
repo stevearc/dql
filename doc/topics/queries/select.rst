@@ -18,10 +18,10 @@ Examples
 --------
 .. code-block:: sql
 
-    SELECT * FROM foobars WHERE foo = 'bar'
-    SELECT CONSISTENT * foobars WHERE foo != 'bar' AND baz >= 3
-    SELECT foo, bar FROM foobars WHERE (id = 'a' AND ts < 100) USING 'ts-index'
-    SELECT * FROM foobars WHERE foo = 'bar' AND baz >= 3 LIMIT 50 DESC
+    SELECT * FROM foobars WHERE foo = 'bar';
+    SELECT CONSISTENT * foobars WHERE foo != 'bar' AND baz >= 3;
+    SELECT foo, bar FROM foobars WHERE (id = 'a' AND ts < 100) USING 'ts-index';
+    SELECT * FROM foobars WHERE foo = 'bar' AND baz >= 3 LIMIT 50 DESC;
 
 Description
 -----------

@@ -14,11 +14,11 @@ Examples
 --------
 .. code-block:: sql
 
-    DELETE FROM foobars WHERE foo = 'bar'
-    DELETE FROM foobars WHERE foo != 'bar' AND baz >= 3
-    DELETE FROM foobars WHERE KEYS IN ('hkey1'), ('hkey2')
-    DELETE FROM foobars WHERE KEYS IN ('hkey1', 'rkey1'), ('hkey2', 'rkey2')
-    DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index'
+    DELETE FROM foobars WHERE foo = 'bar';
+    DELETE FROM foobars WHERE foo != 'bar' AND baz >= 3;
+    DELETE FROM foobars WHERE KEYS IN ('hkey1'), ('hkey2');
+    DELETE FROM foobars WHERE KEYS IN ('hkey1', 'rkey1'), ('hkey2', 'rkey2');
+    DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
 
 Description
 -----------

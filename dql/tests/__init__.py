@@ -1,6 +1,5 @@
 """ Testing tools for DQL """
 import os
-from boto.dynamodb2.table import Table
 
 import inspect
 import logging
@@ -9,8 +8,12 @@ import shutil
 import subprocess
 import tempfile
 from boto.dynamodb2.layer1 import DynamoDBConnection
+from boto.dynamodb2.table import Table
 from urllib import urlretrieve
+
 from .. import Engine
+
+
 try:
     from unittest2 import TestCase  # pylint: disable=F0401
 except ImportError:

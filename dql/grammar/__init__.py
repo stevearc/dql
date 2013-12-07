@@ -1,6 +1,7 @@
 """ DQL language parser """
 from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
-                       Suppress, ZeroOrMore, oneOf, StringEnd)
+                       Suppress, ZeroOrMore, oneOf, StringEnd, CharsNotIn,
+                       quotedString, OneOrMore)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
                      set_)
@@ -157,3 +158,4 @@ _statement = create_parser()
 statement_parser = _statement + Suppress(';' | StringEnd())
 parser = Group(_statement) + ZeroOrMore(Suppress(
     ';') + Group(_statement)) + Suppress(';' | StringEnd())
+line_parser = OneOrMore(ZeroOrMore(CharsNotIn(';')) + ';') + StringEnd()

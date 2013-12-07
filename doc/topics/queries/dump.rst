@@ -11,8 +11,8 @@ Examples
 --------
 .. code-block:: sql
 
-    DUMP SCHEMA
-    DUMP SCHEMA foobars, widgets
+    DUMP SCHEMA;
+    DUMP SCHEMA foobars, widgets;
 
 Description
 -----------

@@ -15,9 +15,9 @@ Examples
 --------
 .. code-block:: sql
 
-    COUNT foobars WHERE foo = 'bar'
-    COUNT CONSISTENT foobars WHERE foo != 'bar' AND baz >= 3
-    COUNT foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index'
+    COUNT foobars WHERE foo = 'bar';
+    COUNT CONSISTENT foobars WHERE foo != 'bar' AND baz >= 3;
+    COUNT foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
 
 Description
 -----------
