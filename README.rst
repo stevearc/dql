@@ -1,9 +1,13 @@
 DQL
 ===
-.. image:: https://travis-ci.org/mathcamp/dql.png?branch=master
-  :target: https://travis-ci.org/mathcamp/dql
-.. image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
-  :target: https://coveralls.io/r/mathcamp/dql?branch=master
+:Build: |build|_ |coverage|
+:Documentation: http://dql.readthedocs.org/en/latest/
+:Source: https://github.com/mathcamp/dql
+
+.. |build| image:: https://travis-ci.org/mathcamp/dql.png?branch=master
+.. _build: https://travis-ci.org/mathcamp/dql
+.. |coverage| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
+.. _coverage: https://coveralls.io/r/mathcamp/dql?branch=master
 
 A simple, SQL-ish language for DynamoDB
 
