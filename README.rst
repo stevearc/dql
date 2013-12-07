@@ -42,7 +42,6 @@ installed.
 
 TODO
 ====
-* Dump schema
 * Parse and run a file
 * Select allows an ordering (reverse)
 * Select allows consistent reads

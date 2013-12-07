@@ -85,7 +85,7 @@ class Engine(object):
         tables = self.connection.list_tables()['TableNames']
         descs = []
         for tablename in tables:
-            descs.append(self.describe(tablename))
+            descs.append(self.describe(tablename, True))
         return descs
 
     def describe(self, tablename, refresh=False):
@@ -116,6 +116,8 @@ class Engine(object):
             return self._drop(tree)
         elif tree.action == 'ALTER':
             return self._alter(tree)
+        elif tree.action == 'DUMP':
+            return self._dump(tree)
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
@@ -368,3 +370,15 @@ class Engine(object):
         }
         table.update(throughput=throughput)
         return 'success'
+
+    def _dump(self, tree):
+        """ Run a DUMP statement """
+        schema = []
+        if tree.tables:
+            for table in tree.tables:
+                schema.append(self.describe(table, True).schema)
+        else:
+            for table in self.describe_all():
+                schema.append(table.schema)
+
+        return '\n\n'.join(schema)

@@ -263,3 +263,29 @@ class TestSystem(TestCase):
         items = [dict(i) for i in result]
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
+
+    def test_dump(self):
+        """ DUMP SCHEMA generates 'create' statements """
+        self.query("CREATE TABLE test (id STRING HASH KEY) THROUGHPUT (2, 6)")
+        original = self.engine.describe('test')
+        schema = self.query("DUMP SCHEMA")
+        self.query("DROP TABLE test")
+        self.query(schema)
+        new = self.engine.describe('test', True)
+        self.assertEquals(original, new)
+
+    def test_dump_tables(self):
+        """ DUMP SCHEMA generates 'create' statements for specific tables """
+        self.query("CREATE TABLE test (id STRING HASH KEY)")
+        self.query("CREATE TABLE test2 (id STRING HASH KEY)")
+        schema = self.query("DUMP SCHEMA test2")
+        self.query("DROP TABLE test")
+        self.query("DROP TABLE test2")
+        self.query(schema)
+        self.engine.describe('test2', True)
+        try:
+            self.engine.describe('test', True)
+        except JSONResponseError as e:
+            self.assertEquals(e.status, 400)
+        else:
+            assert False, "The test table should not exist"

@@ -124,6 +124,13 @@ def create_alter():
     return alter + table_key + table + set_ + throughput
 
 
+def create_dump():
+    """ Create the grammar for the 'dump' statement """
+    dump = upkey('dump').setResultsName('action')
+    return (dump + upkey('schema') +
+            Optional(Group(delimitedList(var)).setResultsName('tables')))
+
+
 def create_parser():
     """ Create the language parser """
     dql = ((create_select() |
@@ -134,8 +141,10 @@ def create_parser():
             create_create() |
             create_insert() |
             create_drop() |
-            create_alter()
+            create_alter() |
+            create_dump()
             ) +
+           Optional(Suppress(';')) +
            Suppress(LineEnd()))
 
     dql.ignore('--' + restOfLine)

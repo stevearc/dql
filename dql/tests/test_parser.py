@@ -114,6 +114,11 @@ TEST_CASES = {
         ('ALTER TABLE foobars SET foo = bar', 'error'),
         ('ALTER TABLE foobars SET THROUGHPUT 1, 1', 'error'),
     ],
+    'dump': [
+        ('DUMP SCHEMA', ['DUMP', 'SCHEMA']),
+        ('DUMP SCHEMA foobars, wibbles', ['DUMP', 'SCHEMA', ['foobars', 'wibbles']]),
+        ('DUMP SCHEMA foobars wibbles', 'error'),
+    ],
 }
 
 
@@ -196,3 +201,7 @@ class TestParser(TestCase):
     def test_alter(self):
         """ Run tests for ALTER statements """
         self._run_tests('alter')
+
+    def test_dump(self):
+        """ Run tests for DUMP statements """
+        self._run_tests('dump')

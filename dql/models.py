@@ -37,6 +37,15 @@ class TableField(object):
         self.key_type = key_type
         self.index_name = index_name
 
+    @property
+    def schema(self):
+        """ The DQL syntax for creating this item """
+        if self.index_name is not None:
+            return "%s %s %s('%s')" % (self.name, self.data_type,
+                                       self.key_type, self.index_name)
+        else:
+            return "%s %s %s KEY" % (self.name, self.data_type, self.key_type)
+
     def __repr__(self):
         index_name = '' if self.index_name is None else ', ' + self.index_name
         return "TableField(%s, %s, %s%s)" % (self.name, self.data_type,
@@ -170,6 +179,32 @@ class TableMeta(object):
 
     def __str__(self):
         return self.name
+
+    def __eq__(self, other):
+        """ Check if schemas are equivalent """
+        return (self.name == other.name and
+                self.hash_key == other.hash_key and
+                self.range_key == other.range_key and
+                self.indexes == other.indexes and
+                self.read_throughput == other.read_throughput and
+                self.write_throughput == other.write_throughput)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def schema(self):
+        """ The DQL query that will construct this table's schema """
+        parts = [
+            'CREATE TABLE %s (%s' % (self.name, self.hash_key.schema),
+        ]
+        if self.range_key is not None:
+            parts.extend([',', self.range_key.schema])
+        for index in self.indexes:
+            parts.extend([',', index.schema])
+        parts.append(") THROUGHPUT (%d, %d);" % (self.read_throughput,
+                                                 self.write_throughput))
+        return ' '.join(parts)
 
     def pformat(self):
         """ Pretty string format """
