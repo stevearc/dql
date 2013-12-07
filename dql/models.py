@@ -1,4 +1,5 @@
 """ Data containers """
+from decimal import Decimal
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
                                   STRING_SET, BINARY_SET)
 
@@ -80,7 +81,6 @@ class TableMeta(object):
     decreases_today : int
 
     """
-    # TODO: fetch cloudwatch metrics
 
     def __init__(self, name, size, status, hash_key, range_key, item_count,
                  indexes, read_throughput, write_throughput,
@@ -126,6 +126,36 @@ class TableMeta(object):
                    throughput['ReadCapacityUnits'],
                    throughput['WriteCapacityUnits'],
                    throughput['NumberOfDecreasesToday'])
+
+    def primary_key(self, hkey, rkey=None):
+        """
+        Construct a primary key dictionary
+
+        You can either pass in a (hash_key[, range_key]) as the arguments, or
+        you may pass in an Item itself
+
+        """
+        if isinstance(hkey, basestring):
+            pkey = {
+                self.hash_key.name: hkey
+            }
+            if self.range_key is not None:
+                if rkey is None:
+                    raise ValueError("Range key is missing!")
+                pkey[self.range_key.name] = rkey
+            return pkey
+        else:
+            def decode(val):
+                """ Convert Decimals back to primitives """
+                if isinstance(val, Decimal):
+                    return float(val)
+                return val
+            pkey = {
+                self.hash_key.name: decode(hkey[self.hash_key.name])
+            }
+            if self.range_key is not None:
+                pkey[self.range_key.name] = decode(hkey[self.range_key.name])
+            return pkey
 
     @property
     def decreases_remaining(self):

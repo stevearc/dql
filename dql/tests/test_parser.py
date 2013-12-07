@@ -18,9 +18,9 @@ TEST_CASES = {
         ('SELECT * FROM "foobars" WHERE foo = 0', 'error'),
         ('SELECT * FROM foobars WHERE foo = 0 garbage', 'error'),
     ],
-    'select_get': [
-        ('SELECT * FROM foobars WHERE KEYS IN ("hash1"), ("hash2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', ['KEYS', 'IN', [[['"hash1"']], [['"hash2"']]]]]),
-        ('SELECT * FROM foobars WHERE KEYS IN ("hash1", "range1"), ("hash2", "range2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', ['KEYS', 'IN', [[['"hash1"'], ['"range1"']], [['"hash2"'], ['"range2"']]]]]),
+    'select_in': [
+        ('SELECT * FROM foobars WHERE KEYS IN ("hash1"), ("hash2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"']], [['"hash2"']]]]),
+        ('SELECT * FROM foobars WHERE KEYS IN ("hash1", "range1"), ("hash2", "range2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"'], ['"range1"']], [['"hash2"'], ['"range2"']]]]),
     ],
     'select_using': [
         ('SELECT * FROM foobars WHERE foo = 0 USING my_index', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
@@ -38,37 +38,48 @@ TEST_CASES = {
     ],
     'scan': [
         ('SCAN foobars', ['SCAN', 'foobars']),
-        ('SCAN foobars FILTER foo = 0', ['SCAN', 'foobars', 'FILTER', ['foo', '=', ['0']]]),
-        ('SCAN foobars FILTER foo = 0 and bar = "green"', ['SCAN', 'foobars', 'FILTER', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
-        ('SCAN foobars FILTER (foo = 0 and bar = "green")', ['SCAN', 'foobars', 'FILTER', ['(', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']], ')']]),
+        ('SCAN foobars FILTER foo = 0', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']]]]),
+        ('SCAN foobars FILTER foo = 0 and bar = "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
+        ('SCAN foobars FILTER (foo = 0 and bar = "green")', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('SCAN "foobars"', 'error'),
         ('SCAN foobars garbage', 'error'),
     ],
     'count': [
-        ('COUNT foobars WHERE foo = 0', ['COUNT', 'foobars', 'WHERE', ['foo', '=', ['0']]]),
-        ('COUNT foobars WHERE foo = 0 and bar = "green"', ['COUNT', 'foobars', 'WHERE', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
-        ('COUNT foobars WHERE (foo = 0 and bar = "green")', ['COUNT', 'foobars', 'WHERE', ['(', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']], ')']]),
+        ('COUNT foobars WHERE foo = 0', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
+        ('COUNT foobars WHERE foo = 0 and bar = "green"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
+        ('COUNT foobars WHERE (foo = 0 and bar = "green")', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('COUNT foobars', 'error'),
         ('COUNT WHERE foo = 0', 'error'),
         ('COUNT "foobars" WHERE foo = 0', 'error'),
         ('COUNT foobars WHERE foo = 0 garbage', 'error'),
     ],
     'count_using': [
-        ('COUNT foobars WHERE foo = 0 USING my_index', ['COUNT', 'foobars', 'WHERE', ['foo', '=', ['0']], 'USING', ['my_index']]),
-        ('COUNT foobars WHERE foo = 0 AND bar < 4 USING my_index', ['COUNT', 'foobars', 'WHERE', ['foo', '=', ['0']], 'AND', ['bar', '<', ['4']], 'USING', ['my_index']]),
+        ('COUNT foobars WHERE foo = 0 USING my_index', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
+        ('COUNT foobars WHERE foo = 0 AND bar < 4 USING my_index', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['my_index']]),
     ],
     'delete': [
-        ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'WHERE', ['foo', '=', ['0']]]),
-        ('DELETE FROM foobars WHERE foo = 0 and bar = "green"', ['DELETE', 'FROM', 'foobars', 'WHERE', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
-        ('DELETE FROM foobars WHERE (foo = 0 and bar = "green")', ['DELETE', 'FROM', 'foobars', 'WHERE', ['(', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']], ')']]),
-        ('DELETE FROM foobars WHERE foo = 0 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', ['foo', '=', ['0']], 'USING', ['my_index']]),
-        ('DELETE FROM foobars WHERE foo = 0 AND bar = 4 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', ['foo', '=', ['0']], 'AND', ['bar', '=', ['4']], 'USING', ['my_index']]),
+        ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
+        ('DELETE FROM foobars WHERE foo = 0 and bar = "green"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
+        ('DELETE FROM foobars WHERE (foo = 0 and bar = "green")', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
+        ('DELETE FROM foobars WHERE foo = 0 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
+        ('DELETE FROM foobars WHERE foo = 0 AND bar = 4 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['4']]], 'USING', ['my_index']]),
         ('DELETE FROM foobars', 'error'),
         ('DELETE foobars WHERE foo = 0', 'error'),
         ('DELETE FROM "foobars" WHERE foo = 0', 'error'),
         ('DELETE FROM foobars WHERE foo = 0 garbage', 'error'),
     ],
+    'delete_in': [
+        ('DELETE FROM foobars WHERE KEYS IN ("hash1"), ("hash2")', ['DELETE', 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"']], [['"hash2"']]]]),
+        ('DELETE FROM foobars WHERE KEYS IN ("hash1", "range1"), ("hash2", "range2")', ['DELETE', 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"'], ['"range1"']], [['"hash2"'], ['"range2"']]]]),
+    ],
     'update': [
+        ('UPDATE foobars SET foo = 0, bar += 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '+=', ['3']]]]),
+        ('UPDATE foobars SET foo = 0 WHERE KEYS IN ("a"), ("b")', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', 'KEYS', 'IN', [[['"a"']], [['"b"']]]]),
+        ('UPDATE foobars SET foo = 0 WHERE foo = 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', [['foo', '=', ['3']]]]),
+        ('UPDATE foobars SET foo = 0, bar = NULL', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '=', ['NULL']]]]),
+        ('UPDATE foobars SET foo = 0 RETURNS ALL OLD', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'RETURNS', ['ALL', 'OLD']]),
+        ('UPDATE foobars SET foo *= 0', 'error'),
+        ('UPDATE foobars SET foo = 0 RETURNS garbage', 'error'),
     ],
     'create': [
         ('CREATE TABLE foobars (foo string hash key)', ['CREATE', 'TABLE', 'foobars', '(', [['foo', 'STRING', ['HASH', 'KEY']]], ')']),
@@ -124,9 +135,9 @@ class TestParser(TestCase):
         """ Run tests for SELECT statements """
         self._run_tests('select')
 
-    def test_select_get(self):
+    def test_select_in(self):
         """ SELECT syntax for fetching items by primary key """
-        self._run_tests('select_get')
+        self._run_tests('select_in')
 
     def test_select_using(self):
         """ SELECT tests that specify an index """
@@ -155,6 +166,10 @@ class TestParser(TestCase):
     def test_delete(self):
         """ Run tests for DELETE statements """
         self._run_tests('delete')
+
+    def test_delete_in(self):
+        """ DELETE syntax for fetching items by primary key """
+        self._run_tests('delete_in')
 
     def test_update(self):
         """ Run tests for UPDATE statements """

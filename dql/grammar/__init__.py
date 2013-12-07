@@ -1,17 +1,18 @@
 """ DQL language parser """
-from pyparsing import (Upcase, delimitedList, Optional, Group, Forward,
-                       restOfLine, Keyword, LineEnd, Suppress, ZeroOrMore)
+from pyparsing import (delimitedList, Optional, Group, Forward, restOfLine,
+                       Keyword, LineEnd, Suppress, ZeroOrMore, oneOf)
 
 from .common import (and_, op, from_, table, var, value, table_key, into,
-                     type_)
-from .query import where, select_where, limit, if_exists, if_not_exists, using
+                     type_, upkey)
+from .query import (where, select_where, limit, if_exists, if_not_exists,
+                    using, filter_)
 
 
 # pylint: disable=W0104,W0106
 
 def create_select():
     """ Create the grammar for the 'select' statement """
-    select = Upcase(Keyword("select", caseless=True)).setResultsName('action')
+    select = upkey('select').setResultsName('action')
     attrs = Group(Keyword('*') |
                   (Optional(Suppress('(')) + delimitedList(var) +
                    Optional(Suppress(')'))))\
@@ -24,22 +25,13 @@ def create_select():
 
 def create_scan():
     """ Create the grammar for the 'scan' statement """
-    scan = Upcase(Keyword("scan", caseless=True)).setResultsName('action')
-    filter_exp = Forward()
-    filter_clause = Group(
-        (var + op + value) |
-        ("(" + filter_exp + ")")
-    )
-    filter_exp << filter_clause + ZeroOrMore(and_ + filter_clause)
-    filter_ = (Upcase(Keyword('filter', caseless=True)) +
-               filter_exp.setResultsName('filter'))
-
+    scan = upkey('scan').setResultsName('action')
     return (scan + table + Optional(filter_) + Optional(limit))
 
 
 def create_count():
     """ Create the grammar for the 'count' statement """
-    count = Upcase(Keyword("count", caseless=True)).setResultsName('action')
+    count = upkey('count').setResultsName('action')
 
     return (count + table + where +
             Optional(using + value).setResultsName('using'))
@@ -47,14 +39,14 @@ def create_count():
 
 def create_create():
     """ Create the grammar for the 'create' statement """
-    create = Upcase(Keyword("create", caseless=True)).setResultsName('action')
-    hash_key = Group(Upcase(Keyword("hash", caseless=True)) +
-                     Upcase(Keyword('key', caseless=True)))
-    range_key = Group(Upcase(Keyword("range", caseless=True)) +
-                      Upcase(Keyword('key', caseless=True)))
+    create = upkey('create').setResultsName('action')
+    hash_key = Group(upkey('hash') +
+                     upkey('key'))
+    range_key = Group(upkey('range') +
+                      upkey('key'))
 
     # ATTR DECLARATION
-    index = Group(Upcase(Keyword('index', caseless=True)) + Suppress('(') +
+    index = Group(upkey('index') + Suppress('(') +
                   value + Suppress(')'))
     index_type = (hash_key | range_key | index)\
         .setName('index specification').setResultsName('index')
@@ -69,18 +61,18 @@ def create_create():
 
 def create_delete():
     """ Create the grammar for the 'delete' statement """
-    delete = Upcase(Keyword("delete", caseless=True)).setResultsName('action')
-    return (delete + from_ + table + where +
+    delete = upkey('delete').setResultsName('action')
+    return (delete + from_ + table + select_where +
             Optional(using + value).setResultsName('using'))
 
 
 def create_insert():
     """ Create the grammar for the 'insert' statement """
-    insert = Upcase(Keyword("insert", caseless=True)).setResultsName('action')
+    insert = upkey('insert').setResultsName('action')
     attrs = Group(delimitedList(var)).setResultsName('attrs')
 
     # VALUES
-    values_key = Upcase(Keyword("values", caseless=True))
+    values_key = upkey('values')
     value_group = Group(Suppress('(') + delimitedList(value) + Suppress(')'))
     values = Group(delimitedList(value_group)).setResultsName('data')
 
@@ -90,14 +82,27 @@ def create_insert():
 
 def create_drop():
     """ Create the grammar for the 'drop' statement """
-    drop = Upcase(Keyword("drop", caseless=True)).setResultsName('action')
+    drop = upkey('drop').setResultsName('action')
     return (drop + table_key + Optional(if_exists) + table)
 
 
 def create_update():
     """ Create the grammar for the 'update' statement """
-    update = Upcase(Keyword("update", caseless=True)).setResultsName('action')
-    return (update + table + where)
+    update = upkey('update').setResultsName('action')
+    returns, none, set_, all_, updated, old, new = \
+        map(upkey, ['returns', 'none', 'set', 'all', 'updated', 'old',
+                    'new'])
+    set_op = oneOf('= += -=', caseless=True).setName('operator')
+    clause = Group(var + set_op + value)
+    set_values = Group(delimitedList(clause)).setResultsName('updates')
+    return_ = returns + Group(none |
+                             (all_ + old) |
+                             (all_ + new) |
+                             (updated + old) |
+                             (updated + new))\
+        .setResultsName('returns')
+    return (update + table + set_ + set_values + Optional(select_where) +
+            Optional(return_))
 
 
 def create_parser():
@@ -116,4 +121,5 @@ def create_parser():
 
     return dql
 
-parser = create_parser()  # pylint: disable=C0103
+# pylint: disable=C0103
+parser = create_parser()

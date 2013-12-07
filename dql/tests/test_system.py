@@ -17,6 +17,9 @@ class TestSystem(TestCase):
 
     def setUp(self):
         self.engine = Engine(parser, self.dynamo)
+        # Clear out any pre-existing tables
+        for tablename in self.dynamo.list_tables()['TableNames']:
+            Table(tablename, connection=self.dynamo).delete()
 
     def query(self, command):
         """ Shorthand because I'm lazy """
@@ -25,6 +28,19 @@ class TestSystem(TestCase):
     def tearDown(self):
         for tablename in self.dynamo.list_tables()['TableNames']:
             Table(tablename, connection=self.dynamo).delete()
+
+    def make_table(self, name='foobar', hash_key='id', range_key='bar',
+                   index=None):
+        """ Shortcut for making a simple table """
+        rng = ''
+        if range_key is not None:
+            rng = ",%s NUMBER RANGE KEY" % range_key
+        idx = ''
+        if index is not None:
+            idx = ",{0} NUMBER INDEX('{0}-index')".format(index)
+        self.query("CREATE TABLE %s (%s STRING HASH KEY %s%s)" %
+                   (name, hash_key, rng, idx))
+        return Table(name, connection=self.dynamo)
 
     def test_create(self):
         """ CREATE statement should make a table """
@@ -64,16 +80,15 @@ class TestSystem(TestCase):
 
     def test_insert(self):
         """ INSERT statement should create items """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
+        table = self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        table = Table('foobar', connection=self.dynamo)
         items = [dict(i) for i in table.scan()]
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
     def test_select_hash_key(self):
         """ SELECT statement filters by hash key """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         # FIXME: I think dynamodb local has a bug related to this...
         # results = self.query("SELECT * FROM foobar WHERE id = 'a'")
@@ -81,8 +96,7 @@ class TestSystem(TestCase):
 
     def test_select_hash_range(self):
         """ SELECT statement filters by hash and range keys """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' and bar = 1")
         results = [dict(r) for r in results]
@@ -90,8 +104,7 @@ class TestSystem(TestCase):
 
     def test_select_get(self):
         """ SELECT statement can fetch items directly """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE "
                              "KEYS IN ('a', 1), ('b', 2)")
@@ -101,8 +114,7 @@ class TestSystem(TestCase):
 
     def test_select_hash_index(self):
         """ SELECT statement filters by indexes """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY, ts NUMBER INDEX('ts-index'))")
+        self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' "
@@ -112,8 +124,7 @@ class TestSystem(TestCase):
 
     def test_select_limit(self):
         """ SELECT statement should be able to specify limit """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY, ts NUMBER INDEX('ts-index'))")
+        self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' LIMIT 1")
@@ -121,8 +132,7 @@ class TestSystem(TestCase):
 
     def test_select_attrs(self):
         """ SELECT statement can fetch only certain attrs """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY," +
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar, order) VALUES "
                    "('a', 1, 'first'), ('a', 2, 'second')")
         results = self.query("SELECT order FROM foobar "
@@ -132,8 +142,7 @@ class TestSystem(TestCase):
 
     def test_scan(self):
         """ SCAN statement gets all results in a table """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SCAN foobar")
         results = [dict(r) for r in results]
@@ -142,8 +151,7 @@ class TestSystem(TestCase):
 
     def test_scan_filter(self):
         """ SCAN statement can filter results """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SCAN foobar FILTER id = 'a'")
         results = [dict(r) for r in results]
@@ -151,16 +159,14 @@ class TestSystem(TestCase):
 
     def test_scan_limit(self):
         """ SCAN statement can filter results """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SCAN foobar LIMIT 1")
         self.assertEquals(len(list(results)), 1)
 
     def test_count(self):
         """ COUNT statement counts items """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY)")
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), "
                    "('a', 2)")
         count = self.query("COUNT foobar WHERE id = 'a' ")
@@ -168,10 +174,77 @@ class TestSystem(TestCase):
 
     def test_delete(self):
         """ DELETE statement removes items """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
-                   "bar NUMBER RANGE KEY, ts number index('ts-index'))")
+        table = self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar WHERE id = 'a' and bar = 1")
-        table = Table('foobar', connection=self.dynamo)
         items = [dict(i) for i in table.scan()]
         self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
+
+    def test_delete_in(self):
+        """ DELETE Can specify KEYS IN """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("DELETE FROM foobar WHERE KEYS IN ('a', 1)")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
+
+    def test_update(self):
+        """ UPDATE sets attributes """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = 3")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_where(self):
+        """ UPDATE sets attributes when clause is true """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = 3 WHERE id = 'a'")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
+                                      {'id': 'b', 'bar': 2, 'baz': 2}])
+
+    def test_update_where_in(self):
+        """ UPDATE sets attributes for a set of primary keys """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = 3 WHERE KEYS IN ('a', 1), ('b', 2)")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_increment(self):
+        """ UPDATE can increment attributes """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz += 2")
+        self.query("UPDATE foobar SET baz -= 1")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_delete(self):
+        """ UPDATE can delete attributes """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = NULL")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
+                                      {'id': 'b', 'bar': 2}])
+
+    def test_update_returns(self):
+        """ UPDATE can specify what the query returns """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        result = self.query("UPDATE foobar SET baz = NULL RETURNS ALL NEW ")
+        items = [dict(i) for i in result]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
+                                      {'id': 'b', 'bar': 2}])

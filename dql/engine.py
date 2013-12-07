@@ -1,12 +1,34 @@
 """ Execution engine """
 from boto.dynamodb2.fields import HashKey, RangeKey, AllIndex
 from boto.dynamodb2.table import Table
+from boto.dynamodb2.items import Item
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
-                                  STRING_SET, BINARY_SET)
+                                  STRING_SET, BINARY_SET, Dynamizer)
 from boto.exception import JSONResponseError
 
 from .models import TableMeta
 
+
+class LossyFloatDynamizer(Dynamizer):
+
+    """ Use float/int instead of Decimal for numeric types """
+
+    def _encode_n(self, attr):
+        if isinstance(attr, bool):
+            return str(int(attr))
+        return str(attr)
+
+    def _encode_ns(self, attr):
+        return [str(i) for i in attr]
+
+    def _decode_n(self, attr):
+        try:
+            return int(attr)
+        except ValueError:
+            return float(attr)
+
+    def _decode_ns(self, attr):
+        return set(map(self._decode_n, attr))
 
 OPS = {
     '=': 'eq',
@@ -43,6 +65,8 @@ class Engine(object):
         self.parser = parser
         self._connection = connection
         self._metadata = {}
+        self.dynamizer = LossyFloatDynamizer()
+        self.lossy_dynamizer = LossyFloatDynamizer()
 
     @property
     def connection(self):
@@ -63,9 +87,9 @@ class Engine(object):
             descs.append(self.describe(tablename))
         return descs
 
-    def describe(self, tablename):
+    def describe(self, tablename, refresh=False):
         """ Get the :class:`.TableMeta` for a table """
-        if tablename not in self._metadata:
+        if refresh or tablename not in self._metadata:
             desc = self.connection.describe_table(tablename)
             self._metadata[tablename] = TableMeta.from_description(desc)
         return self._metadata[tablename]
@@ -104,7 +128,15 @@ class Engine(object):
                 return float(val.number)
         elif val.getName() == 'str':
             return val.str[1:-1]
+        elif val.getName() == 'null':
+            return None
         raise SyntaxError("Unable to resolve value '%s'" % val)
+
+    def _iter_where_in(self, tree):
+        """ Iterate over the WHERE KEYS IN and generate primary keys """
+        desc = self.describe(tree.table)
+        for keypair in tree.where:
+            yield desc.primary_key(*map(self.resolve, keypair))
 
     def _select(self, tree):
         """ Run a SELECT statement """
@@ -112,23 +144,14 @@ class Engine(object):
         table = Table(tablename, connection=self.connection)
         kwargs = {}
 
-        if tree.where[:2] == ['KEYS', 'IN']:
-            # Do a batch get by ids
+        if tree.keys_in:
             if tree.limit:
                 raise SyntaxError("Cannot use LIMIT with WHERE KEYS IN")
             elif tree.using:
                 raise SyntaxError("Cannot use USING with WHERE KEYS IN")
             elif tree.attrs.asList() != ['*']:
                 raise SyntaxError("Must SELECT * when using WHERE KEYS IN")
-            desc = self.describe(tablename)
-            keys = []
-            for keypair in tree.where[2]:
-                search_key = {
-                    desc.hash_key.name: self.resolve(keypair[0])
-                }
-                if desc.range_key is not None:
-                    search_key[desc.range_key.name] = self.resolve(keypair[1])
-                keys.append(search_key)
+            keys = list(self._iter_where_in(tree))
             return table.batch_get(keys=keys)
         else:
             for key, op, val in tree.where:
@@ -146,9 +169,7 @@ class Engine(object):
         """ Run a SCAN statement """
         tablename = tree.table
         kwargs = {}
-        # Skip the 'AND's
-        for i in xrange(0, len(tree.filter), 2):
-            key, op, val = tree.filter[i]
+        for key, op, val in tree.filter:
             kwargs[key + '__' + OPS[op]] = self.resolve(val)
         if tree.limit:
             kwargs['limit'] = self.resolve(tree.limit[1])
@@ -160,9 +181,7 @@ class Engine(object):
         """ Run a COUNT statement """
         tablename = tree.table
         kwargs = {}
-        # Skip the 'AND's
-        for i in xrange(0, len(tree.where), 2):
-            key, op, val = tree.where[i]
+        for key, op, val in tree.where:
             kwargs[key + '__' + OPS[op]] = self.resolve(val)
         if tree.using:
             kwargs['index'] = self.resolve(tree.using[1])
@@ -173,18 +192,23 @@ class Engine(object):
     def _delete(self, tree):
         """ Run a DELETE statement """
         tablename = tree.table
-        kwargs = {}
-        # Skip the 'AND's
-        for i in xrange(0, len(tree.where), 2):
-            key, op, val = tree.where[i]
-            kwargs[key + '__' + OPS[op]] = self.resolve(val)
-        if tree.using:
-            kwargs['index'] = self.resolve(tree.using[1])
-
-        desc = self.describe(tablename)
         table = Table(tablename, connection=self.connection)
+        kwargs = {}
+        desc = self.describe(tablename)
+
         # We can't do a delete by group, so we have to select first
-        results = table.query(**kwargs)
+        if tree.keys_in:
+            if tree.using:
+                raise SyntaxError("Cannot use USING with WHERE KEYS IN")
+            keys = list(self._iter_where_in(tree))
+            results = table.batch_get(keys=keys)
+        else:
+            for key, op, val in tree.where:
+                kwargs[key + '__' + OPS[op]] = self.resolve(val)
+            if tree.using:
+                kwargs['index'] = self.resolve(tree.using[1])
+            results = table.query(**kwargs)
+
         count = 0
         with table.batch_write() as batch:
             for item in results:
@@ -198,7 +222,75 @@ class Engine(object):
 
     def _update(self, tree):
         """ Run an UPDATE statement """
-        # TODO
+        tablename = tree.table
+        table = Table(tablename, connection=self.connection)
+        desc = self.describe(tablename)
+        updates = {}
+        result = []
+
+        if tree.returns:
+            returns = '_'.join(tree.returns)
+        else:
+            returns = 'NONE'
+
+        for field, op, val in tree.updates:
+            value = self.resolve(val)
+            if value is None:
+                if op != '=':
+                    raise SyntaxError("Cannot increment/decrement by NULL!")
+                action = 'DELETE'
+            elif op == '=':
+                action = 'PUT'
+            elif op == '+=':
+                action = 'ADD'
+            elif op == '-=':
+                action = 'ADD'
+                value = -value
+            else:
+                raise SyntaxError("Unknown operation '%s'" % op)
+            updates[field] = {'Action': action}
+            if action != 'DELETE':
+                updates[field]['Value'] = self.lossy_dynamizer.encode(value)
+
+        def encode_pkey(pkey):
+            """ HACK: boto doesn't encode primary keys in update_item """
+            return {k: self.dynamizer.encode(v) for k, v in pkey.iteritems()}
+
+        def decode_result(result):
+            """ Create an Item from a raw return result """
+            data = {k: self.dynamizer.decode(v) for k, v in
+                    result.get('Attributes', {}).iteritems()}
+            item = Item(table, data=data)
+            return item
+
+        if tree.keys_in:
+            for key in self._iter_where_in(tree):
+                key = encode_pkey(key)
+                ret = self.connection.update_item(tablename, key, updates,
+                                                  return_values=returns)
+                if returns != 'NONE':
+                    result.append(decode_result(ret))
+        elif tree.where:
+            kwargs = {}
+            for key, op, val in tree.where:
+                kwargs[key + '__' + OPS[op]] = self.resolve(val)
+            for item in table.query(**kwargs):
+                key = encode_pkey(desc.primary_key(item))
+                ret = self.connection.update_item(tablename, key, updates,
+                                                  return_values=returns)
+                if returns != 'NONE':
+                    result.append(decode_result(ret))
+        else:
+            # We're updating THE WHOLE TABLE
+            for item in table.scan():
+                key = encode_pkey(desc.primary_key(item))
+                ret = self.connection.update_item(tablename, key, updates,
+                                                  return_values=returns)
+                if returns != 'NONE':
+                    result.append(decode_result(ret))
+        if returns == 'NONE':
+            return None
+        return result
 
     def _create(self, tree):
         """ Run a SELECT statement """

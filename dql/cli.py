@@ -118,7 +118,6 @@ class DQLREPL(cmd.Cmd):
     @repl_command
     def do_ls(self, table=None):
         """ List all tables or print details of one table """
-        # TODO: add autocompletion for table names
         if table is None:
             fields = OrderedDict([('Name', 'name'),
                                   ('Status', 'status'),
@@ -138,7 +137,7 @@ class DQLREPL(cmd.Cmd):
                     print str(getattr(table, field)).ljust(size),
                 print
         else:
-            print self.engine.describe(table).pformat()
+            print self.engine.describe(table, refresh=True).pformat()
 
     @repl_command
     def do_use(self, region, host='localhost', port=8000):

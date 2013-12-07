@@ -16,6 +16,7 @@ Here are some basic examples to get you started::
     us-west-1> INSERT INTO forum_threads (name, subject, views, replies) VALUES ('Self Defense', 'Defense from Banana', 67, 4), ('Self Defense', 'Defense from Strawberry', 10, 0), ('Cheese Shop', 'Anyone seen the camembert?', 16, 1)
     us-west-1> SCAN forum_threads
     us-west-1> COUNT forum_threads WHERE name = 'Self Defense'
+    us-west-1> UPDATE forum_threads SET views += 1 WHERE name = 'Self Defense' AND subject = 'Defense from Banana'
     us-west-1> SELECT * FROM forum_threads WHERE name = 'Self Defense'
     us-west-1> DELETE FROM forum_threads WHERE name = 'Cheese Shop'
     us-west-1> DROP TABLE forum_threads
@@ -40,17 +41,20 @@ installed.
 
 TODO
 ====
-* Update statement
 * Create should be able to specify throughput
 * Alter table modify throughput
 * Dump schema
 * Parse and run a file
-* CLI allows multi-line queries
 * Select allows an ordering (reverse)
 * Select allows consistent reads
-* Insert supports inserting items with different attrs
 * Engine should use table metadata to figure out the index name
-* Support for the 'set' data types
-* More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)
 * Full documentation
+* More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)
+* Insert supports inserting items with different attrs
+* Support for the 'set' data types
+* CLI allows multi-line queries
 * Create indexes with different projection mappings
+* Fetch cloudwatch metrics during table describe
+* Engine should have local scope for variable name resolution
+* More unit test coverage
+* CLI should autocomplete table names
