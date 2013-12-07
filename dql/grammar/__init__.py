@@ -1,8 +1,9 @@
 """ DQL language parser """
 from pyparsing import (Upcase, delimitedList, Optional, Group, Forward,
-                       restOfLine, Keyword, LineEnd, Suppress)
+                       restOfLine, Keyword, LineEnd, Suppress, ZeroOrMore)
 
-from .common import from_, table, var, value, table_key, into, type_
+from .common import (and_, op, from_, table, var, value, table_key, into,
+                     type_)
 from .query import where, limit, if_exists, if_not_exists, using
 
 
@@ -19,6 +20,21 @@ def create_select():
     return (select + attrs + from_ + table + where +
             Optional(using + value).setResultsName('using') +
             Optional(limit))
+
+
+def create_scan():
+    """ Create the grammar for the 'scan' statement """
+    scan = Upcase(Keyword("scan", caseless=True)).setResultsName('action')
+    filter_exp = Forward()
+    filter_clause = Group(
+        (var + op + value) |
+        ("(" + filter_exp + ")")
+    )
+    filter_exp << filter_clause + ZeroOrMore(and_ + filter_clause)
+    filter_ = (Upcase(Keyword('filter', caseless=True)) +
+               filter_exp.setResultsName('filter'))
+
+    return (scan + table + Optional(filter_) + Optional(limit))
 
 
 def create_count():
@@ -87,6 +103,7 @@ def create_update():
 def create_parser():
     """ Create the language parser """
     dql = ((create_select() |
+            create_scan() |
             create_count() |
             create_delete() |
             create_update() |

@@ -15,7 +15,7 @@ def create_where():
         ("(" + where_exp + ")")
     )
     where_exp << where_clause + ZeroOrMore(and_ + where_clause)
-    return CaselessLiteral('where') + where_exp.setResultsName('where')
+    return Upcase(Keyword('where', caseless=True)) + where_exp.setResultsName('where')
 
 
 def create_limit():

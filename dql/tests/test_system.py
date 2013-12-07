@@ -119,6 +119,33 @@ class TestSystem(TestCase):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'order': 'first'}])
 
+    def test_scan(self):
+        """ SCAN statement gets all results in a table """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
+                   "bar NUMBER RANGE KEY)")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        results = self.query("SCAN foobar")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
+                                        {'id': 'b', 'bar': 2}])
+
+    def test_scan_filter(self):
+        """ SCAN statement can filter results """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
+                   "bar NUMBER RANGE KEY)")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        results = self.query("SCAN foobar FILTER id = 'a'")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
+
+    def test_scan_limit(self):
+        """ SCAN statement can filter results """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
+                   "bar NUMBER RANGE KEY)")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        results = self.query("SCAN foobar LIMIT 1")
+        self.assertEquals(len(list(results)), 1)
+
     def test_count(self):
         """ COUNT statement counts items """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, "

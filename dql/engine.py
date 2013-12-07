@@ -75,6 +75,8 @@ class Engine(object):
         tree = self.parser.parseString(command)
         if tree.action == 'SELECT':
             return self._select(tree)
+        elif tree.action == 'SCAN':
+            return self._scan(tree)
         elif tree.action == 'COUNT':
             return self._count(tree)
         elif tree.action == 'DELETE':
@@ -121,6 +123,20 @@ class Engine(object):
 
         table = Table(tablename, connection=self.connection)
         return table.query(**kwargs)
+
+    def _scan(self, tree):
+        """ Run a SCAN statement """
+        tablename = tree.table
+        kwargs = {}
+        # Skip the 'AND's
+        for i in xrange(0, len(tree.filter), 2):
+            key, op, val = tree.filter[i]
+            kwargs[key + '__' + OPS[op]] = self.resolve(val)
+        if tree.limit:
+            kwargs['limit'] = self.resolve(tree.limit[1])
+
+        table = Table(tablename, connection=self.connection)
+        return table.scan(**kwargs)
 
     def _count(self, tree):
         """ Run a COUNT statement """
