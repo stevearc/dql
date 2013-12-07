@@ -152,6 +152,7 @@ class Engine(object):
         """ Run a SELECT statement """
         tablename = tree.table
         table = Table(tablename, connection=self.connection)
+        desc = self.describe(tablename)
         kwargs = {}
         if tree.consistent:
             kwargs['consistent'] = True
@@ -168,6 +169,8 @@ class Engine(object):
         else:
             for key, op, val in tree.where:
                 kwargs[key + '__' + OPS[op]] = self.resolve(val)
+                if key in desc.indexes:
+                    kwargs['index'] = desc.indexes[key].index_name
             if tree.limit:
                 kwargs['limit'] = self.resolve(tree.limit[1])
             if tree.using:
@@ -194,9 +197,12 @@ class Engine(object):
     def _count(self, tree):
         """ Run a COUNT statement """
         tablename = tree.table
+        desc = self.describe(tablename)
         kwargs = {}
         for key, op, val in tree.where:
             kwargs[key + '__' + OPS[op]] = self.resolve(val)
+            if key in desc.indexes:
+                kwargs['index'] = desc.indexes[key].index_name
         if tree.using:
             kwargs['index'] = self.resolve(tree.using[1])
         if tree.consistent:
@@ -221,6 +227,8 @@ class Engine(object):
         else:
             for key, op, val in tree.where:
                 kwargs[key + '__' + OPS[op]] = self.resolve(val)
+                if key in desc.indexes:
+                    kwargs['index'] = desc.indexes[key].index_name
             if tree.using:
                 kwargs['index'] = self.resolve(tree.using[1])
             results = table.query(**kwargs)

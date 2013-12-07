@@ -114,6 +114,16 @@ class TestSystem(BaseSystemTest):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
+    def test_select_smart_index(self):
+        """ SELECT statement auto-selects correct index name """
+        self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200)")
+        results = self.query("SELECT * FROM foobar WHERE id = 'a' "
+                             "and ts < 150")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
+
     def test_select_limit(self):
         """ SELECT statement should be able to specify limit """
         self.make_table(index='ts')
@@ -164,6 +174,14 @@ class TestSystem(BaseSystemTest):
         count = self.query("COUNT foobar WHERE id = 'a' ")
         self.assertEquals(count, 2)
 
+    def test_count_smart_index(self):
+        """ COUNT statement auto-selects correct index name """
+        self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200)")
+        count = self.query("COUNT foobar WHERE id = 'a' and ts < 150")
+        self.assertEquals(count, 1)
+
     def test_delete(self):
         """ DELETE statement removes items """
         table = self.make_table(index='ts')
@@ -179,6 +197,17 @@ class TestSystem(BaseSystemTest):
         self.query("DELETE FROM foobar WHERE KEYS IN ('a', 1)")
         items = [dict(i) for i in table.scan()]
         self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
+
+    def test_delete_smart_index(self):
+        """ DELETE statement auto-selects correct index name """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200)")
+        self.query("DELETE FROM foobar WHERE id = 'a' "
+                   "and ts > 150")
+        results = table.scan()
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
     def test_update(self):
         """ UPDATE sets attributes """
