@@ -11,6 +11,7 @@ from ..grammar import statement_parser, parser
 TEST_CASES = {
     'select': [
         ('SELECT * FROM foobars WHERE foo = 0', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
+        ('SELECT CONSISTENT * FROM foobars WHERE foo = 0', ['SELECT', 'CONSISTENT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('SELECT * FROM foobars WHERE foo = 0 DESC', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'DESC']),
         ('SELECT * FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('SELECT * FROM foobars WHERE (foo = 0 and bar = "green")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
@@ -47,6 +48,7 @@ TEST_CASES = {
     ],
     'count': [
         ('COUNT foobars WHERE foo = 0', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
+        ('COUNT CONSISTENT foobars WHERE foo = 0', ['COUNT', 'CONSISTENT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('COUNT foobars WHERE foo = 0 and bar = "green"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('COUNT foobars WHERE (foo = 0 and bar = "green")', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('COUNT foobars', 'error'),

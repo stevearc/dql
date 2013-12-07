@@ -42,7 +42,6 @@ installed.
 
 TODO
 ====
-* Select allows consistent reads
 * Engine should use table metadata to figure out the index name
 * Full documentation
 * More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)

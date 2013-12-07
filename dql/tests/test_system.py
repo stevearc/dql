@@ -1,46 +1,13 @@
 """ System tests """
-try:
-    from unittest2 import TestCase  # pylint: disable=F0401
-except ImportError:
-    from unittest import TestCase
-from boto.dynamodb2.table import Table
 from boto.exception import JSONResponseError
 
-from .. import Engine
+from . import BaseSystemTest
 from ..models import TableField
 
 
-class TestSystem(TestCase):
+class TestSystem(BaseSystemTest):
 
     """ System tests """
-    dynamo = None
-
-    def setUp(self):
-        self.engine = Engine(self.dynamo)
-        # Clear out any pre-existing tables
-        for tablename in self.dynamo.list_tables()['TableNames']:
-            Table(tablename, connection=self.dynamo).delete()
-
-    def query(self, command):
-        """ Shorthand because I'm lazy """
-        return self.engine.execute(command)
-
-    def tearDown(self):
-        for tablename in self.dynamo.list_tables()['TableNames']:
-            Table(tablename, connection=self.dynamo).delete()
-
-    def make_table(self, name='foobar', hash_key='id', range_key='bar',
-                   index=None):
-        """ Shortcut for making a simple table """
-        rng = ''
-        if range_key is not None:
-            rng = ",%s NUMBER RANGE KEY" % range_key
-        idx = ''
-        if index is not None:
-            idx = ",{0} NUMBER INDEX('{0}-index')".format(index)
-        self.query("CREATE TABLE %s (%s STRING HASH KEY %s%s)" %
-                   (name, hash_key, rng, idx))
-        return Table(name, connection=self.dynamo)
 
     def test_create(self):
         """ CREATE statement should make a table """

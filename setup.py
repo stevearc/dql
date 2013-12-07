@@ -1,6 +1,5 @@
 """ Setup file """
 import os
-import sys
 
 from setuptools import setup, find_packages
 from version_helper import git_version
@@ -12,8 +11,9 @@ CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
     'boto',
-    'nose',
     'pyparsing',
+    'nose',
+    'mock',
 ]
 
 # python 2.6 needs special attention

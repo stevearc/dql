@@ -153,6 +153,8 @@ class Engine(object):
         tablename = tree.table
         table = Table(tablename, connection=self.connection)
         kwargs = {}
+        if tree.consistent:
+            kwargs['consistent'] = True
 
         if tree.keys_in:
             if tree.limit:
@@ -162,7 +164,7 @@ class Engine(object):
             elif tree.attrs.asList() != ['*']:
                 raise SyntaxError("Must SELECT * when using WHERE KEYS IN")
             keys = list(self._iter_where_in(tree))
-            return table.batch_get(keys=keys)
+            return table.batch_get(keys=keys, **kwargs)
         else:
             for key, op, val in tree.where:
                 kwargs[key + '__' + OPS[op]] = self.resolve(val)
@@ -197,6 +199,8 @@ class Engine(object):
             kwargs[key + '__' + OPS[op]] = self.resolve(val)
         if tree.using:
             kwargs['index'] = self.resolve(tree.using[1])
+        if tree.consistent:
+            kwargs['consistent'] = True
 
         table = Table(tablename, connection=self.connection)
         return table.query_count(**kwargs)

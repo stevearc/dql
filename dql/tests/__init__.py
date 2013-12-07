@@ -1,5 +1,6 @@
 """ Testing tools for DQL """
 import os
+from boto.dynamodb2.table import Table
 
 import inspect
 import logging
@@ -9,6 +10,11 @@ import subprocess
 import tempfile
 from boto.dynamodb2.layer1 import DynamoDBConnection
 from urllib import urlretrieve
+from .. import Engine
+try:
+    from unittest2 import TestCase  # pylint: disable=F0401
+except ImportError:
+    from unittest import TestCase
 
 
 DYNAMO_LOCAL = 'https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz'
@@ -85,3 +91,38 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
         """ terminate the dynamo local service """
         if self._dynamo_local is not None:
             self._dynamo_local.terminate()
+
+
+class BaseSystemTest(TestCase):
+
+    """ Base class for system tests """
+    dynamo = None
+
+    def setUp(self):
+        super(BaseSystemTest, self).setUp()
+        self.engine = Engine(self.dynamo)
+        # Clear out any pre-existing tables
+        for tablename in self.dynamo.list_tables()['TableNames']:
+            Table(tablename, connection=self.dynamo).delete()
+
+    def tearDown(self):
+        super(BaseSystemTest, self).tearDown()
+        for tablename in self.dynamo.list_tables()['TableNames']:
+            Table(tablename, connection=self.dynamo).delete()
+
+    def query(self, command):
+        """ Shorthand because I'm lazy """
+        return self.engine.execute(command)
+
+    def make_table(self, name='foobar', hash_key='id', range_key='bar',
+                   index=None):
+        """ Shortcut for making a simple table """
+        rng = ''
+        if range_key is not None:
+            rng = ",%s NUMBER RANGE KEY" % range_key
+        idx = ''
+        if index is not None:
+            idx = ",{0} NUMBER INDEX('{0}-index')".format(index)
+        self.query("CREATE TABLE %s (%s STRING HASH KEY %s%s)" %
+                   (name, hash_key, rng, idx))
+        return Table(name, connection=self.dynamo)

@@ -24,13 +24,14 @@ throughput = create_throughput()
 def create_select():
     """ Create the grammar for the 'select' statement """
     select = upkey('select').setResultsName('action')
+    consist = upkey('consistent').setResultsName('consistent')
     attrs = Group(Keyword('*') |
                   (Optional(Suppress('(')) + delimitedList(var) +
                    Optional(Suppress(')'))))\
         .setResultsName('attrs')
     ordering = Optional(upkey('desc') | upkey('asc')).setResultsName('order')
 
-    return (select + attrs + from_ + table + select_where +
+    return (select + Optional(consist) + attrs + from_ + table + select_where +
             Optional(using + value).setResultsName('using') +
             Optional(limit) + ordering)
 
@@ -44,8 +45,9 @@ def create_scan():
 def create_count():
     """ Create the grammar for the 'count' statement """
     count = upkey('count').setResultsName('action')
+    consist = upkey('consistent').setResultsName('consistent')
 
-    return (count + table + where +
+    return (count + Optional(consist) + table + where +
             Optional(using + value).setResultsName('using'))
 
 
