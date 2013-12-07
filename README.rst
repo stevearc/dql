@@ -1,6 +1,6 @@
 DQL
 ===
-:Build: |build|_ |coverage|
+:Build: |build|_ |coverage|_
 :Documentation: http://dql.readthedocs.org/en/latest/
 :Source: https://github.com/mathcamp/dql
 
