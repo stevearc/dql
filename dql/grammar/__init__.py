@@ -28,10 +28,11 @@ def create_select():
                   (Optional(Suppress('(')) + delimitedList(var) +
                    Optional(Suppress(')'))))\
         .setResultsName('attrs')
+    ordering = Optional(upkey('desc') | upkey('asc')).setResultsName('order')
 
     return (select + attrs + from_ + table + select_where +
             Optional(using + value).setResultsName('using') +
-            Optional(limit))
+            Optional(limit) + ordering)
 
 
 def create_scan():

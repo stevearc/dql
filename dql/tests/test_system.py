@@ -127,6 +127,16 @@ class TestSystem(TestCase):
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
                                         {'id': 'b', 'bar': 2}])
 
+    def test_select_reverse(self):
+        """ SELECT can reverse order of results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('a', 2)")
+        results = self.query("SELECT * FROM foobar WHERE id = 'a' ASC")
+        rev_results = self.query("SELECT * FROM foobar WHERE id = 'a' DESC")
+        results = [dict(r) for r in results]
+        rev_results = [dict(r) for r in reversed(list(rev_results))]
+        self.assertEquals(results, rev_results)
+
     def test_select_hash_index(self):
         """ SELECT statement filters by indexes """
         self.make_table(index='ts')

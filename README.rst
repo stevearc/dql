@@ -42,7 +42,6 @@ installed.
 
 TODO
 ====
-* Select allows an ordering (reverse)
 * Select allows consistent reads
 * Engine should use table metadata to figure out the index name
 * Full documentation
