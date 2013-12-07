@@ -19,6 +19,7 @@ Here are some basic examples to get you started::
     us-west-1> UPDATE forum_threads SET views += 1 WHERE name = 'Self Defense' AND subject = 'Defense from Banana'
     us-west-1> SELECT * FROM forum_threads WHERE name = 'Self Defense'
     us-west-1> DELETE FROM forum_threads WHERE name = 'Cheese Shop'
+    us-west-1> ALTER TABLE forum_threads SET THROUGHPUT (8, 4)
     us-west-1> DROP TABLE forum_threads
 
 Development
@@ -41,7 +42,6 @@ installed.
 
 TODO
 ====
-* Alter table modify throughput
 * Dump schema
 * Parse and run a file
 * Select allows an ordering (reverse)

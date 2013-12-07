@@ -3,12 +3,23 @@ from pyparsing import (delimitedList, Optional, Group, Forward, restOfLine,
                        Keyword, LineEnd, Suppress, ZeroOrMore, oneOf)
 
 from .common import (and_, op, from_, table, var, value, table_key, into,
-                     type_, upkey)
+                     type_, upkey, set_)
 from .query import (where, select_where, limit, if_exists, if_not_exists,
                     using, filter_)
 
 
+def create_throughput():
+    """ Create a throughput specification """
+    return (upkey('throughput') + Suppress('(') +
+            Group(value + Suppress(',') + value).setResultsName('throughput') +
+            Suppress(')'))
+
+# pylint: disable=C0103
+throughput = create_throughput()
+# pylint: enable=C0103
+
 # pylint: disable=W0104,W0106
+
 
 def create_select():
     """ Create the grammar for the 'select' statement """
@@ -57,10 +68,6 @@ def create_create():
                          .setName('attrs').setResultsName('attrs')
                          + Suppress(')'))
 
-    throughput = (upkey('throughput') + Suppress('(') +
-                  Group(value + Suppress(',') +
-                        value).setResultsName('throughput') + Suppress(')'))
-
     return (create + table_key + Optional(if_not_exists) + table +
             attrs_declaration + Optional(throughput))
 
@@ -95,8 +102,8 @@ def create_drop():
 def create_update():
     """ Create the grammar for the 'update' statement """
     update = upkey('update').setResultsName('action')
-    returns, none, set_, all_, updated, old, new = \
-        map(upkey, ['returns', 'none', 'set', 'all', 'updated', 'old',
+    returns, none, all_, updated, old, new = \
+        map(upkey, ['returns', 'none', 'all', 'updated', 'old',
                     'new'])
     set_op = oneOf('= += -=', caseless=True).setName('operator')
     clause = Group(var + set_op + value)
@@ -111,6 +118,12 @@ def create_update():
             Optional(return_))
 
 
+def create_alter():
+    """ Create the grammar for the 'alter' statement """
+    alter = upkey('alter').setResultsName('action')
+    return alter + table_key + table + set_ + throughput
+
+
 def create_parser():
     """ Create the language parser """
     dql = ((create_select() |
@@ -120,7 +133,9 @@ def create_parser():
             create_update() |
             create_create() |
             create_insert() |
-            create_drop()) +
+            create_drop() |
+            create_alter()
+            ) +
            Suppress(LineEnd()))
 
     dql.ignore('--' + restOfLine)

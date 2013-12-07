@@ -109,6 +109,11 @@ TEST_CASES = {
         ('DROP foobars', 'error'),
         ('DROP TABLE foobars garbage', 'error'),
     ],
+    'alter': [
+        ('ALTER TABLE foobars SET THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'THROUGHPUT', [['3'], ['4']]]),
+        ('ALTER TABLE foobars SET foo = bar', 'error'),
+        ('ALTER TABLE foobars SET THROUGHPUT 1, 1', 'error'),
+    ],
 }
 
 
@@ -187,3 +192,7 @@ class TestParser(TestCase):
     def test_drop(self):
         """ Run tests for DROP statements """
         self._run_tests('drop')
+
+    def test_alter(self):
+        """ Run tests for ALTER statements """
+        self._run_tests('alter')

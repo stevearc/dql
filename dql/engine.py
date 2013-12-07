@@ -114,6 +114,8 @@ class Engine(object):
             return self._insert(tree)
         elif tree.action == 'DROP':
             return self._drop(tree)
+        elif tree.action == 'ALTER':
+            return self._alter(tree)
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
@@ -355,3 +357,14 @@ class Engine(object):
             if e.status != 400 or not tree.exists:
                 raise
         return "Dropped table '%s'" % tablename
+
+    def _alter(self, tree):
+        """ Run an ALTER statement """
+        tablename = tree.table
+        table = Table(tablename, connection=self.connection)
+        throughput = {
+            'read': self.resolve(tree.throughput[0]),
+            'write': self.resolve(tree.throughput[1]),
+        }
+        table.update(throughput=throughput)
+        return 'success'

@@ -8,8 +8,8 @@ def upkey(name):
     """ Shortcut for creating an uppercase keyword """
     return Upcase(Keyword(name, caseless=True))
 
-and_, from_, into, in_, table_key, null, where_ = \
-    map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where'])
+and_, from_, into, in_, table_key, null, where_, set_ = \
+    map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where', 'set'])
 
 var = Word(alphas, alphanums + '_').setName('variable')
 table = var.setResultsName('table')
