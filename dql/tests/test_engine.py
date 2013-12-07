@@ -52,33 +52,41 @@ class TestFragmentEngine(BaseSystemTest):
 
     def test_no_run_fragment(self):
         """ Engine should not run query fragments """
-        result = self.engine.execute("SELECT * FROM table WHERE")
+        result = self.query("SELECT * FROM table WHERE")
         self.assertIsNone(result)
 
     def test_no_run_multi_fragment(self):
         """ A complete statement that ends in a fragment should not run """
-        self.engine.execute("SELECT * FROM table WHERE")
-        result = self.engine.execute("foo = 'bar'; DROP")
+        self.query("SELECT * FROM table WHERE")
+        result = self.query("foo = 'bar'; DROP")
         self.assertIsNone(result)
 
     def test_run_query(self):
         """ If fragments add up to a query, it should run """
-        self.engine.execute("CREATE TABLE test ")
-        self.engine.execute("(id STRING ")
-        result = self.engine.execute("HASH KEY);")
+        self.query("CREATE TABLE test ")
+        self.query("(id STRING ")
+        result = self.query("HASH KEY);")
         self.assertIsNotNone(result)
         desc = self.engine.describe('test')
         self.assertIsNotNone(desc)
 
     def test_format_exc(self):
         """ Fragment engine can pretty-format a parse error """
-        query = "SELECT * FROM table WHERE thisisaproblem;"
+        query = "SELECT * FROM\n\ntable WHERE\n;"
         try:
-            self.engine.execute(query)
+            for fragment in query.split('\n'):
+                self.query(fragment)
         except ParseException as e:
             pretty = self.engine.pformat_exc(e)
             self.assertEquals(pretty, query + '\n' +
-                              40 * ' ' + '^\n' +
-                              "Expected '=' (at char 40), (line:1, col:41)")
+                              '^\n' +
+                              "Expected variable (at char 27), (line:4, col:1)")
         else:
             assert False, "Engine should raise exception if parsing fails"
+
+    def test_preserve_whitespace(self):
+        """ The engine should preserve the whitespace between fragments """
+        query = "DUMP\nSCHEMA\n\n;"
+        for fragment in query.split('\n'):
+            self.query(fragment)
+        self.assertEquals(self.engine.last_query, query)

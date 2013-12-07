@@ -421,6 +421,10 @@ class FragmentEngine(Engine):
         """ True if there is a partial query stored """
         return len(self.fragments) > 0
 
+    def reset(self):
+        """ Clear any query fragments from the engine """
+        self.fragments = ''
+
     def execute(self, fragment):
         """
         Run or aggregate a query fragment
@@ -430,13 +434,13 @@ class FragmentEngine(Engine):
         None.
 
         """
-        self.fragments = (self.fragments + '\n' + fragment).strip()
+        self.fragments = (self.fragments + '\n' + fragment).lstrip()
         try:
             line_parser.parseString(self.fragments)
         except ParseException:
             pass
         else:
-            self.last_query = self.fragments
+            self.last_query = self.fragments.strip()
             self.fragments = ''
             return super(FragmentEngine, self).execute(self.last_query)
         return None

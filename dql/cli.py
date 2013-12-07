@@ -108,6 +108,7 @@ class DQLClient(cmd.Cmd):
                 print self.engine.pformat_exc(e)
             except:
                 traceback.print_exc()
+            self.engine.reset()
 
     def postcmd(self, stop, line):
         self.update_prompt()
@@ -116,7 +117,7 @@ class DQLClient(cmd.Cmd):
     def update_prompt(self):
         """ Update the prompt """
         if self.engine.partial:
-            self.prompt = '> '
+            self.prompt = len(self.region) * ' ' + '> '
         else:
             self.prompt = self.region + '> '
 
@@ -189,4 +190,4 @@ class DQLClient(cmd.Cmd):
         return True
 
     def emptyline(self):
-        pass
+        self.default('')
