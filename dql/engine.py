@@ -259,8 +259,8 @@ class Engine(object):
 
         def decode_result(result):
             """ Create an Item from a raw return result """
-            data = {k: self.dynamizer.decode(v) for k, v in
-                    result.get('Attributes', {}).iteritems()}
+            data = dict([(k, self.dynamizer.decode(v)) for k, v in
+                         result.get('Attributes', {}).iteritems()])
             item = Item(table, data=data)
             return item
 
