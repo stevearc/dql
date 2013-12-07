@@ -254,7 +254,8 @@ class Engine(object):
 
         def encode_pkey(pkey):
             """ HACK: boto doesn't encode primary keys in update_item """
-            return {k: self.dynamizer.encode(v) for k, v in pkey.iteritems()}
+            return dict([(k, self.dynamizer.encode(v)) for k, v in
+                         pkey.iteritems()])
 
         def decode_result(result):
             """ Create an Item from a raw return result """
