@@ -7,6 +7,7 @@ from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
 from boto.exception import JSONResponseError
 
 from .models import TableMeta
+from .grammar import parser
 
 
 OPS = {
@@ -57,13 +58,11 @@ class Engine(object):
 
     Parameters
     ----------
-    parser : :class:`pyparsing.ParserElement`
     connection : :class:`boto.dynamodb2.layer1.DynamoDBConnection`
 
     """
 
-    def __init__(self, parser, connection):
-        self.parser = parser
+    def __init__(self,  connection):
         self._connection = connection
         self._metadata = {}
         self.dynamizer = LossyFloatDynamizer()
@@ -95,9 +94,15 @@ class Engine(object):
             self._metadata[tablename] = TableMeta.from_description(desc)
         return self._metadata[tablename]
 
-    def execute(self, command):
-        """ Parse and run a command """
-        tree = self.parser.parseString(command)
+    def execute(self, commands):
+        """ Run """
+        tree = parser.parseString(commands)
+        for statement in tree:
+            result = self._run(statement)
+        return result
+
+    def _run(self, tree):
+        """ Run a query from a parse tree """
         if tree.action == 'SELECT':
             return self._select(tree)
         elif tree.action == 'SCAN':

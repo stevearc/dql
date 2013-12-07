@@ -15,7 +15,6 @@ except ImportError:
 from pyparsing import ParseException
 
 from .engine import Engine
-from .grammar import parser
 
 
 def repl_command(fxn):
@@ -86,7 +85,7 @@ class DQLREPL(cmd.Cmd):
         self._secret_key = secret_key
         self.prompt = region + '> '
         self.ddb = connect(region, host, port, access_key, secret_key)
-        self.engine = Engine(parser, self.ddb)
+        self.engine = Engine(self.ddb)
 
     def start(self):
         """ Start running the interactive session (blocking) """

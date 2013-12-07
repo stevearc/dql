@@ -4,6 +4,7 @@ import os
 import inspect
 import logging
 import nose
+import shutil
 import subprocess
 import tempfile
 from boto.dynamodb2.layer1 import DynamoDBConnection
@@ -59,7 +60,7 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
                 tarball = urlretrieve(self.link)[0]
                 subprocess.check_call(['tar', '-zxf', tarball])
                 name = os.path.basename(self.link).split('.')[0]
-                os.rename(name, self.path)
+                shutil.move(name, self.path)
                 os.unlink(tarball)
 
             cmd = ['java', '-Djava.library.path=' + self.path, '-jar',

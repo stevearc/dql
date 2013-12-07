@@ -6,7 +6,7 @@ except ImportError:
 from boto.dynamodb2.table import Table
 from boto.exception import JSONResponseError
 
-from .. import parser, Engine
+from .. import Engine
 from ..models import TableField
 
 
@@ -16,7 +16,7 @@ class TestSystem(TestCase):
     dynamo = None
 
     def setUp(self):
-        self.engine = Engine(parser, self.dynamo)
+        self.engine = Engine(self.dynamo)
         # Clear out any pre-existing tables
         for tablename in self.dynamo.list_tables()['TableNames']:
             Table(tablename, connection=self.dynamo).delete()
@@ -290,3 +290,14 @@ class TestSystem(TestCase):
             self.assertEquals(e.status, 400)
         else:
             assert False, "The test table should not exist"
+
+    def test_multiple_statements(self):
+        """ Engine can execute multiple queries separated by ';' """
+        result = self.engine.execute("""
+            CREATE TABLE test (id STRING HASH KEY);
+            INSERT INTO test (id, foo) VALUES ('a', 1), ('b', 2);
+            SCAN test
+        """)
+        scan_result = [dict(r) for r in result]
+        self.assertItemsEqual(scan_result, [{'id': 'a', 'foo': 1},
+                                            {'id': 'b', 'foo': 2}])

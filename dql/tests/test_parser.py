@@ -5,7 +5,7 @@ except ImportError:
     from unittest import TestCase
 from pyparsing import ParseException
 
-from .. import parser
+from ..grammar import statement_parser, parser
 
 
 TEST_CASES = {
@@ -119,6 +119,11 @@ TEST_CASES = {
         ('DUMP SCHEMA foobars, wibbles', ['DUMP', 'SCHEMA', ['foobars', 'wibbles']]),
         ('DUMP SCHEMA foobars wibbles', 'error'),
     ],
+    'multiple': [
+        ('DUMP SCHEMA;DUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
+        ('DUMP SCHEMA;\nDUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
+        ('DUMP SCHEMA\n;\nDUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
+    ],
 }
 
 
@@ -126,11 +131,14 @@ class TestParser(TestCase):
 
     """ Tests for the language parser """
 
-    def _run_tests(self, key):
+    def _run_tests(self, key, multiple=False):
         """ Run a set of tests """
         for string, result in TEST_CASES[key]:
             try:
-                parse_result = parser.parseString(string)
+                if multiple:
+                    parse_result = parser.parseString(string)
+                else:
+                    parse_result = statement_parser.parseString(string)
                 if result == 'error':
                     assert False, ("Parsing '%s' should have failed.\nGot: %s"
                                    % (string, parse_result.asList()))
@@ -205,3 +213,7 @@ class TestParser(TestCase):
     def test_dump(self):
         """ Run tests for DUMP statements """
         self._run_tests('dump')
+
+    def test_multiple_statements(self):
+        """ Run tests for multiple-line statements """
+        self._run_tests('multiple', True)

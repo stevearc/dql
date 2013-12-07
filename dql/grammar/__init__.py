@@ -1,9 +1,9 @@
 """ DQL language parser """
-from pyparsing import (delimitedList, Optional, Group, Forward, restOfLine,
-                       Keyword, LineEnd, Suppress, ZeroOrMore, oneOf)
+from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
+                       Suppress, ZeroOrMore, oneOf, StringEnd)
 
-from .common import (and_, op, from_, table, var, value, table_key, into,
-                     type_, upkey, set_)
+from .common import (from_, table, var, value, table_key, into, type_, upkey,
+                     set_)
 from .query import (where, select_where, limit, if_exists, if_not_exists,
                     using, filter_)
 
@@ -133,23 +133,24 @@ def create_dump():
 
 def create_parser():
     """ Create the language parser """
-    dql = ((create_select() |
-            create_scan() |
-            create_count() |
-            create_delete() |
-            create_update() |
-            create_create() |
-            create_insert() |
-            create_drop() |
-            create_alter() |
-            create_dump()
-            ) +
-           Optional(Suppress(';')) +
-           Suppress(LineEnd()))
+    dql = (create_select() |
+           create_scan() |
+           create_count() |
+           create_delete() |
+           create_update() |
+           create_create() |
+           create_insert() |
+           create_drop() |
+           create_alter() |
+           create_dump()
+           )
 
     dql.ignore('--' + restOfLine)
 
     return dql
 
 # pylint: disable=C0103
-parser = create_parser()
+_statement = create_parser()
+statement_parser = _statement + Suppress(';' | StringEnd())
+parser = Group(_statement) + ZeroOrMore(Suppress(
+    ';') + Group(_statement)) + Suppress(';' | StringEnd())
