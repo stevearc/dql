@@ -1,3 +1,5 @@
 pylint
 pep8
 autopep8
+sphinx
+numpydoc

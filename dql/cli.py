@@ -144,7 +144,7 @@ class DQLREPL(cmd.Cmd):
         Switch the AWS region
 
         You may also specify 'use local host=localhost port=8000' to use the
-        DyanmoDB Local service
+        DynamoDB Local service
 
         """
         self.prompt = region + '> '

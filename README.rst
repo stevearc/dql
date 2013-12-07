@@ -42,12 +42,12 @@ installed.
 
 TODO
 ====
-* Full documentation
+* CLI allows multi-line queries
 * More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)
 * Insert supports inserting items with different attrs
 * Support for the 'set' data types
-* CLI allows multi-line queries
 * Create indexes with different projection mappings
+* THROTTLE keyword to avoid breaking throughput
 * Fetch cloudwatch metrics during table describe
 * Engine should have local scope for variable name resolution
 * More unit test coverage
