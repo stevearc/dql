@@ -102,7 +102,7 @@ class DQLREPL(cmd.Cmd):
                 except KeyError:
                     print e
             except ParseException as e:
-                print " " * e.loc + "^\n" + e.msg
+                print " " * (e.loc + len(self.prompt)) + "^"
                 print e
             except:
                 traceback.print_exc()
