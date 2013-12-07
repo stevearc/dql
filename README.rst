@@ -14,7 +14,8 @@ Here are some basic examples to get you started::
     $ dql
     us-west-1> CREATE TABLE forum_threads (name STRING HASH KEY, subject STRING RANGE KEY)
     us-west-1> INSERT INTO forum_threads (name, subject, views, replies) VALUES ('Self Defense', 'Defense from Banana', 67, 4), ('Self Defense', 'Defense from Strawberry', 10, 0), ('Cheese Shop', 'Anyone seen the camembert?', 16, 1)
-    us-west-1> SELECT FROM forum_threads WHERE name = 'Self Defense'
+    us-west-1> COUNT forum_threads WHERE name = 'Self Defense'
+    us-west-1> SELECT * FROM forum_threads WHERE name = 'Self Defense'
     us-west-1> DELETE FROM forum_threads WHERE name = 'Cheese Shop'
     us-west-1> DROP TABLE forum_threads
 
@@ -38,8 +39,6 @@ installed.
 
 TODO
 ====
-* Select returns a generator
-* Count query
 * Select should allow table scans
 * Select should be able to grab multiple items (batch get)
 * Update statement

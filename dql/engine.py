@@ -75,6 +75,8 @@ class Engine(object):
         tree = self.parser.parseString(command)
         if tree.action == 'SELECT':
             return self._select(tree)
+        elif tree.action == 'COUNT':
+            return self._count(tree)
         elif tree.action == 'DELETE':
             return self._delete(tree)
         elif tree.action == 'UPDATE':
@@ -119,6 +121,20 @@ class Engine(object):
 
         table = Table(tablename, connection=self.connection)
         return table.query(**kwargs)
+
+    def _count(self, tree):
+        """ Run a COUNT statement """
+        tablename = tree.table
+        kwargs = {}
+        # Skip the 'AND's
+        for i in xrange(0, len(tree.where), 2):
+            key, op, val = tree.where[i]
+            kwargs[key + '__' + OPS[op]] = self.resolve(val)
+        if tree.using:
+            kwargs['index'] = self.resolve(tree.using[1])
+
+        table = Table(tablename, connection=self.connection)
+        return table.query_count(**kwargs)
 
     def _delete(self, tree):
         """ Run a DELETE statement """

@@ -32,6 +32,19 @@ TEST_CASES = {
         ('SELECT (foo, bar) FROM foobars WHERE foo = 0', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
         ('SELECT foo, bar FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
     ],
+    'count': [
+        ('COUNT foobars WHERE foo = 0', ['COUNT', 'foobars', 'where', ['foo', '=', ['0']]]),
+        ('COUNT foobars WHERE foo = 0 and bar = "green"', ['COUNT', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
+        ('COUNT foobars WHERE (foo = 0 and bar = "green")', ['COUNT', 'foobars', 'where', ['(', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']], ')']]),
+        ('COUNT foobars', 'error'),
+        ('COUNT WHERE foo = 0', 'error'),
+        ('COUNT "foobars" WHERE foo = 0', 'error'),
+        ('COUNT foobars WHERE foo = 0 garbage', 'error'),
+    ],
+    'count_using': [
+        ('COUNT foobars WHERE foo = 0 USING my_index', ['COUNT', 'foobars', 'where', ['foo', '=', ['0']], 'USING', ['my_index']]),
+        ('COUNT foobars WHERE foo = 0 AND bar < 4 USING my_index', ['COUNT', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '<', ['4']], 'USING', ['my_index']]),
+    ],
     'delete': [
         ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'where', ['foo', '=', ['0']]]),
         ('DELETE FROM foobars WHERE foo = 0 and bar = "green"', ['DELETE', 'FROM', 'foobars', 'where', ['foo', '=', ['0']], 'AND', ['bar', '=', ['"green"']]]),
@@ -109,6 +122,14 @@ class TestParser(TestCase):
     def test_select_attrs(self):
         """ SELECT may fetch only specific attributes """
         self._run_tests('select_attrs')
+
+    def test_count(self):
+        """ Run tests for COUNT statements """
+        self._run_tests('count')
+
+    def test_count_using(self):
+        """ COUNT tests that specify an index """
+        self._run_tests('count_using')
 
     def test_delete(self):
         """ Run tests for DELETE statements """

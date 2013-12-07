@@ -119,6 +119,15 @@ class TestSystem(TestCase):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'order': 'first'}])
 
+    def test_count(self):
+        """ COUNT statement counts items """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, "
+                   "bar NUMBER RANGE KEY)")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), "
+                   "('a', 2)")
+        count = self.query("COUNT foobar WHERE id = 'a' ")
+        self.assertEquals(count, 2)
+
     def test_delete(self):
         """ DELETE statement removes items """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, "

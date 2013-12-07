@@ -21,6 +21,14 @@ def create_select():
             Optional(limit))
 
 
+def create_count():
+    """ Create the grammar for the 'count' statement """
+    count = Upcase(Keyword("count", caseless=True)).setResultsName('action')
+
+    return (count + table + where +
+            Optional(using + value).setResultsName('using'))
+
+
 def create_create():
     """ Create the grammar for the 'create' statement """
     create = Upcase(Keyword("create", caseless=True)).setResultsName('action')
@@ -78,17 +86,16 @@ def create_update():
 
 def create_parser():
     """ Create the language parser """
-    select_stmt = create_select()
-    create_stmt = create_create()
-    delete_stmt = create_delete()
-    insert_stmt = create_insert()
-    drop_stmt = create_drop()
-    update_stmt = create_update()
+    dql = ((create_select() |
+            create_count() |
+            create_delete() |
+            create_update() |
+            create_create() |
+            create_insert() |
+            create_drop()) +
+           Suppress(LineEnd()))
 
-    dql = ((select_stmt | delete_stmt | update_stmt | create_stmt |
-            insert_stmt | drop_stmt) + Suppress(LineEnd()))
-    comment = "--" + restOfLine
-    dql.ignore(comment)
+    dql.ignore('--' + restOfLine)
 
     return dql
 
