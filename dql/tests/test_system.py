@@ -266,7 +266,8 @@ class TestSystem(TestCase):
 
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
-        self.query("CREATE TABLE test (id STRING HASH KEY) THROUGHPUT (2, 6)")
+        self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
+                   "KEY, ts NUMBER INDEX('ts-index')) THROUGHPUT (2, 6)")
         original = self.engine.describe('test')
         schema = self.query("DUMP SCHEMA")
         self.query("DROP TABLE test")

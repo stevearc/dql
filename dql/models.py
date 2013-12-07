@@ -200,7 +200,7 @@ class TableMeta(object):
         ]
         if self.range_key is not None:
             parts.extend([',', self.range_key.schema])
-        for index in self.indexes:
+        for index in self.indexes.values():
             parts.extend([',', index.schema])
         parts.append(") THROUGHPUT (%d, %d);" % (self.read_throughput,
                                                  self.write_throughput))
