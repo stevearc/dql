@@ -52,12 +52,12 @@ installed.
 
 TODO
 ====
-* More complex "where" clauses (queries limited to QUERY_OPERATORS, scans to FILTER_OPERATORS)
-* Insert supports inserting items with different attrs
-* Support for the 'set' data types
-* Create indexes with different projection mappings
-* THROTTLE keyword to avoid breaking throughput
+* Fix the 'IN' filter in boto
+* file execution
 * Fetch cloudwatch metrics during table describe
 * Engine should have local scope for variable name resolution
+* THROTTLE keyword to avoid breaking throughput
 * More unit test coverage
 * CLI should autocomplete table names
+* Insert supports inserting items with different attrs
+* Create indexes with different projection mappings

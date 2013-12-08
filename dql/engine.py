@@ -4,6 +4,7 @@ from boto.dynamodb2.table import Table
 from boto.dynamodb2.items import Item
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
                                   STRING_SET, BINARY_SET, Dynamizer)
+from boto.dynamodb.types import Binary
 from boto.exception import JSONResponseError
 from pyparsing import ParseException
 
@@ -18,6 +19,10 @@ OPS = {
     '>=': 'gte',
     '<': 'lt',
     '<=': 'lte',
+    'BEGINS WITH': 'beginswith',
+    'IN': 'in',
+    'CONTAINS': 'contains',
+    'NOT CONTAINS': 'ncontains',
 }
 
 TYPES = {
@@ -129,7 +134,7 @@ class Engine(object):
 
     def resolve(self, val):
         """ Resolve a value into a string or number """
-        if val.getName() == 'identifier':
+        if val.getName() == 'var':
             # TODO: have a local scope to look up variables
             raise NotImplementedError
         elif val.getName() == 'number':
@@ -141,7 +146,31 @@ class Engine(object):
             return val.str[1:-1]
         elif val.getName() == 'null':
             return None
+        elif val.getName() == 'binary':
+            return Binary(val.binary)
+        elif val.getName() == 'set':
+            return set([self.resolve(v) for v in val.set])
         raise SyntaxError("Unable to resolve value '%s'" % val)
+
+    def _where_kwargs(self, desc, clause):
+        """ Generate boto kwargs from a where clause """
+        kwargs = {}
+        for key, op, val in clause:
+            if op == 'BETWEEN':
+                kwargs[key + '__between'] = (self.resolve(val[0]),
+                                             self.resolve(val[1]))
+            elif op == 'IS':
+                if val == 'NULL':
+                    kwargs[key + '__null'] = True
+                elif val == 'NOT NULL':
+                    kwargs[key + '__null'] = False
+                else:
+                    raise SyntaxError("Well this is odd: %s" % val)
+            else:
+                kwargs[key + '__' + OPS[op]] = self.resolve(val)
+            if key in desc.indexes:
+                kwargs['index'] = desc.indexes[key].index_name
+        return kwargs
 
     def _iter_where_in(self, tree):
         """ Iterate over the WHERE KEYS IN and generate primary keys """
@@ -168,10 +197,7 @@ class Engine(object):
             keys = list(self._iter_where_in(tree))
             return table.batch_get(keys=keys, **kwargs)
         else:
-            for key, op, val in tree.where:
-                kwargs[key + '__' + OPS[op]] = self.resolve(val)
-                if key in desc.indexes:
-                    kwargs['index'] = desc.indexes[key].index_name
+            kwargs.update(self._where_kwargs(desc, tree.where))
             if tree.limit:
                 kwargs['limit'] = self.resolve(tree.limit[1])
             if tree.using:
@@ -186,9 +212,7 @@ class Engine(object):
     def _scan(self, tree):
         """ Run a SCAN statement """
         tablename = tree.table
-        kwargs = {}
-        for key, op, val in tree.filter:
-            kwargs[key + '__' + OPS[op]] = self.resolve(val)
+        kwargs = self._where_kwargs(self.describe(tablename), tree.filter)
         if tree.limit:
             kwargs['limit'] = self.resolve(tree.limit[1])
 
@@ -199,11 +223,7 @@ class Engine(object):
         """ Run a COUNT statement """
         tablename = tree.table
         desc = self.describe(tablename)
-        kwargs = {}
-        for key, op, val in tree.where:
-            kwargs[key + '__' + OPS[op]] = self.resolve(val)
-            if key in desc.indexes:
-                kwargs['index'] = desc.indexes[key].index_name
+        kwargs = self._where_kwargs(desc, tree.where)
         if tree.using:
             kwargs['index'] = self.resolve(tree.using[1])
         if tree.consistent:
@@ -226,10 +246,7 @@ class Engine(object):
             keys = list(self._iter_where_in(tree))
             results = table.batch_get(keys=keys)
         else:
-            for key, op, val in tree.where:
-                kwargs[key + '__' + OPS[op]] = self.resolve(val)
-                if key in desc.indexes:
-                    kwargs['index'] = desc.indexes[key].index_name
+            kwargs.update(self._where_kwargs(desc, tree.where))
             if tree.using:
                 kwargs['index'] = self.resolve(tree.using[1])
             results = table.query(**kwargs)

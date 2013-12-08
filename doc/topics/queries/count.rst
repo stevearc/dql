@@ -36,13 +36,19 @@ Parameters
 **tablename**
     The name of the table
 
-**expression**
-    Count only elements that match this expression. The supported operators are
-    ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. The only conjunction
-    allowed is ``AND``.
-
 **index**
     When the WHERE expression uses an indexed attribute, this allows you to
     manually specify which index name to use for the query. It should generally
     not be needed, as the DQL engine will automatically detect the correct
     index to use for a query.
+
+Where Clause
+------------
+
+Examples
+########
+.. code-block:: sql
+
+    WHERE hkey = 'a' AND bar > 5 AND baz <= 16
+    WHERE hkey = 1 AND bar BEGINS WITH "prefix"
+    WHERE hkey = 1 AND bar BETWEEN (1, 100)

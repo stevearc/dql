@@ -6,6 +6,7 @@ except ImportError:
 from pyparsing import ParseException
 
 from ..grammar import statement_parser, parser
+from ..grammar.query import where, select_where, filter_
 
 
 TEST_CASES = {
@@ -14,9 +15,9 @@ TEST_CASES = {
         ('SELECT CONSISTENT * FROM foobars WHERE foo = 0', ['SELECT', 'CONSISTENT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('SELECT * FROM foobars WHERE foo = 0 DESC', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'DESC']),
         ('SELECT * FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('SELECT * FROM foobars WHERE (foo = 0 and bar = "green")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('SELECT * FROM foobars', 'error'),
         ('SELECT * foobars WHERE foo = 0', 'error'),
+        ('SELECT * FROM foobars WHERE foo != 0', 'error'),
         ('SELECT * FROM "foobars" WHERE foo = 0', 'error'),
         ('SELECT * FROM foobars WHERE foo = 0 garbage', 'error'),
     ],
@@ -41,8 +42,7 @@ TEST_CASES = {
     'scan': [
         ('SCAN foobars', ['SCAN', 'foobars']),
         ('SCAN foobars FILTER foo = 0', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']]]]),
-        ('SCAN foobars FILTER foo = 0 and bar = "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('SCAN foobars FILTER (foo = 0 and bar = "green")', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
+        ('SCAN foobars FILTER foo = 0 and bar != "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], ['bar', '!=', ['"green"']]]]),
         ('SCAN "foobars"', 'error'),
         ('SCAN foobars garbage', 'error'),
     ],
@@ -50,7 +50,6 @@ TEST_CASES = {
         ('COUNT foobars WHERE foo = 0', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('COUNT CONSISTENT foobars WHERE foo = 0', ['COUNT', 'CONSISTENT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('COUNT foobars WHERE foo = 0 and bar = "green"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('COUNT foobars WHERE (foo = 0 and bar = "green")', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('COUNT foobars', 'error'),
         ('COUNT WHERE foo = 0', 'error'),
         ('COUNT "foobars" WHERE foo = 0', 'error'),
@@ -63,7 +62,6 @@ TEST_CASES = {
     'delete': [
         ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('DELETE FROM foobars WHERE foo = 0 and bar = "green"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('DELETE FROM foobars WHERE (foo = 0 and bar = "green")', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
         ('DELETE FROM foobars WHERE foo = 0 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
         ('DELETE FROM foobars WHERE foo = 0 AND bar = 4 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['4']]], 'USING', ['my_index']]),
         ('DELETE FROM foobars', 'error'),
@@ -100,6 +98,7 @@ TEST_CASES = {
     'insert': [
         ('INSERT INTO foobars (foo, bar) VALUES (1, 2)', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['1'], ['2']]]]),
         ('INSERT INTO foobars (foo, bar) VALUES (1, 2), (3, 4)', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['1'], ['2']], [['3'], ['4']]]]),
+        ('INSERT INTO foobars (foo, bar) VALUES (b"binary", ("set", "of", "values"))', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['b"binary"'], [['"set"'], ['"of"'], ['"values"']]]]]),
         ('INSERT foobars (foo, bar) VALUES (1, 2)', 'error'),
         ('INSERT INTO foobars foo, bar VALUES (1, 2)', 'error'),
         ('INSERT INTO foobars (foo, bar) VALUES', 'error'),
@@ -127,6 +126,36 @@ TEST_CASES = {
         ('DUMP SCHEMA;\nDUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
         ('DUMP SCHEMA\n;\nDUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
     ],
+    'where': [
+        ('WHERE foo = 1 AND bar > 1', ['WHERE', [['foo', '=', ['1']], ['bar', '>', ['1']]]]),
+        ('WHERE foo >= 1 AND bar < 1', ['WHERE', [['foo', '>=', ['1']], ['bar', '<', ['1']]]]),
+        ('WHERE foo <= 1', ['WHERE', [['foo', '<=', ['1']]]]),
+        ('WHERE foo BEGINS WITH "flap"', ['WHERE', [['foo', 'BEGINS WITH', ['"flap"']]]]),
+        ('WHERE foo BETWEEN (1, 5)', ['WHERE', [['foo', 'BETWEEN', [['1'], ['5']]]]]),
+        ('WHERE foo != 1', 'error'),
+        ('WHERE foo BETWEEN 1', 'error'),
+        ('WHERE foo BETWEEN (1, 2, 3)', 'error'),
+    ],
+    'select_where': [
+        ('WHERE foo = 1 AND bar > 1', ['WHERE', [['foo', '=', ['1']], ['bar', '>', ['1']]]]),
+        ('WHERE KEYS IN (1)', ['WHERE', 'KEYS', 'IN', [[['1']]]]),
+        ('WHERE KEYS IN (1, 2), (3, 4)', ['WHERE', 'KEYS', 'IN', [[['1'], ['2']], [['3'], ['4']]]]),
+        ('WHERE KEYS IN (1, 2, 3)', 'error'),
+    ],
+    'filter': [
+        ('FILTER foo = 1 AND bar > 1', ['FILTER', [['foo', '=', ['1']], ['bar', '>', ['1']]]]),
+        ('FILTER foo >= 1 AND bar < 1', ['FILTER', [['foo', '>=', ['1']], ['bar', '<', ['1']]]]),
+        ('FILTER foo <= 1 AND bar != 1', ['FILTER', [['foo', '<=', ['1']], ['bar', '!=', ['1']]]]),
+        ('FILTER foo IS NULL AND bar IS NOT NULL', ['FILTER', [['foo', 'IS', 'NULL'], ['bar', 'IS', 'NOT NULL']]]),
+        ('FILTER foo BEGINS WITH "flap"', ['FILTER', [['foo', 'BEGINS WITH', ['"flap"']]]]),
+        ('FILTER foo CONTAINS 1', ['FILTER', [['foo', 'CONTAINS', ['1']]]]),
+        ('FILTER foo NOT CONTAINS 1', ['FILTER', [['foo', 'NOT CONTAINS', ['1']]]]),
+        ('FILTER foo IN (1, 2)', ['FILTER', [['foo', 'IN', [['1'], ['2']]]]]),
+        ('FILTER foo BETWEEN (1, 5)', ['FILTER', [['foo', 'BETWEEN', [['1'], ['5']]]]]),
+        ('FILTER foo BETWEEN 1', 'error'),
+        ('FILTER foo BETWEEN (1, 2, 3)', 'error'),
+        ('FILTER foo IN "hi"', 'error'),
+    ],
 }
 
 
@@ -134,14 +163,11 @@ class TestParser(TestCase):
 
     """ Tests for the language parser """
 
-    def _run_tests(self, key, multiple=False):
+    def _run_tests(self, key, grammar=statement_parser):
         """ Run a set of tests """
         for string, result in TEST_CASES[key]:
             try:
-                if multiple:
-                    parse_result = parser.parseString(string)
-                else:
-                    parse_result = statement_parser.parseString(string)
+                parse_result = grammar.parseString(string)
                 if result == 'error':
                     assert False, ("Parsing '%s' should have failed.\nGot: %s"
                                    % (string, parse_result.asList()))
@@ -219,4 +245,16 @@ class TestParser(TestCase):
 
     def test_multiple_statements(self):
         """ Run tests for multiple-line statements """
-        self._run_tests('multiple', True)
+        self._run_tests('multiple', parser)
+
+    def test_where(self):
+        """ Run tests for the where clause """
+        self._run_tests('where', where)
+
+    def test_select_where(self):
+        """ Run tests for the where clause on select statements """
+        self._run_tests('select_where', select_where)
+
+    def test_filter(self):
+        """ Run tests for the filter clause """
+        self._run_tests('filter', filter_)

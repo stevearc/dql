@@ -32,3 +32,14 @@ Parameters
     Comma-separated list of data to insert. The data is of the form *(var [,
     var]...)* and must contain the same number of items as the **attributes**
     parameter.
+
+Data Types
+----------
+Below are examples of how to represent the different dynamo data types in DQL
+
+**NUMBER**: ``123``
+**STRING**: ``'abc'`` or ``"abc"``
+**BINARY**: ``b'abc'`` or ``b"abc"``
+**NUMBER SET**: ``(1, 2, 3)``
+**STRING SET**: ``('a', 'b', 'c')``
+**BINARY SET**: ``(b'a', b'b', b'c')``

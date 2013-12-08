@@ -28,21 +28,28 @@ Parameters
 **tablename**
     The name of the table
 
-**expression**
-    Count only elements that match this expression. The supported operators are
-    ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. The only conjunction
-    allowed is ``AND``.
-
-    There is another form available that looks like ``KEYS IN (pkey) [,
-    (pkey)]...`` The *pkey* is a single value if the table only has a hash
-    key, or two comma-separated values if there is also a range key.
-
-    When using the first form, DQL does a table query to find matching items
-    and then performs the deletes. The second form does a batch get instead of
-    a query.
-
 **index**
     When the WHERE expression uses an indexed attribute, this allows you to
     manually specify which index name to use for the query. It should generally
     not be needed, as the DQL engine will automatically detect the correct
     index to use for a query.
+
+Where Clause
+------------
+
+Examples
+########
+.. code-block:: sql
+
+    WHERE hkey = 'a' AND bar > 5 AND baz <= 16
+    WHERE hkey = 1 AND bar BEGINS WITH "prefix"
+    WHERE hkey = 1 AND bar BETWEEN (1, 100)
+    WHERE KEYS IN ('hkey1', 'rkey1'), ('hkey2', 'rkey2')
+    WHERE KEYS IN ('hkey'), ('hkey2')
+
+Notes
+#####
+When using the ``KEYS IN`` form, DQL will perform a batch get instead of a
+table query. See the `AWS docs
+<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html>`_
+for more information on query parameters.

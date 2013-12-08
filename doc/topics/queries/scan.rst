@@ -27,10 +27,24 @@ Parameters
 **tablename**
     The name of the table
 
-**expression**
-    Only return elements that match this expression. The supported operators
-    are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. The only conjunction
-    allowed is ``AND``.
-
 **limit**
     Maximum number of results to return
+
+Filter Clause
+-------------
+
+Examples
+########
+.. code-block:: sql
+
+    FILTER hkey = 'a' AND bar > 5 AND baz != 16
+    FILTER hkey = 1 AND bar BEGINS WITH "prefix"
+    FILTER hkey = 1 AND bar BETWEEN (1, 100)
+    FILTER hkey = 1 AND bar IS NULL AND baz IS NOT NULL
+    FILTER hkey = 1 AND bar CONTAINS 5 AND baz NOT CONTAINS 5
+
+Notes
+#####
+See the `AWS docs
+<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Scan.html>`_
+for more information on scan parameters.

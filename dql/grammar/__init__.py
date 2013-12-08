@@ -118,14 +118,14 @@ def create_update():
                              (updated + old) |
                              (updated + new))\
         .setResultsName('returns')
-    return (update + table + set_ + set_values + Optional(select_where) +
-            Optional(return_))
+    return (update + table + upkey('set') + set_values + Optional(select_where)
+            + Optional(return_))
 
 
 def create_alter():
     """ Create the grammar for the 'alter' statement """
     alter = upkey('alter').setResultsName('action')
-    return alter + table_key + table + set_ + throughput
+    return alter + table_key + table + upkey('set') + throughput
 
 
 def create_dump():
