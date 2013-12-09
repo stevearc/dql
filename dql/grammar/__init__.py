@@ -1,7 +1,7 @@
 """ DQL language parser """
 from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        Suppress, ZeroOrMore, oneOf, StringEnd, CharsNotIn,
-                       quotedString, OneOrMore)
+                       quotedString, OneOrMore, Regex)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
                      set_)

@@ -85,6 +85,7 @@ class DQLClient(cmd.Cmd):
     _access_key = None
     _secret_key = None
     _coding = False
+    _scope = {}
 
     def initialize(self, region='us-west-1', host='localhost', port=8000,
                    access_key=None, secret_key=None):
@@ -136,7 +137,7 @@ class DQLClient(cmd.Cmd):
     def do_file(self, filename):
         """ Read and execute a .dql file """
         with open(filename, 'r') as infile:
-            self._run_cmd(infile.read())
+            self._run_cmd(infile.read(), pdql=filename.lower().endswith('.py'))
 
     def complete_file(self, text, line, *_):
         """ Autocomplete DQL file lookup """
@@ -147,14 +148,15 @@ class DQLClient(cmd.Cmd):
             """ Check if a file is .dql or a dir """
             return (not filename.startswith('.') and
                     (os.path.isdir(os.path.join(parent, filename)) or
-                     filename.lower().endswith('.dql')))
+                     filename.lower().endswith('.dql') or
+                     filename.lower().endswith('.py')))
 
         def addslash(path):
             """ Append a slash if a file is a directory """
-            if not path.endswith('.dql'):
-                return path + '/'
-            else:
+            if path.lower().endswith('.dql') or path.lower().endswith('.py'):
                 return path + ' '
+            else:
+                return path + '/'
         if not os.path.exists(curpath) or not os.path.isdir(curpath):
             curpath = os.path.dirname(curpath)
         return [addslash(f) for f in os.listdir(curpath) if f.startswith(text)
@@ -216,13 +218,16 @@ class DQLClient(cmd.Cmd):
 
     def default(self, command):
         if self._coding:
-            self.engine.eval(command)
+            exec command in self._scope
         else:
             self._run_cmd(command)
 
-    def _run_cmd(self, command):
+    def _run_cmd(self, command, pdql=False):
         """ Run a DQL command """
-        results = self.engine.execute(command)
+        if pdql:
+            results = self.engine.execute_pdql(command)
+        else:
+            results = self.engine.execute(command, scope=self._scope)
         if isinstance(results, ResultSet):
             for result in results:
                 print(20 * '-')

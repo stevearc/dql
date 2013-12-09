@@ -113,9 +113,9 @@ class BaseSystemTest(TestCase):
         for tablename in self.dynamo.list_tables()['TableNames']:
             Table(tablename, connection=self.dynamo).delete()
 
-    def query(self, command):
+    def query(self, command, scope=None):
         """ Shorthand because I'm lazy """
-        return self.engine.execute(command)
+        return self.engine.execute(command, scope=scope)
 
     def make_table(self, name='foobar', hash_key='id', range_key='bar',
                    index=None):

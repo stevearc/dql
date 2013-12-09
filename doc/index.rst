@@ -6,6 +6,7 @@ DQL - DynamoDB Query Language
     :glob:
 
     topics/getting_started
+    topics/advanced_usage
     topics/queries/index
 
 API Reference

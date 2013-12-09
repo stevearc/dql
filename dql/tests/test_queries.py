@@ -1,13 +1,13 @@
-""" System tests """
+""" Tests for queries """
 from boto.exception import JSONResponseError
 
 from . import BaseSystemTest
 from ..models import TableField
 
 
-class TestSystem(BaseSystemTest):
+class TestQueries(BaseSystemTest):
 
-    """ System tests """
+    """ System tests for queries """
 
     def test_create(self):
         """ CREATE statement should make a table """
@@ -387,9 +387,9 @@ class TestScan(BaseSystemTest):
         """ SCAN can filter if an attr is in a set """
         # There's a bug in boto that prevents this from working
         # It was fixed here: https://github.com/boto/boto/pull/1896
-        #self.make_table()
+        # self.make_table()
         #self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5), ('a', 2)")
-        #results = self.query("SCAN foobar "
+        # results = self.query("SCAN foobar "
         #                     "FILTER id = 'a' AND bar IN (1, 3, 5)")
         #results = [dict(r) for r in results]
         #self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])

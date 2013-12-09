@@ -1,17 +1,19 @@
 """ Execution engine """
+import re
 from datetime import datetime, timedelta
-from boto.ec2.cloudwatch import connect_to_region
+
+from boto.dynamodb.types import Binary
 from boto.dynamodb2.fields import HashKey, RangeKey, AllIndex
-from boto.dynamodb2.table import Table
 from boto.dynamodb2.items import Item
+from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
                                   STRING_SET, BINARY_SET, Dynamizer)
-from boto.dynamodb.types import Binary
+from boto.ec2.cloudwatch import connect_to_region
 from boto.exception import JSONResponseError
 from pyparsing import ParseException
 
-from .models import TableMeta
 from .grammar import parser, line_parser
+from .models import TableMeta
 
 
 OPS = {
@@ -123,10 +125,6 @@ class Engine(object):
         self._cloudwatch_connection = None
         self.cached_descriptions = {}
 
-    def eval(self, code):
-        """ Run some python code and update the engine scope """
-        exec code in self.scope
-
     def describe_all(self):
         """ Describe all tables in the connected region """
         tables = self.connection.list_tables()['TableNames']
@@ -165,12 +163,47 @@ class Engine(object):
 
         return self.cached_descriptions[tablename]
 
-    def execute(self, commands):
-        """ Parse and run a DQL string """
+    def execute(self, commands, scope=None):
+        """
+        Parse and run a DQL string
+
+        Parameters
+        ----------
+        commands : str
+            The DQL command string
+        scope : dict, optional
+            A dict that will provide name resolution for variables in DQL
+
+        """
+        self.scope = scope or {}
         tree = parser.parseString(commands)
         for statement in tree:
             result = self._run(statement)
         return result
+
+    def compile_pdql(self, commands):
+        """ Compile a PDQL string into a python method definition """
+        pattern = re.compile(r'"""d:.*?"""', flags=re.S | re.M | re.I)
+
+        def sub(match):
+            """ Sub out the ``DQL`` for a call to the engine """
+            cmd = match.group()[5:-3].strip()
+            if not cmd.endswith(';'):
+                cmd += ';'
+            return '__engine__.execute("""%s""", scope=locals())' % cmd
+        commands = re.sub(pattern, sub, commands)
+
+        method_def = "def run_pdql(__engine__):\n"
+        for line in commands.splitlines():
+            method_def += '    ' + line + '\n'
+        return method_def
+
+    def execute_pdql(self, commands):
+        """ Execute a PDQL string """
+        method_def = self.compile_pdql(commands)
+        scope = {}
+        exec(method_def, scope)
+        return scope['run_pdql'](self)
 
     def _run(self, tree):
         """ Run a query from a parse tree """
@@ -509,7 +542,7 @@ class FragmentEngine(Engine):
         """ Clear any query fragments from the engine """
         self.fragments = ''
 
-    def execute(self, fragment):
+    def execute(self, fragment, scope=None):
         """
         Run or aggregate a query fragment
 
@@ -526,7 +559,7 @@ class FragmentEngine(Engine):
         else:
             self.last_query = self.fragments.strip()
             self.fragments = ''
-            return super(FragmentEngine, self).execute(self.last_query)
+            return super(FragmentEngine, self).execute(self.last_query, scope)
         return None
 
     def pformat_exc(self, exc):
