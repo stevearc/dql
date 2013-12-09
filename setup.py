@@ -1,5 +1,6 @@
 """ Setup file """
 import os
+import sys
 
 from setuptools import setup, find_packages
 from version_helper import git_version
@@ -16,10 +17,7 @@ REQUIREMENTS = [
     'mock',
 ]
 
-# python 2.6 needs special attention
-try:
-    import argparse
-except ImportError:
+if sys.version_info[:2] < (2, 7):
     REQUIREMENTS.extend(['ordereddict', 'argparse', 'unittest2'])
 
 if __name__ == "__main__":
