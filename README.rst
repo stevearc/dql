@@ -55,6 +55,5 @@ TODO
 * Engine should have local scope for variable name resolution
 * THROTTLE keyword to avoid breaking throughput
 * More unit test coverage
-* CLI should autocomplete table names
 * Insert supports inserting items with different attrs
 * Create indexes with different projection mappings

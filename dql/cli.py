@@ -182,6 +182,11 @@ class DQLClient(cmd.Cmd):
             print self.engine.describe(table, refresh=True,
                                        metrics=True).pformat()
 
+    def complete_ls(self, text, *_):
+        """ Autocomplete for ls """
+        return [t + ' ' for t in self.engine.cached_descriptions if
+                t.startswith(text)]
+
     @repl_command
     def do_use(self, region, host='localhost', port=8000):
         """

@@ -72,7 +72,7 @@ class Engine(object):
 
     def __init__(self,  connection):
         self._connection = connection
-        self._metadata = {}
+        self.cached_descriptions = {}
         self.dynamizer = Dynamizer()
         self.lossy_dynamizer = LossyFloatDynamizer()
         self._cloudwatch_connection = None
@@ -98,7 +98,7 @@ class Engine(object):
         """ Change the dynamo connection """
         self._connection = connection
         self._cloudwatch_connection = None
-        self._metadata = {}
+        self.cached_descriptions = {}
 
     def describe_all(self):
         """ Describe all tables in the connected region """
@@ -127,16 +127,16 @@ class Engine(object):
 
     def describe(self, tablename, refresh=False, metrics=False):
         """ Get the :class:`.TableMeta` for a table """
-        if refresh or tablename not in self._metadata:
+        if refresh or tablename not in self.cached_descriptions:
             desc = self.connection.describe_table(tablename)
             table = TableMeta.from_description(desc)
-            self._metadata[tablename] = table
+            self.cached_descriptions[tablename] = table
             if metrics:
                 read, write = self.get_capacity(tablename)
                 table.consumed_read_capacity = read
                 table.consumed_write_capacity = write
 
-        return self._metadata[tablename]
+        return self.cached_descriptions[tablename]
 
     def execute(self, commands):
         """ Parse and run a DQL string """
