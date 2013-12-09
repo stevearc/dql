@@ -68,6 +68,28 @@ class Engine(object):
     ----------
     connection : :class:`boto.dynamodb2.layer1.DynamoDBConnection`
 
+    Attributes
+    ----------
+    scope : dict
+        Lookup scope for variables
+
+    Notes
+    -----
+    One of the advanced features of the engine is the ability to set variables
+    which can later be referenced in queries. Whenever a STRING or NUMBER is
+    expected in a query, you may alternatively supply a variable name. That
+    name will be looked up in the engine's ``scope``. This allows you to do
+    things like::
+
+        engine.scope['myfoo'] = 'abc'
+        engine.execute("SELECT * FROM foobars WHERE foo = myfoo")
+
+    Additionally, you may use the :meth:`.Engine.eval` method to use python
+    code to set the scope::
+
+        engine.eval("nums = set(range(10))")
+        engine.execute("SCAN foobars FILTER foo IN nums")
+
     """
 
     def __init__(self,  connection):
@@ -76,6 +98,7 @@ class Engine(object):
         self.dynamizer = Dynamizer()
         self.lossy_dynamizer = LossyFloatDynamizer()
         self._cloudwatch_connection = None
+        self.scope = {}
 
     @property
     def connection(self):
@@ -99,6 +122,10 @@ class Engine(object):
         self._connection = connection
         self._cloudwatch_connection = None
         self.cached_descriptions = {}
+
+    def eval(self, code):
+        """ Run some python code and update the engine scope """
+        exec code in self.scope
 
     def describe_all(self):
         """ Describe all tables in the connected region """
@@ -173,8 +200,10 @@ class Engine(object):
     def resolve(self, val):
         """ Resolve a value into a string or number """
         if val.getName() == 'var':
-            # TODO: have a local scope to look up variables
-            raise NotImplementedError
+            if val.var in self.scope:
+                return self.scope[val.var]
+            else:
+                raise NameError("Name '%s' is not defined" % val.var)
         elif val.getName() == 'number':
             try:
                 return int(val.number)

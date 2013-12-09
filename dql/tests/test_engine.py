@@ -41,6 +41,31 @@ class TestEngine(TestCase):
         self.engine.execute("count CONSISTENT foobar WHERE id = 'a'")
         self.table.query_count.assert_called_with(id__eq='a', consistent=True)
 
+    def test_scope(self):
+        """ Eval runs code and updates scope """
+        self.engine.eval("var = 'hello'")
+        self.assertEquals(self.engine.scope['var'], 'hello')
+
+
+class TestEngineSystem(BaseSystemTest):
+
+    """ System tests for the Engine """
+
+    def test_variables(self):
+        """ Statements can use variables instead of string/number literals """
+        self.make_table()
+        self.engine.eval("id = 'a'")
+        self.query("INSERT INTO foobar (id, bar) VALUES (id, 5)")
+        results = self.query("SCAN foobar")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
+
+    def test_missing_var(self):
+        """ If a variable is missing it raises a NameError """
+        self.make_table()
+        self.assertRaises(NameError, self.query,
+                          "INSERT INTO foobar (id, bar) VALUES (id, 5)")
+
 
 class TestFragmentEngine(BaseSystemTest):
 

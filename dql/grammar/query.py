@@ -28,7 +28,7 @@ def create_filter_constraint():
     nnull = (var + upkey('is') + Combine(upkey('not') + upkey('null'), ' ', False))
     is_in = (var + upkey('in') + set_)
     ncontains = (var + Combine(upkey('not') + upkey('contains'), ' ', False) + primitive)
-    begins_with = (var + Combine(upkey('begins') + upkey('with'), ' ', False) + value)
+    begins_with = (var + Combine(upkey('begins') + upkey('with'), ' ', False) + primitive)
     return Group(between |
                  basic_constraint |
                  begins_with |

@@ -13,7 +13,7 @@ def upkey(name):
 and_, from_, into, in_, table_key, null, where_ = \
     map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where'])
 
-var = Word(alphas, alphanums + '_-').setName('variable')
+var = Word(alphas, alphanums + '_-').setName('variable').setResultsName('var')
 table = var.setResultsName('table')
 type_ = (upkey('string') |
          upkey('number') |
@@ -27,11 +27,10 @@ num = Combine(Optional(_sign) + Word(nums) +
 primitive = (null.setResultsName('null') |
              num.setResultsName('number') |
              quotedString.setResultsName('str') |
-             Combine('b' + quotedString).setResultsName('binary') |
-             var.setResultsName('var'))
+             Combine('b' + quotedString).setResultsName('binary'))
 set_ = (Suppress('(') + delimitedList(Group(primitive)) +
         Suppress(')')).setResultsName('set')
-value = Group(primitive | set_).setName('value')
+value = Group(primitive | set_ | var).setName('value')
 # Wrap these in a group so they can be used independently
-primitive = Group(primitive).setName('primitive')
-set_ = Group(set_).setName('set')
+primitive = Group(primitive | var).setName('primitive')
+set_ = Group(set_ | var).setName('set')

@@ -84,6 +84,7 @@ class DQLClient(cmd.Cmd):
     region = None
     _access_key = None
     _secret_key = None
+    _coding = False
 
     def initialize(self, region='us-west-1', host='localhost', port=8000,
                    access_key=None, secret_key=None):
@@ -120,7 +121,9 @@ class DQLClient(cmd.Cmd):
 
     def update_prompt(self):
         """ Update the prompt """
-        if self.engine.partial:
+        if self._coding:
+            self.prompt = '>>> '
+        elif self.engine.partial:
             self.prompt = len(self.region) * ' ' + '> '
         else:
             self.prompt = self.region + '> '
@@ -156,6 +159,16 @@ class DQLClient(cmd.Cmd):
             curpath = os.path.dirname(curpath)
         return [addslash(f) for f in os.listdir(curpath) if f.startswith(text)
                 and isdql(curpath, f)]
+
+    @repl_command
+    def do_code(self):
+        """ Switch to executing python code """
+        self._coding = True
+
+    @repl_command
+    def do_endcode(self):
+        """ Stop executing python code """
+        self._coding = False
 
     @repl_command
     def do_ls(self, table=None):
@@ -202,7 +215,10 @@ class DQLClient(cmd.Cmd):
         self.engine.connection = self.ddb
 
     def default(self, command):
-        self._run_cmd(command)
+        if self._coding:
+            self.engine.eval(command)
+        else:
+            self._run_cmd(command)
 
     def _run_cmd(self, command):
         """ Run a DQL command """

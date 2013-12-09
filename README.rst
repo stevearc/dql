@@ -52,8 +52,6 @@ installed.
 
 TODO
 ====
-* Engine should have local scope for variable name resolution
 * THROTTLE keyword to avoid breaking throughput
-* More unit test coverage
-* Insert supports inserting items with different attrs
 * Create indexes with different projection mappings
+* More unit test coverage
