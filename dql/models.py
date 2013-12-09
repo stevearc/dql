@@ -88,6 +88,10 @@ class TableMeta(object):
     read_throughput : int
     write_throughput : int
     decreases_today : int
+    consumed_read_capacity : int
+        May be None if unknown
+    consumed_write_capacity : int
+        May be None if unknown
 
     """
 
@@ -104,6 +108,8 @@ class TableMeta(object):
         self.read_throughput = read_throughput
         self.write_throughput = write_throughput
         self.decreases_today = decreases_today
+        self.consumed_read_capacity = None
+        self.consumed_write_capacity = None
 
     @classmethod
     def from_description(cls, description):
@@ -214,6 +220,14 @@ class TableMeta(object):
                                                          self.size))
         lines.append('read/write: %d/%d' % (self.read_throughput,
                                             self.write_throughput))
+        if self.consumed_read_capacity is not None:
+            read_percent = self.consumed_read_capacity / self.read_throughput
+            write_percent = (self.consumed_write_capacity /
+                             self.write_throughput)
+            lines.append('read/write usage: {0:.1f}/{1:.1f} ({2:.1%}/{3:.1%})'
+                         .format(self.consumed_read_capacity,
+                                 self.consumed_write_capacity, read_percent,
+                                 write_percent))
         lines.append('decreases remaining: %d' % self.decreases_remaining)
         lines.append(str(self.hash_key))
         if self.range_key is not None:

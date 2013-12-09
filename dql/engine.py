@@ -1,4 +1,6 @@
 """ Execution engine """
+from datetime import datetime, timedelta
+from boto.ec2.cloudwatch import connect_to_region
 from boto.dynamodb2.fields import HashKey, RangeKey, AllIndex
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.items import Item
@@ -73,16 +75,29 @@ class Engine(object):
         self._metadata = {}
         self.dynamizer = Dynamizer()
         self.lossy_dynamizer = LossyFloatDynamizer()
+        self._cloudwatch_connection = None
 
     @property
     def connection(self):
         """ Get the dynamo connection """
         return self._connection
 
+    @property
+    def cloudwatch_connection(self):
+        """ Lazy create a connection to cloudwatch """
+        if self._cloudwatch_connection is None:
+            self._cloudwatch_connection = \
+                connect_to_region(
+                    self.connection.region.name,
+                    aws_access_key_id=self.connection.aws_access_key_id,
+                    aws_secret_access_key=self.connection.aws_secret_access_key)
+        return self._cloudwatch_connection
+
     @connection.setter
     def connection(self, connection):
         """ Change the dynamo connection """
         self._connection = connection
+        self._cloudwatch_connection = None
         self._metadata = {}
 
     def describe_all(self):
@@ -93,11 +108,34 @@ class Engine(object):
             descs.append(self.describe(tablename, True))
         return descs
 
-    def describe(self, tablename, refresh=False):
+    def _get_metric(self, tablename, metric):
+        """ Fetch a read/write capacity metric """
+        end = datetime.now()
+        begin = end - timedelta(minutes=5)
+        m = self.cloudwatch_connection.get_metric_statistics(
+            60, begin, end, metric, 'AWS/DynamoDB', ['Sum'],
+            {'TableName': [tablename]})
+        if len(m) == 0:
+            return 0
+        else:
+            return m[0]['Sum'] / float((end - begin).total_seconds())
+
+    def get_capacity(self, tablename):
+        """ Get the consumed read/write capacity """
+        return (self._get_metric(tablename, 'ConsumedReadCapacityUnits'),
+                self._get_metric(tablename, 'ConsumedWriteCapacityUnits'))
+
+    def describe(self, tablename, refresh=False, metrics=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self._metadata:
             desc = self.connection.describe_table(tablename)
-            self._metadata[tablename] = TableMeta.from_description(desc)
+            table = TableMeta.from_description(desc)
+            self._metadata[tablename] = table
+            if metrics:
+                read, write = self.get_capacity(tablename)
+                table.consumed_read_capacity = read
+                table.consumed_write_capacity = write
+
         return self._metadata[tablename]
 
     def execute(self, commands):

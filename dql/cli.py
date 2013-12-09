@@ -179,7 +179,8 @@ class DQLClient(cmd.Cmd):
                     print str(getattr(table, field)).ljust(size),
                 print
         else:
-            print self.engine.describe(table, refresh=True).pformat()
+            print self.engine.describe(table, refresh=True,
+                                       metrics=True).pformat()
 
     @repl_command
     def do_use(self, region, host='localhost', port=8000):
