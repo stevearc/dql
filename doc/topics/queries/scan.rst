@@ -15,7 +15,7 @@ Examples
 
     SCAN foobars;
     SCAN foobars FILTER id = 'a' AND foo = 4;
-    SCAN foobars FILTER (id = 'a' AND foo = 4) LIMIT 100;
+    SCAN foobars FILTER id = 'a' AND foo CONTAINS 4 LIMIT 100;
 
 Description
 -----------

@@ -6,7 +6,7 @@ import argparse
 import boto.dynamodb2
 
 from .cli import DQLClient
-from .engine import Engine
+from .engine import Engine, FragmentEngine
 
 
 def main():

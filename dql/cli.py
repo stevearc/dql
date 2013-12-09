@@ -11,6 +11,8 @@ from boto.dynamodb2.results import ResultSet
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
+from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
+                   SELECT, UPDATE)
 
 
 try:
@@ -121,10 +123,6 @@ class DQLClient(cmd.Cmd):
         else:
             self.prompt = self.region + '> '
 
-    def help_help(self):
-        """Print the help text for help"""
-        print "List commands or print details about a command"
-
     def do_shell(self, arglist):
         """ Run a shell command """
         print subprocess.check_output(shlex.split(arglist))
@@ -191,3 +189,47 @@ class DQLClient(cmd.Cmd):
 
     def emptyline(self):
         self.default('')
+
+    def help_help(self):
+        """Print the help text for help"""
+        print "List commands or print details about a command"
+
+    def help_alter(self):
+        """ Print the help text for ALTER """
+        print ALTER
+
+    def help_count(self):
+        """ Print the help text for COUNT """
+        print COUNT
+
+    def help_create(self):
+        """ Print the help text for CREATE """
+        print CREATE
+
+    def help_delete(self):
+        """ Print the help text for DELETE """
+        print DELETE
+
+    def help_drop(self):
+        """ Print the help text for DROP """
+        print DROP
+
+    def help_dump(self):
+        """ Print the help text for DUMP """
+        print DUMP
+
+    def help_insert(self):
+        """ Print the help text for INSERT """
+        print INSERT
+
+    def help_scan(self):
+        """ Print the help text for SCAN """
+        print SCAN
+
+    def help_select(self):
+        """ Print the help text for SELECT """
+        print SELECT
+
+    def help_update(self):
+        """ Print the help text for UPDATE """
+        print UPDATE
