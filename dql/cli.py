@@ -1,4 +1,6 @@
 """ Interative DQL client """
+import os
+
 import boto.dynamodb2
 import boto.exception
 import cmd
@@ -128,6 +130,34 @@ class DQLClient(cmd.Cmd):
         print subprocess.check_output(shlex.split(arglist))
 
     @repl_command
+    def do_file(self, filename):
+        """ Read and execute a .dql file """
+        with open(filename, 'r') as infile:
+            self._run_cmd(infile.read())
+
+    def complete_file(self, text, line, *_):
+        """ Autocomplete DQL file lookup """
+        leading = line[len('file '):]
+        curpath = os.path.join(os.path.curdir, leading)
+
+        def isdql(parent, filename):
+            """ Check if a file is .dql or a dir """
+            return (not filename.startswith('.') and
+                    (os.path.isdir(os.path.join(parent, filename)) or
+                     filename.lower().endswith('.dql')))
+
+        def addslash(path):
+            """ Append a slash if a file is a directory """
+            if not path.endswith('.dql'):
+                return path + '/'
+            else:
+                return path + ' '
+        if not os.path.exists(curpath) or not os.path.isdir(curpath):
+            curpath = os.path.dirname(curpath)
+        return [addslash(f) for f in os.listdir(curpath) if f.startswith(text)
+                and isdql(curpath, f)]
+
+    @repl_command
     def do_ls(self, table=None):
         """ List all tables or print details of one table """
         if table is None:
@@ -166,6 +196,10 @@ class DQLClient(cmd.Cmd):
         self.engine.connection = self.ddb
 
     def default(self, command):
+        self._run_cmd(command)
+
+    def _run_cmd(self, command):
+        """ Run a DQL command """
         results = self.engine.execute(command)
         if isinstance(results, ResultSet):
             for result in results:

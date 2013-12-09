@@ -52,7 +52,6 @@ installed.
 
 TODO
 ====
-* file execution
 * Fetch cloudwatch metrics during table describe
 * Engine should have local scope for variable name resolution
 * THROTTLE keyword to avoid breaking throughput
