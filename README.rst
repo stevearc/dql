@@ -52,7 +52,6 @@ installed.
 
 TODO
 ====
-* Fix the 'IN' filter in boto
 * file execution
 * Fetch cloudwatch metrics during table describe
 * Engine should have local scope for variable name resolution
