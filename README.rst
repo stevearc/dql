@@ -55,3 +55,5 @@ TODO
 * THROTTLE keyword to avoid breaking throughput
 * Create indexes with different projection mappings
 * More unit test coverage
+* Subqueries
+* Expressions in UPDATE

@@ -62,59 +62,6 @@ class TestEngineSystem(BaseSystemTest):
         self.assertRaises(NameError, self.query,
                           "INSERT INTO foobar (id, bar) VALUES (id, 5)")
 
-    def test_pdql(self):
-        """ Engine can run PDQL """
-        pdql = """
-        if 1 > 2:
-            ""\"D: CREATE TABLE should_not_exist (id NUMBER HASH KEY) ""\"
-        else:
-            ""\"D: CREATE TABLE test (id NUMBER HASH KEY) ""\"
-        """
-        self.engine.execute_pdql(pdql)
-        self.engine.describe_all()
-        self.assertItemsEqual(self.engine.cached_descriptions.keys(), ['test'])
-
-    def test_pdql_return(self):
-        """ PDQL should return values from DQL blocks """
-        pdql = """
-        ""\"D: CREATE TABLE test (id NUMBER HASH KEY) ""\"
-        ""\"D: INSERT INTO test (id, foo) VALUES (1, 1), (2, 2) ""\"
-        return ""\"D: SCAN test ""\"
-        """
-        results = self.engine.execute_pdql(pdql)
-        results = [dict(r) for r in results]
-        self.assertItemsEqual(results, [{'id': 1, 'foo': 1},
-                                        {'id': 2, 'foo': 2}])
-
-    def test_pdql_vars(self):
-        """ PDQL should put local vars into scope """
-        pdql = """
-        ""\"D: CREATE TABLE test (id NUMBER HASH KEY) ""\"
-        foo1, foo2 = 1, 2
-        ""\"D: INSERT INTO test (id, foo) VALUES (1, foo1), (2, foo2) ""\"
-        return ""\"D: SCAN test ""\"
-        """
-        results = self.engine.execute_pdql(pdql)
-        results = [dict(r) for r in results]
-        self.assertItemsEqual(results, [{'id': 1, 'foo': 1},
-                                        {'id': 2, 'foo': 2}])
-
-    def test_pdql_multiline(self):
-        """ PDQL should be able to execute multiline queries """
-        pdql = """
-        ""\"D: CREATE TABLE test
-            (id NUMBER HASH KEY) ""\"
-        ""\"D: INSERT INTO test
-            (id, foo)
-            VALUES (1, 1),
-                   (2, 2) ""\"
-        return ""\"D: SCAN test ""\"
-        """
-        results = self.engine.execute_pdql(pdql)
-        results = [dict(r) for r in results]
-        self.assertItemsEqual(results, [{'id': 1, 'foo': 1},
-                                        {'id': 2, 'foo': 2}])
-
 
 class TestFragmentEngine(BaseSystemTest):
 

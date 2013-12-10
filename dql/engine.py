@@ -181,30 +181,6 @@ class Engine(object):
             result = self._run(statement)
         return result
 
-    def compile_pdql(self, commands):
-        """ Compile a PDQL string into a python method definition """
-        pattern = re.compile(r'"""d:.*?"""', flags=re.S | re.M | re.I)
-
-        def sub(match):
-            """ Sub out the ``DQL`` for a call to the engine """
-            cmd = match.group()[5:-3].strip()
-            if not cmd.endswith(';'):
-                cmd += ';'
-            return '__engine__.execute("""%s""", scope=locals())' % cmd
-        commands = re.sub(pattern, sub, commands)
-
-        method_def = "def run_pdql(__engine__):\n"
-        for line in commands.splitlines():
-            method_def += '    ' + line + '\n'
-        return method_def
-
-    def execute_pdql(self, commands):
-        """ Execute a PDQL string """
-        method_def = self.compile_pdql(commands)
-        scope = {}
-        exec(method_def, scope)
-        return scope['run_pdql'](self)
-
     def _run(self, tree):
         """ Run a query from a parse tree """
         if tree.action == 'SELECT':

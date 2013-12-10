@@ -137,7 +137,7 @@ class DQLClient(cmd.Cmd):
     def do_file(self, filename):
         """ Read and execute a .dql file """
         with open(filename, 'r') as infile:
-            self._run_cmd(infile.read(), pdql=filename.lower().endswith('.py'))
+            self._run_cmd(infile.read())
 
     def complete_file(self, text, line, *_):
         """ Autocomplete DQL file lookup """
@@ -148,12 +148,11 @@ class DQLClient(cmd.Cmd):
             """ Check if a file is .dql or a dir """
             return (not filename.startswith('.') and
                     (os.path.isdir(os.path.join(parent, filename)) or
-                     filename.lower().endswith('.dql') or
-                     filename.lower().endswith('.py')))
+                     filename.lower().endswith('.dql')))
 
         def addslash(path):
             """ Append a slash if a file is a directory """
-            if path.lower().endswith('.dql') or path.lower().endswith('.py'):
+            if path.lower().endswith('.dql'):
                 return path + ' '
             else:
                 return path + '/'
@@ -222,12 +221,9 @@ class DQLClient(cmd.Cmd):
         else:
             self._run_cmd(command)
 
-    def _run_cmd(self, command, pdql=False):
+    def _run_cmd(self, command):
         """ Run a DQL command """
-        if pdql:
-            results = self.engine.execute_pdql(command)
-        else:
-            results = self.engine.execute(command, scope=self._scope)
+        results = self.engine.execute(command, scope=self._scope)
         if isinstance(results, ResultSet):
             for result in results:
                 print(20 * '-')
