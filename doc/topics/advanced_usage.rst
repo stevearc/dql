@@ -6,11 +6,10 @@ API
 ---
 DQL execution is available as an API. For example::
 
-    import boto.dynamodb2
     import dql
 
-    conn = boto.dynamodb2.connect_to_region('us-west-1')
-    engine = dql.Engine(conn)
+    engine = dql.Engine()
+    engine.connect_to_region('us-west-1')
     results = engine.execute("SCAN mytable LIMIT 10")
     for item in results:
         print dict(item)

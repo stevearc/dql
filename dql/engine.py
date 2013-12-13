@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 
 import boto.dynamodb.types
+import boto.dynamodb2
 from boto.dynamodb.types import Binary
 from boto.dynamodb2.fields import HashKey, RangeKey, AllIndex
 from boto.dynamodb2.items import Item
@@ -84,7 +85,8 @@ class Engine(object):
 
     Parameters
     ----------
-    connection : :class:`boto.dynamodb2.layer1.DynamoDBConnection`
+    connection : :class:`boto.dynamodb2.layer1.DynamoDBConnection`, optional
+        If not present, you will need to call :meth:`.Engine.connect_to_region`
 
     Attributes
     ----------
@@ -110,13 +112,17 @@ class Engine(object):
 
     """
 
-    def __init__(self,  connection):
+    def __init__(self,  connection=None):
         self._connection = connection
         self.cached_descriptions = {}
         self.dynamizer = Dynamizer()
         self.lossy_dynamizer = LossyFloatDynamizer()
         self._cloudwatch_connection = None
         self.scope = {}
+
+    def connect_to_region(self, region, **kwargs):
+        """ Connect the engine to an AWS region """
+        self.connection = boto.dynamodb2.connect_to_region(region, **kwargs)
 
     @property
     def connection(self):
