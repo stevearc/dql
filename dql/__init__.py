@@ -2,6 +2,8 @@
 Simple SQL-like query language for dynamo
 
 """
+import os
+
 import argparse
 import boto.dynamodb2
 
@@ -15,11 +17,12 @@ def main():
     parse.add_argument('-c', '--command', help="Run this command and exit")
     regions = [region.name for region in boto.dynamodb2.regions()]
     regions.append('local')
-    parse.add_argument('-r', '--region', choices=regions, default='us-west-1',
-                       help="AWS region to connect to (default %(default)s")
+    region = os.environ.get('AWS_REGION', 'us-west-1')
+    parse.add_argument('-r', '--region', choices=regions, default=region,
+                       help="AWS region to connect to (default %(default)s)")
     parse.add_argument('-H', '--host', default='localhost',
                        help="Host to connect to if region is 'local' "
-                       "(default %(default)s")
+                       "(default %(default)s)")
     parse.add_argument('-p', '--port', default=8000,
                        help="Port to connect to if region is 'local' "
                        "(default %(default)s)")

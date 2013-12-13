@@ -18,7 +18,7 @@ Then do
 Since it uses :mod:`boto` under the hood, the authentication mechanism is the
 same. You may either set the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables, or pass them in on the command
-line
+line. You can change the default region by setting the ``AWS_REGION`` variable.
 
 .. code-block:: bash
 

@@ -52,9 +52,8 @@ installed.
 
 TODO
 ====
-* Default aws region in env var
 * THROTTLE keyword to avoid breaking throughput
 * Create indexes with different projection mappings
 * More unit test coverage
 * Subqueries
-* Expressions in UPDATE
+* Math expressions in UPDATE
