@@ -46,10 +46,6 @@ Examples
 
 Notes
 #####
-The ``IN`` filter does not work as of boto 2.19.0. It was fixed in `this pull
-request <https://github.com/boto/boto/pull/1896>`_, which has not been merged
-at of the time of this writing.
-
 See the `AWS docs
 <http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Scan.html>`_
 for more information on scan parameters.

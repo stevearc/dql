@@ -11,7 +11,7 @@ README = open(os.path.join(HERE, 'README.rst')).read()
 CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
-    'boto>=2.19.0',
+    'boto>=2.20.1',
     'pyparsing',
     'nose',
     'mock',
