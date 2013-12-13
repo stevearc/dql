@@ -1,7 +1,7 @@
 """ Execution engine """
-import re
 from datetime import datetime, timedelta
 
+import boto.dynamodb.types
 from boto.dynamodb.types import Binary
 from boto.dynamodb2.fields import HashKey, RangeKey, AllIndex
 from boto.dynamodb2.items import Item
@@ -10,10 +10,16 @@ from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
                                   STRING_SET, BINARY_SET, Dynamizer)
 from boto.ec2.cloudwatch import connect_to_region
 from boto.exception import JSONResponseError
+from decimal import Decimal, Inexact, Rounded
 from pyparsing import ParseException
 
 from .grammar import parser, line_parser
 from .models import TableMeta
+
+
+# HACK to force conversion of floats to Decimals, even if inexact
+boto.dynamodb.types.DYNAMODB_CONTEXT.traps[Inexact] = False
+boto.dynamodb.types.DYNAMODB_CONTEXT.traps[Rounded] = False
 
 
 OPS = {
@@ -217,7 +223,7 @@ class Engine(object):
             try:
                 return int(val.number)
             except ValueError:
-                return float(val.number)
+                return Decimal(val.number)
         elif val.getName() == 'str':
             return val.str[1:-1]
         elif val.getName() == 'null':

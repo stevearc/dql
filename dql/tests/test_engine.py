@@ -62,6 +62,16 @@ class TestEngineSystem(BaseSystemTest):
         self.assertRaises(NameError, self.query,
                           "INSERT INTO foobar (id, bar) VALUES (id, 5)")
 
+    def test_insert_float(self):
+        """ Inserting a float doesn't cause serialization issues """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5.284)")
+
+    def test_insert_float_from_var(self):
+        """ Inserting a float from a var doesn't cause serialization issues """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', bar)", scope={'bar': 1.234})
+
 
 class TestFragmentEngine(BaseSystemTest):
 
