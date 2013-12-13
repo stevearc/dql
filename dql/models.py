@@ -208,8 +208,8 @@ class TableMeta(object):
             parts.extend([',', self.range_key.schema])
         for index in self.indexes.values():
             parts.extend([',', index.schema])
-        parts.append(") THROUGHPUT (%d, %d);" % (self.read_throughput,
-                                                 self.write_throughput))
+        parts.append(", THROUGHPUT (%d, %d));" % (self.read_throughput,
+                                                  self.write_throughput))
         return ' '.join(parts)
 
     def pformat(self):

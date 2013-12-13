@@ -9,7 +9,6 @@ Synopsis
         [ IF NOT EXISTS ]
         tablename
         attributes
-        [ THROUGHPUT throughput ]
 
 Examples
 --------
@@ -17,8 +16,8 @@ Examples
 
     CREATE TABLE foobars (id STRING HASH KEY);
     CREATE TABLE IF NOT EXISTS foobars (id STRING HASH KEY);
-    CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY)
-        THROUGHPUT (1, 1);
+    CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY,
+                          THROUGHPUT (1, 1));
     CREATE TABLE foobars (id STRING HASH KEY,
                           foo BINARY RANGE KEY,
                           ts NUMBER INDEX('ts-index'),
@@ -41,11 +40,9 @@ Parameters
     A list of attribute declarations of the format (*name* *data type* *key type*)
     The available data types are ``STRING``, ``NUMBER``, and ``BINARY`` (DQL
     does not support the SET types yet). The available key types are ``HASH
-    KEY``, ``RANGE KEY``, and ``INDEX(name)``.
-
-**throughput**
-    The read/write throughput in the form (*read_throughput*,
-    *write_throughput*). If not present it will default to ``(5, 5)``
+    KEY``, ``RANGE KEY``, and ``INDEX(name)``. At the end of the attribute list
+    you may specify the ``THROUGHPUT``, which is in the form of
+    ``(read_throughput, write_throughput)``
 
 Schema Design at a Glance
 -------------------------

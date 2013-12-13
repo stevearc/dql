@@ -26,7 +26,7 @@ class TestQueries(BaseSystemTest):
     def test_create_throughput(self):
         """ CREATE statement can specify throughput """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY) THROUGHPUT (1, 2)")
+            "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 2))")
         desc = self.engine.describe('foobar')
         self.assertEquals(desc.read_throughput, 1)
         self.assertEquals(desc.write_throughput, 2)
@@ -34,7 +34,7 @@ class TestQueries(BaseSystemTest):
     def test_alter_throughput(self):
         """ Can alter throughput of a table """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY) THROUGHPUT (1, 1)")
+            "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         desc = self.engine.describe('foobar', refresh=True)
         self.assertEquals(desc.read_throughput, 2)
@@ -43,7 +43,7 @@ class TestQueries(BaseSystemTest):
     def test_alter_throughput_partial(self):
         """ Can alter just read or just write throughput of a table """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY) THROUGHPUT (1, 1)")
+            "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 0)")
         desc = self.engine.describe('foobar', refresh=True)
         self.assertEquals(desc.read_throughput, 2)
@@ -187,7 +187,7 @@ class TestQueries(BaseSystemTest):
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
         self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
-                   "KEY, ts NUMBER INDEX('ts-index')) THROUGHPUT (2, 6)")
+                   "KEY, ts NUMBER INDEX('ts-index'), THROUGHPUT (2, 6))")
         original = self.engine.describe('test')
         schema = self.query("DUMP SCHEMA")
         self.query("DROP TABLE test")

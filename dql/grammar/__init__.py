@@ -70,10 +70,10 @@ def create_create():
     attrs_declaration = (Suppress('(') +
                          Group(delimitedList(attr_declaration))
                          .setName('attrs').setResultsName('attrs')
-                         + Suppress(')'))
+                         + Optional(Suppress(',') + throughput) + Suppress(')'))
 
     return (create + table_key + Optional(if_not_exists) + table +
-            attrs_declaration + Optional(throughput))
+            attrs_declaration)
 
 
 def create_delete():

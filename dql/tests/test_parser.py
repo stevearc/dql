@@ -84,7 +84,7 @@ TEST_CASES = {
     ],
     'create': [
         ('CREATE TABLE foobars (foo string hash key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
-        ('CREATE TABLE foobars (foo string hash key) THROUGHPUT (1, 1)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], 'THROUGHPUT', [['1'], ['1']]]),
+        ('CREATE TABLE foobars (foo string hash key, THROUGHPUT (1, 1))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], 'THROUGHPUT', [['1'], ['1']]]),
         ('CREATE TABLE IF NOT EXISTS foobars (foo string hash key)', ['CREATE', 'TABLE', ['IF', 'NOT', 'EXISTS'], 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
         ('CREATE TABLE foobars (foo string hash key, bar number range key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER', ['RANGE', 'KEY']]]]),
         ('CREATE TABLE foobars (foo binary index("foo-index"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['"foo-index"']]]]]),
@@ -94,6 +94,8 @@ TEST_CASES = {
         ('CREATE TABLE foobars (foo binary)', 'error'),
         ('CREATE TABLE foobars (foo hash key)', 'error'),
         ('CREATE TABLE foobars (foo binary hash key) garbage', 'error'),
+    ],
+    'create_global': [
     ],
     'insert': [
         ('INSERT INTO foobars (foo, bar) VALUES (1, 2)', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['1'], ['2']]]]),
@@ -226,6 +228,10 @@ class TestParser(TestCase):
     def test_create(self):
         """ Run tests for CREATE statements """
         self._run_tests('create')
+
+    def test_create_global(self):
+        """ Run tests for CREATE statements with global indexes """
+        self._run_tests('create_global')
 
     def test_insert(self):
         """ Run tests for INSERT statements """
