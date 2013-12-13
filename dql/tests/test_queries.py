@@ -36,9 +36,18 @@ class TestQueries(BaseSystemTest):
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY) THROUGHPUT (1, 1)")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 2)")
-        desc = self.engine.describe('foobar')
+        desc = self.engine.describe('foobar', refresh=True)
         self.assertEquals(desc.read_throughput, 2)
         self.assertEquals(desc.write_throughput, 2)
+
+    def test_alter_throughput_partial(self):
+        """ Can alter just read or just write throughput of a table """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY) THROUGHPUT (1, 1)")
+        self.query("ALTER TABLE foobar SET THROUGHPUT (2, 0)")
+        desc = self.engine.describe('foobar', refresh=True)
+        self.assertEquals(desc.read_throughput, 2)
+        self.assertEquals(desc.write_throughput, 1)
 
     def test_create_if_not_exists(self):
         """ CREATE IF NOT EXISTS shouldn't fail if table exists """

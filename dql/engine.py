@@ -498,11 +498,18 @@ class Engine(object):
     def _alter(self, tree):
         """ Run an ALTER statement """
         tablename = tree.table
+        desc = self.describe(tablename, refresh=True)
         table = Table(tablename, connection=self.connection)
         throughput = {
-            'read': self.resolve(tree.throughput[0]),
-            'write': self.resolve(tree.throughput[1]),
+            'read': desc.read_throughput,
+            'write': desc.write_throughput,
         }
+        read = self.resolve(tree.throughput[0])
+        write = self.resolve(tree.throughput[1])
+        if read > 0:
+            throughput['read'] = read
+        if write > 0:
+            throughput['write'] = write
         table.update(throughput=throughput)
         return 'success'
 
