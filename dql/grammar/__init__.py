@@ -65,15 +65,25 @@ def create_create():
                   value + Suppress(')'))
     index_type = (hash_key | range_key | index)\
         .setName('index specification').setResultsName('index')
-    attr_declaration = Group(var.setResultsName('name') + type_ + index_type)\
+    attr_declaration = Group(var.setResultsName('name') + type_ +
+                             Optional(index_type))\
         .setName('attr').setResultsName('attr')
     attrs_declaration = (Suppress('(') +
                          Group(delimitedList(attr_declaration))
                          .setName('attrs').setResultsName('attrs')
                          + Optional(Suppress(',') + throughput) + Suppress(')'))
 
+    range_and_tp = ((Suppress(',') + var + Group(Suppress(',') + throughput)) |
+                    Group(Suppress(',') + throughput) |
+                    (Suppress(',') + var))
+    global_idx = Group(Suppress('(') + value + Suppress(',') + var +
+                       Optional(range_and_tp) + Suppress(')'))
+    global_indexes = Group(Suppress(upkey('global')) + Suppress(upkey('index'))
+                           + (delimitedList(global_idx)))\
+        .setResultsName('global_indexes')
+
     return (create + table_key + Optional(if_not_exists) + table +
-            attrs_declaration)
+            attrs_declaration + Optional(global_indexes))
 
 
 def create_delete():
@@ -125,7 +135,9 @@ def create_update():
 def create_alter():
     """ Create the grammar for the 'alter' statement """
     alter = upkey('alter').setResultsName('action')
-    return alter + table_key + table + upkey('set') + throughput
+    return (alter + table_key + table + upkey('set') +
+            Optional(upkey('index') + var.setResultsName('index')) +
+            throughput)
 
 
 def create_dump():

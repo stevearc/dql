@@ -1,11 +1,10 @@
 """ Tests for the query engine """
-from boto.dynamodb2.results import ResultSet
 from mock import MagicMock, patch, ANY
 from pyparsing import ParseException
 
 from . import TestCase, BaseSystemTest
 from ..engine import Engine, FragmentEngine
-from ..models import TableMeta
+from ..models import TableMeta, TableField
 
 
 class TestEngine(TestCase):
@@ -29,16 +28,21 @@ class TestEngine(TestCase):
 
     def test_select_in_consistent(self):
         """ SELECT by primary key can make a consistent read """
-        self.describe.return_value = TableMeta('', '', '', MagicMock(),
-                                               MagicMock(), 0, [], 1, 1, 0)
+        attrs = {
+            'foo': TableField('foo', 'NUMBER', 'HASH'),
+        }
+        self.describe.return_value = TableMeta('', '', attrs, {}, 1, 1, 0, 0,
+                                               0)
         self.engine.execute("SELECT CONSISTENT * FROM foobar "
                             "WHERE KEYS IN ('a', 1)")
         self.table.batch_get.assert_called_with(keys=ANY, consistent=True)
 
     def test_count_consistent(self):
         """ COUNT can make a consistent read """
-        self.describe.return_value = TableMeta('', '', '', MagicMock(),
-                                               MagicMock(), 0, [], 1, 1, 0)
+        attrs = {
+            'foo': TableField('foo', 'NUMBER', 'HASH'),
+        }
+        self.describe.return_value = TableMeta('', '', attrs, {}, 1, 1, 0, 0, 0)
         self.engine.execute("count CONSISTENT foobar WHERE id = 'a'")
         self.table.query_count.assert_called_with(id__eq='a', consistent=True)
 
@@ -70,7 +74,8 @@ class TestEngineSystem(BaseSystemTest):
     def test_insert_float_from_var(self):
         """ Inserting a float from a var doesn't cause serialization issues """
         self.make_table()
-        self.query("INSERT INTO foobar (id, bar) VALUES ('a', bar)", scope={'bar': 1.234})
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', bar)", scope={
+                   'bar': 1.234})
 
 
 class TestFragmentEngine(BaseSystemTest):

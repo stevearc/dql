@@ -20,7 +20,7 @@ except ImportError:
     from unittest import TestCase
 
 
-DYNAMO_LOCAL = 'https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz'
+DYNAMO_LOCAL = 'https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-12-12.tar.gz'
 
 
 class DynamoLocalPlugin(nose.plugins.Plugin):

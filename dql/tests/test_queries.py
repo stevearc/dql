@@ -2,34 +2,12 @@
 from boto.exception import JSONResponseError
 
 from . import BaseSystemTest
-from ..models import TableField
+from ..models import TableField, GlobalIndex
 
 
 class TestQueries(BaseSystemTest):
 
     """ System tests for queries """
-
-    def test_create(self):
-        """ CREATE statement should make a table """
-        self.query(
-            """
-            CREATE TABLE foobar (owner STRING HASH KEY,
-                                 id BINARY RANGE KEY,
-                                 ts NUMBER INDEX('ts-index'))
-            """)
-        desc = self.engine.describe('foobar')
-        self.assertEquals(desc.hash_key, TableField('owner', 'STRING', 'HASH'))
-        self.assertEquals(desc.range_key, TableField('id', 'BINARY', 'RANGE'))
-        self.assertItemsEqual(desc.indexes.values(),
-                              [TableField('ts', 'NUMBER', 'INDEX', 'ts-index')])
-
-    def test_create_throughput(self):
-        """ CREATE statement can specify throughput """
-        self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 2))")
-        desc = self.engine.describe('foobar')
-        self.assertEquals(desc.read_throughput, 1)
-        self.assertEquals(desc.write_throughput, 2)
 
     def test_alter_throughput(self):
         """ Can alter throughput of a table """
@@ -49,10 +27,16 @@ class TestQueries(BaseSystemTest):
         self.assertEquals(desc.read_throughput, 2)
         self.assertEquals(desc.write_throughput, 1)
 
-    def test_create_if_not_exists(self):
-        """ CREATE IF NOT EXISTS shouldn't fail if table exists """
-        self.query("CREATE TABLE foobar (owner STRING HASH KEY)")
-        self.query("CREATE TABLE IF NOT EXISTS foobar (owner STRING HASH KEY)")
+    def test_alter_index_throughput(self):
+        """ Can alter throughput of a global index """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))")
+        self.query("ALTER TABLE foobar SET INDEX foo_index THROUGHPUT (2, 2)")
+        desc = self.engine.describe('foobar', refresh=True)
+        index = desc.global_indexes['foo_index']
+        self.assertEquals(index.read_throughput, 2)
+        self.assertEquals(index.write_throughput, 2)
 
     def test_drop(self):
         """ DROP statement should drop a table """
@@ -187,7 +171,9 @@ class TestQueries(BaseSystemTest):
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
         self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
-                   "KEY, ts NUMBER INDEX('ts-index'), THROUGHPUT (2, 6))")
+                   "KEY, ts NUMBER INDEX('ts-index'), baz STRING, "
+                   "THROUGHPUT (2, 6)) "
+                   "GLOBAL INDEX ('myindex', bar, baz, THROUGHPUT (1, 2))")
         original = self.engine.describe('test')
         schema = self.query("DUMP SCHEMA")
         self.query("DROP TABLE test")
@@ -231,9 +217,9 @@ class TestSelect(BaseSystemTest):
         """ SELECT statement filters by hash key """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        # FIXME: I think dynamodb local has a bug related to this...
-        # results = self.query("SELECT * FROM foobar WHERE id = 'a'")
-        # self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
+        results = self.query("SELECT * FROM foobar WHERE id = 'a'")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
     def test_hash_range(self):
         """ SELECT statement filters by hash and range keys """
@@ -282,6 +268,18 @@ class TestSelect(BaseSystemTest):
                              "and ts < 150")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
+
+    def test_smart_global_index(self):
+        """ SELECT statement auto-selects correct global index name """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING "
+                   "RANGE KEY, bar NUMBER INDEX('bar-index'), baz STRING) "
+                   "GLOBAL INDEX ('gindex', baz)")
+        self.query("INSERT INTO foobar (id, foo, bar, baz) VALUES "
+                   "('a', 'a', 1, 'a'), ('b', 'b', 2, 'b')")
+        results = self.query("SELECT * FROM foobar WHERE baz = 'a'")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'foo': 'a',
+                                         'bar': 1, 'baz': 'a'}])
 
     def test_limit(self):
         """ SELECT statement should be able to specify limit """
@@ -422,3 +420,66 @@ class TestScan(BaseSystemTest):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5,
                                          'baz': set([1, 2, 3])}])
+
+
+class TestCreate(BaseSystemTest):
+
+    """ Tests for CREATE """
+
+    def test_create(self):
+        """ CREATE statement should make a table """
+        self.query(
+            """
+            CREATE TABLE foobar (owner STRING HASH KEY,
+                                 id BINARY RANGE KEY,
+                                 ts NUMBER INDEX('ts-index'))
+            """)
+        desc = self.engine.describe('foobar')
+        self.assertEquals(desc.hash_key, TableField('owner', 'STRING', 'HASH'))
+        self.assertEquals(desc.range_key, TableField('id', 'BINARY', 'RANGE'))
+        self.assertItemsEqual(desc.attrs.values(), [
+            TableField('owner', 'STRING', 'HASH'),
+            TableField('id', 'BINARY', 'RANGE'),
+            TableField('ts', 'NUMBER', 'INDEX', 'ts-index'),
+        ])
+
+    def test_create_throughput(self):
+        """ CREATE statement can specify throughput """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 2))")
+        desc = self.engine.describe('foobar')
+        self.assertEquals(desc.read_throughput, 1)
+        self.assertEquals(desc.write_throughput, 2)
+
+    def test_create_if_not_exists(self):
+        """ CREATE IF NOT EXISTS shouldn't fail if table exists """
+        self.query("CREATE TABLE foobar (owner STRING HASH KEY)")
+        self.query("CREATE TABLE IF NOT EXISTS foobar (owner STRING HASH KEY)")
+
+    def test_create_global_indexes(self):
+        """ Can create with global indexes """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY) "
+            "GLOBAL INDEX ('myindex', foo, id, THROUGHPUT (1, 2))"
+        )
+        desc = self.engine.describe('foobar')
+        hash_key = TableField('foo', 'NUMBER', 'HASH')
+        range_key = TableField('id', 'STRING', 'RANGE')
+        gindex = GlobalIndex('myindex', 'ACTIVE', hash_key, range_key, 1, 2, 0,
+                             0)
+        self.assertEquals(desc.global_indexes, {
+            'myindex': gindex,
+        })
+
+    def test_create_global_index_no_range(self):
+        """ Can create global index with no range key """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL INDEX ('myindex', foo, THROUGHPUT (1, 2))"
+        )
+        desc = self.engine.describe('foobar')
+        hash_key = TableField('foo', 'NUMBER', 'HASH')
+        gindex = GlobalIndex('myindex', 'ACTIVE', hash_key, None, 1, 2, 0, 0)
+        self.assertEquals(desc.global_indexes, {
+            'myindex': gindex,
+        })

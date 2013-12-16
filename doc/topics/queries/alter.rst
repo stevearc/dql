@@ -6,7 +6,9 @@ Synopsis
 .. code-block:: sql
 
     ALTER TABLE tablename
-        SET THROUGHPUT throughput
+        SET
+        [INDEX index]
+        THROUGHPUT throughput
 
 Examples
 --------
@@ -14,6 +16,7 @@ Examples
 
     ALTER TABLE foobars SET THROUGHPUT (4, 8);
     ALTER TABLE foobars SET THROUGHPUT (7, 0);
+    ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, 0);
 
 Description
 -----------
@@ -29,3 +32,6 @@ Parameters
 
 **throughput**
     The read/write throughput in the form (*read_throughput*, *write_throughput*)
+
+**index**
+    The name of the global index

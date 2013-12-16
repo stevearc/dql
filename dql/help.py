@@ -4,10 +4,13 @@ ALTER = """
     Alter a table's throughput
 
     ALTER TABLE tablename
-        SET THROUGHPUT throughput
+        SET
+        [INDEX index]
+        THROUGHPUT throughput
 
     Examples:
-        ALTER TABLE foobars SET THROUGHPUT (4, 8);
+        ALTER TABLE foobars SET THROUGHPUT (7, 0);
+        ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, 3);
 """
 
 COUNT = """
@@ -29,20 +32,26 @@ CREATE = """
     Create a new table
 
     CREATE TABLE
-        [ IF NOT EXISTS ]
+        [IF NOT EXISTS]
         tablename
         attributes
-        [ THROUGHPUT throughput ]
+        [GLOBAL INDEX indexes]
 
     Examples:
         CREATE TABLE foobars (id STRING HASH KEY);
         CREATE TABLE IF NOT EXISTS foobars (id STRING HASH KEY);
-        CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY)
-            THROUGHPUT (1, 1);
+        CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY,
+                              THROUGHPUT (1, 1));
         CREATE TABLE foobars (id STRING HASH KEY,
-                            foo BINARY RANGE KEY,
-                            ts NUMBER INDEX('ts-index'),
-                            views NUMBER INDEX('views-index'));
+                              foo BINARY RANGE KEY,
+                              ts NUMBER INDEX('ts-index'),
+                              views NUMBER INDEX('views-index'));
+        CREATE TABLE foobars (id STRING HASH KEY, bar STRING) GLOBAL INDEX
+                             ('bar-index', bar, THROUGHPUT (1, 1));
+        CREATE TABLE foobars (id STRING HASH KEY, bar STRING, baz NUMBER,
+                              THROUGHPUT (2, 2)) GLOBAL INDEX
+                             ('bar-index', bar, baz),
+                             ('baz-index', baz, THROUGHPUT (4, 2));
 """
 
 DELETE = """

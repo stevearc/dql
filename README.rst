@@ -54,7 +54,6 @@ TODO
 ====
 * THROTTLE keyword to avoid breaking throughput
 * Create indexes with different projection mappings
-* Global secondary indexes
 * More unit test coverage
 * Subqueries
 * Math expressions in UPDATE

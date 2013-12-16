@@ -177,8 +177,8 @@ class DQLClient(cmd.Cmd):
         if table is None:
             fields = OrderedDict([('Name', 'name'),
                                   ('Status', 'status'),
-                                  ('Read', 'read_throughput'),
-                                  ('Write', 'write_throughput')])
+                                  ('Read', 'total_read_throughput'),
+                                  ('Write', 'total_write_throughput')])
             tables = self.engine.describe_all()
             # Calculate max width of all items for each column
             sizes = [1 + max([len(str(getattr(t, f))) for t in tables] +
@@ -235,7 +235,11 @@ class DQLClient(cmd.Cmd):
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
         """Exit"""
-        return self.onecmd('exit')
+        if self._coding:
+            print
+            return self.onecmd('endcode')
+        else:
+            return self.onecmd('exit')
 
     @repl_command
     def do_exit(self):

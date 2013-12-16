@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 import boto.dynamodb.types
 import boto.dynamodb2
 from boto.dynamodb.types import Binary
-from boto.dynamodb2.fields import HashKey, RangeKey, AllIndex
+from boto.dynamodb2.fields import (BaseSchemaField, HashKey, RangeKey,
+                                   AllIndex)
 from boto.dynamodb2.items import Item
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
@@ -250,10 +251,12 @@ class Engine(object):
             return set([self.resolve(v) for v in val.set])
         raise SyntaxError("Unable to resolve value '%s'" % val)
 
-    def _where_kwargs(self, desc, clause):
+    def _where_kwargs(self, desc, clause, index=True):
         """ Generate boto kwargs from a where clause """
         kwargs = {}
+        all_keys = []
         for key, op, val in clause:
+            all_keys.append(key)
             if op == 'BETWEEN':
                 kwargs[key + '__between'] = (self.resolve(val[0]),
                                              self.resolve(val[1]))
@@ -266,8 +269,19 @@ class Engine(object):
                     raise SyntaxError("Well this is odd: %s" % val)
             else:
                 kwargs[key + '__' + OPS[op]] = self.resolve(val)
-            if key in desc.indexes:
-                kwargs['index'] = desc.indexes[key].index_name
+        if index:
+            if desc.hash_key.name in all_keys:
+                for key in all_keys:
+                    field = desc.attrs[key]
+                    if field.key_type == 'INDEX':
+                        kwargs['index'] = field.index_name
+                        break
+            else:
+                # Must be using a global index
+                for index in desc.global_indexes.itervalues():
+                    if index.hash_key.name in all_keys:
+                        kwargs['index'] = index.name
+                        break
         return kwargs
 
     def _iter_where_in(self, tree):
@@ -310,7 +324,8 @@ class Engine(object):
     def _scan(self, tree):
         """ Run a SCAN statement """
         tablename = tree.table
-        kwargs = self._where_kwargs(self.describe(tablename), tree.filter)
+        kwargs = self._where_kwargs(self.describe(tablename), tree.filter,
+                                    index=False)
         if tree.limit:
             kwargs['limit'] = self.resolve(tree.limit[1])
 
@@ -436,33 +451,75 @@ class Engine(object):
     def _create(self, tree):
         """ Run a SELECT statement """
         tablename = tree.table
+        attrs = []
         schema = []
         indexes = []
+        global_indexes = []
         hash_key = None
-        for name, type_, index in tree.attrs:
-            if index[0] == 'HASH':
-                hash_key = HashKey(name, data_type=TYPES[type_])
-                schema.append(hash_key)
-            elif index[0] == 'RANGE':
-                schema.append(RangeKey(name, data_type=TYPES[type_]))
+        raw_attrs = {}
+        for declaration in tree.attrs:
+            name, type_ = declaration[:2]
+            if len(declaration) > 2:
+                index = declaration[2]
             else:
-                index_name = self.resolve(index[1])
-                indexes.append(AllIndex(index_name, parts=[
-                    hash_key,
-                    RangeKey(name, data_type=TYPES[type_])
-                ]))
+                index = None
+            if index is not None:
+                if index[0] == 'HASH':
+                    field = hash_key = HashKey(name, data_type=TYPES[type_])
+                    schema.insert(0, field.schema())
+                elif index[0] == 'RANGE':
+                    field = RangeKey(name, data_type=TYPES[type_])
+                    schema.append(field.schema())
+                else:
+                    index_name = self.resolve(index[1])
+                    field = RangeKey(name, data_type=TYPES[type_])
+                    idx = AllIndex(index_name, parts=[hash_key, field])
+                    indexes.append(idx.schema())
+            else:
+                field = BaseSchemaField(name, data_type=TYPES[type_])
+            attrs.append(field.definition())
+            raw_attrs[name] = field
 
-        if tree.throughput:
-            throughput = {
-                'read': self.resolve(tree.throughput[0]),
-                'write': self.resolve(tree.throughput[1]),
-            }
-        else:
+        for gindex in tree.global_indexes:
+            name, var1 = gindex[:2]
+            hash_key = HashKey(var1, data_type=raw_attrs[var1].data_type)
+            parts = [hash_key]
             throughput = None
+            for piece in gindex[2:]:
+                if isinstance(piece, basestring):
+                    range_key = RangeKey(piece,
+                                         data_type=raw_attrs[piece].data_type)
+                    parts.append(range_key)
+                else:
+                    throughput = piece.throughput
+            index = AllIndex(self.resolve(name), parts=parts)
+            s = index.schema()
+            read, write = 5, 5
+            if throughput is not None:
+                read, write = map(self.resolve, throughput)
+            # Manually add throughput until boto supports global indexes
+            s['ProvisionedThroughput'] = {
+                'ReadCapacityUnits': read,
+                'WriteCapacityUnits': write,
+            }
+            global_indexes.append(s)
 
+        read, write = 5, 5
+        if tree.throughput:
+            read, write = map(self.resolve, tree.throughput)
+        throughput = {
+            'ReadCapacityUnits': read,
+            'WriteCapacityUnits': write,
+        }
+
+        # Make sure indexes & global indexes either have data or are None
+        indexes = indexes or None
+        global_indexes = global_indexes or None
         try:
-            Table.create(tablename, schema=schema, indexes=indexes,
-                         throughput=throughput, connection=self.connection)
+            self.connection.create_table(
+                attrs, tablename, schema, throughput,
+                local_secondary_indexes=indexes,
+                global_secondary_indexes=global_indexes)
         except JSONResponseError as e:
             if e.status != 400 or not tree.not_exists:
                 raise
@@ -499,18 +556,30 @@ class Engine(object):
         """ Run an ALTER statement """
         tablename = tree.table
         desc = self.describe(tablename, refresh=True)
-        table = Table(tablename, connection=self.connection)
+        if tree.index:
+            desc = desc.global_indexes[tree.index]
         throughput = {
-            'read': desc.read_throughput,
-            'write': desc.write_throughput,
+            'ReadCapacityUnits': desc.read_throughput,
+            'WriteCapacityUnits': desc.write_throughput,
         }
         read = self.resolve(tree.throughput[0])
         write = self.resolve(tree.throughput[1])
         if read > 0:
-            throughput['read'] = read
+            throughput['ReadCapacityUnits'] = read
         if write > 0:
-            throughput['write'] = write
-        table.update(throughput=throughput)
+            throughput['WriteCapacityUnits'] = write
+        if tree.index:
+            self.connection.update_table(tablename,
+                                         global_secondary_index_updates=[
+                                             {
+                                                 'Update': {
+                                                     'IndexName': tree.index,
+                                                     'ProvisionedThroughput': throughput,
+                                                 }
+                                             }
+                                         ])
+        else:
+            self.connection.update_table(tablename, throughput)
         return 'success'
 
     def _dump(self, tree):

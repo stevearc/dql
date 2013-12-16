@@ -84,6 +84,7 @@ TEST_CASES = {
     ],
     'create': [
         ('CREATE TABLE foobars (foo string hash key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
+        ('CREATE TABLE foobars (foo string hash key, bar NUMBER)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER']]]),
         ('CREATE TABLE foobars (foo string hash key, THROUGHPUT (1, 1))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], 'THROUGHPUT', [['1'], ['1']]]),
         ('CREATE TABLE IF NOT EXISTS foobars (foo string hash key)', ['CREATE', 'TABLE', ['IF', 'NOT', 'EXISTS'], 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
         ('CREATE TABLE foobars (foo string hash key, bar number range key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER', ['RANGE', 'KEY']]]]),
@@ -91,11 +92,18 @@ TEST_CASES = {
         ('CREATE TABLE foobars (foo binary index(idxname))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['idxname']]]]]),
         ('CREATE foobars (foo binary index(idxname))', 'error'),
         ('CREATE TABLE foobars foo binary hash key', 'error'),
-        ('CREATE TABLE foobars (foo binary)', 'error'),
         ('CREATE TABLE foobars (foo hash key)', 'error'),
         ('CREATE TABLE foobars (foo binary hash key) garbage', 'error'),
     ],
     'create_global': [
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo', 'bar']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo), ("g2idx", bar, foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo'], [['"g2idx"'], 'bar', 'foo']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo', 'bar', ['THROUGHPUT', [['2'], ['4']]]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo', ['THROUGHPUT', [['2'], ['4']]]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex")', 'error'),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, baz)', 'error'),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar),', 'error'),
     ],
     'insert': [
         ('INSERT INTO foobars (foo, bar) VALUES (1, 2)', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['1'], ['2']]]]),
@@ -115,6 +123,7 @@ TEST_CASES = {
     ],
     'alter': [
         ('ALTER TABLE foobars SET THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'THROUGHPUT', [['3'], ['4']]]),
+        ('ALTER TABLE foobars SET INDEX foo THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'INDEX', 'foo', 'THROUGHPUT', [['3'], ['4']]]),
         ('ALTER TABLE foobars SET foo = bar', 'error'),
         ('ALTER TABLE foobars SET THROUGHPUT 1, 1', 'error'),
     ],
