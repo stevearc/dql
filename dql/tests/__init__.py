@@ -72,9 +72,10 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
                 shutil.move(name, self.path)
                 os.unlink(tarball)
 
-            cmd = ['java', '-Djava.library.path=' + self.path, '-jar',
-                   os.path.join(self.path, 'DynamoDBLocal.jar'), '--port',
-                   str(self.port)]
+            lib_path = os.path.join(self.path, 'DynamoDBLocal_lib')
+            jar_path = os.path.join(self.path, 'DynamoDBLocal.jar')
+            cmd = ['java', '-Djava.library.path=' + lib_path, '-jar', jar_path,
+                   '--port', str(self.port)]
             self._dynamo_local = subprocess.Popen(cmd)
             self._dynamo = DynamoDBConnection(
                 host='localhost',

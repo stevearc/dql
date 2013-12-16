@@ -47,7 +47,7 @@ The command to run tests is ``python setup.py nosetests``. Some of these tests
 require `DynamoDB Local
 <http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Tools.html>`_.
 There is a nose plugin that will download and run the DynamoDB Local service
-during the tests. It requires the java 7 runtime, so make sure you have that
+during the tests. It requires the java 6/7 runtime, so make sure you have that
 installed.
 
 TODO
