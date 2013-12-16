@@ -437,11 +437,13 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         self.assertEquals(desc.hash_key, TableField('owner', 'STRING', 'HASH'))
         self.assertEquals(desc.range_key, TableField('id', 'BINARY', 'RANGE'))
-        self.assertItemsEqual(desc.attrs.values(), [
-            TableField('owner', 'STRING', 'HASH'),
-            TableField('id', 'BINARY', 'RANGE'),
-            TableField('ts', 'NUMBER', 'INDEX', 'ts-index'),
-        ])
+        self.assertEquals(len(desc.attrs), 3)
+        self.assertTrue(TableField('owner', 'STRING', 'HASH') in
+                        desc.attrs.values())
+        self.assertTrue(TableField('id', 'BINARY', 'RANGE') in
+                        desc.attrs.values())
+        self.assertTrue(TableField('ts', 'NUMBER', 'INDEX', 'ts-index') in
+                        desc.attrs.values())
 
     def test_create_throughput(self):
         """ CREATE statement can specify throughput """
