@@ -53,6 +53,7 @@ installed.
 TODO
 ====
 * THROTTLE keyword to avoid breaking throughput
+* Set datatypes
 * Create indexes with different projection mappings
 * More unit test coverage
 * Subqueries

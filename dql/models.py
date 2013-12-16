@@ -76,6 +76,9 @@ class TableField(object):
                 self.key_type == other.key_type and
                 self.index_name == other.index_name)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class GlobalIndex(object):
 
