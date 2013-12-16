@@ -19,8 +19,8 @@ The return value will vary based on the type of query.
 Scope
 -----
 DQL supports the use of variables anywhere that you would otherwise have to
-specify a data type. Create your scope as a dict and pass it in the the engine
-with the commands::
+specify a data type. Create your scope as a dict and pass it to the engine with
+the commands::
 
     scope = {'foo1': 1, 'foo2': 2}
     engine.execute("INSERT INTO foobars (foo) VALUES (foo1), (foo2)"),
