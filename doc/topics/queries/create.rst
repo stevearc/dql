@@ -82,4 +82,4 @@ same hash and range key in a global index).
 
 Read Amazon's documentation for `Create Table
 <http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html>`_
-for more invormation.
+for more information.
