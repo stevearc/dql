@@ -58,3 +58,4 @@ TODO
 * More unit test coverage
 * Subqueries
 * Math expressions in UPDATE
+* Arbitrary function support (e.g. now())

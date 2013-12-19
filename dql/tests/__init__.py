@@ -76,7 +76,8 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
             jar_path = os.path.join(self.path, 'DynamoDBLocal.jar')
             cmd = ['java', '-Djava.library.path=' + lib_path, '-jar', jar_path,
                    '--port', str(self.port)]
-            self._dynamo_local = subprocess.Popen(cmd)
+            self._dynamo_local = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                                  stderr=subprocess.STDOUT)
             self._dynamo = DynamoDBConnection(
                 host='localhost',
                 port=self.port,
@@ -95,6 +96,8 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
         """ terminate the dynamo local service """
         if self._dynamo_local is not None:
             self._dynamo_local.terminate()
+            if not result.wasSuccessful():
+                print self._dynamo_local.stdout.read()
 
 
 class BaseSystemTest(TestCase):
