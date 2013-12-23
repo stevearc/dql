@@ -1,45 +1,5 @@
-dql Package
+dql package
 ===========
-
-:mod:`dql` Package
-------------------
-
-.. automodule:: dql.__init__
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`_version` Module
-----------------------
-
-.. automodule:: dql._version
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`cli` Module
------------------
-
-.. automodule:: dql.cli
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`engine` Module
---------------------
-
-.. automodule:: dql.engine
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`models` Module
---------------------
-
-.. automodule:: dql.models
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Subpackages
 -----------
@@ -49,3 +9,20 @@ Subpackages
     dql.grammar
     dql.tests
 
+Submodules
+----------
+
+.. toctree::
+
+   dql.cli
+   dql.engine
+   dql.help
+   dql.models
+
+Module contents
+---------------
+
+.. automodule:: dql
+    :members:
+    :undoc-members:
+    :show-inheritance:

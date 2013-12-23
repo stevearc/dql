@@ -1,27 +1,18 @@
-grammar Package
-===============
+dql.grammar package
+===================
 
-:mod:`grammar` Package
-----------------------
+Submodules
+----------
+
+.. toctree::
+
+   dql.grammar.common
+   dql.grammar.query
+
+Module contents
+---------------
 
 .. automodule:: dql.grammar
     :members:
     :undoc-members:
     :show-inheritance:
-
-:mod:`common` Module
---------------------
-
-.. automodule:: dql.grammar.common
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`query` Module
--------------------
-
-.. automodule:: dql.grammar.query
-    :members:
-    :undoc-members:
-    :show-inheritance:
-

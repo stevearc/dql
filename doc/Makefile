@@ -46,7 +46,8 @@ clean:
 	-rm -rf $(APIDIR)/*
 
 apidoc:
-	$(SPHINXAPIDOC) -f -o $(APIDIR) ../dql
+	$(SPHINXAPIDOC) -f -e -o $(APIDIR) ../dql
+	rm -f $(APIDIR)/*.tests.*
 	@echo
 	@echo "Build finished. The RST files are in $(APIDIR)."
 
