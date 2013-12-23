@@ -91,7 +91,7 @@ class Engine(object):
 
     """
 
-    def __init__(self,  connection=None):
+    def __init__(self, connection=None):
         self._connection = connection
         self.cached_descriptions = {}
         self.dynamizer = Dynamizer()
