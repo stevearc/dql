@@ -57,28 +57,6 @@ TYPES = {
 }
 
 
-class LossyFloatDynamizer(Dynamizer):
-
-    """ Use float/int instead of Decimal for numeric types """
-
-    def _encode_n(self, attr):
-        if isinstance(attr, bool):
-            return str(int(attr))
-        return str(attr)
-
-    def _encode_ns(self, attr):
-        return [str(i) for i in attr]
-
-    def _decode_n(self, attr):
-        try:
-            return int(attr)
-        except ValueError:
-            return float(attr)
-
-    def _decode_ns(self, attr):
-        return set(map(self._decode_n, attr))
-
-
 class Engine(object):
 
     """
@@ -117,7 +95,6 @@ class Engine(object):
         self._connection = connection
         self.cached_descriptions = {}
         self.dynamizer = Dynamizer()
-        self.lossy_dynamizer = LossyFloatDynamizer()
         self._cloudwatch_connection = None
         self.scope = {}
 
@@ -405,7 +382,7 @@ class Engine(object):
                 raise SyntaxError("Unknown operation '%s'" % op)
             updates[field] = {'Action': action}
             if action != 'DELETE':
-                updates[field]['Value'] = self.lossy_dynamizer.encode(value)
+                updates[field]['Value'] = self.dynamizer.encode(value)
 
         def encode_pkey(pkey):
             """ HACK: boto doesn't encode primary keys in update_item """
