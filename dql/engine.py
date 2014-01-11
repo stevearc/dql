@@ -333,11 +333,14 @@ class Engine(object):
         if tree.keys_in:
             if tree.using:
                 raise SyntaxError("Cannot use USING with WHERE KEYS IN")
-            keys = list(self._iter_where_in(tree))
-            results = table.batch_get(keys=keys)
+            results = list(self._iter_where_in(tree))
         else:
             kwargs.update(self._where_kwargs(desc, tree.where))
             if tree.using:
+                attributes = [desc.hash_key.name]
+                if desc.range_key is not None:
+                    attributes.append(desc.range_key.name)
+                kwargs['attributes'] = attributes
                 kwargs['index'] = self.resolve(tree.using[1])
             results = table.query(**kwargs)
 
@@ -345,11 +348,11 @@ class Engine(object):
         with table.batch_write() as batch:
             for item in results:
                 # Pull out just the hash and range key from the item
-                kwargs = {desc.hash_key.name: item[desc.hash_key.name]}
+                pkey = {desc.hash_key.name: item[desc.hash_key.name]}
                 if desc.range_key is not None:
-                    kwargs[desc.range_key.name] = item[desc.range_key.name]
+                    pkey[desc.range_key.name] = item[desc.range_key.name]
                 count += 1
-                batch.delete_item(**kwargs)
+                batch.delete_item(**pkey)
         return 'deleted %d items' % count
 
     def _update(self, tree):
