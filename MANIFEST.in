@@ -1,3 +1,3 @@
-include version_helper.py
+include dql_version.py
 include CHANGES.rst
 include README.rst
