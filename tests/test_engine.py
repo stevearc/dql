@@ -3,8 +3,8 @@ from mock import MagicMock, patch, ANY
 from pyparsing import ParseException
 
 from . import TestCase, BaseSystemTest
-from ..engine import Engine, FragmentEngine
-from ..models import TableMeta, TableField
+from dql.engine import Engine, FragmentEngine
+from dql.models import TableMeta, TableField
 
 
 class TestEngine(TestCase):

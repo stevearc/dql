@@ -1,3 +1,4 @@
 include dql_version.py
 include CHANGES.rst
 include README.rst
+recursive-exclude tests *

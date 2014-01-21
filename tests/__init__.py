@@ -11,7 +11,7 @@ from boto.dynamodb2.layer1 import DynamoDBConnection
 from boto.dynamodb2.table import Table
 from urllib import urlretrieve
 
-from .. import Engine
+from dql import Engine
 
 
 try:

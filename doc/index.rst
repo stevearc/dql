@@ -1,6 +1,9 @@
 DQL - DynamoDB Query Language
 =============================
 
+User Guide
+----------
+
 .. toctree::
     :maxdepth: 2
     :glob:
@@ -17,8 +20,33 @@ API Reference
 
     ref/dql
 
+Versions
+--------
+=========  ===============  ========
+Version    Build            Coverage
+=========  ===============  ========
+master_    |build-master|_  |coverage-master|_
+=========  ===============  ========
+
+.. _master: ../latest/
+.. |build-master| image:: https://travis-ci.org/mathcamp/dql.png?branch=master
+.. _build-master: https://travis-ci.org/mathcamp/dql
+.. |coverage-master| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
+.. _coverage-master: https://coveralls.io/r/mathcamp/dql?branch=master
+
+Code lives here: https://github.com/mathcamp/dql
+
+Changelog
+---------
+
+.. toctree::
+    :maxdepth: 1
+    :glob:
+
+    changes
+
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`

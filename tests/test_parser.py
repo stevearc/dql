@@ -5,8 +5,8 @@ except ImportError:
     from unittest import TestCase
 from pyparsing import ParseException
 
-from ..grammar import statement_parser, parser
-from ..grammar.query import where, select_where, filter_
+from dql.grammar import statement_parser, parser
+from dql.grammar.query import where, select_where, filter_
 
 
 TEST_CASES = {

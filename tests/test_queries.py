@@ -2,7 +2,7 @@
 from boto.exception import JSONResponseError
 
 from . import BaseSystemTest
-from ..models import TableField, GlobalIndex
+from dql.models import TableField, GlobalIndex
 
 
 class TestQueries(BaseSystemTest):

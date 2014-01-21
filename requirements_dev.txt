@@ -1,5 +1,6 @@
-pylint>=1.1.0
+pylint==1.1.0
 pep8
 autopep8
 sphinx
 numpydoc
+sphinx_rtd_theme
