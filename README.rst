@@ -1,7 +1,7 @@
 DQL
 ===
 :Build: |build|_ |coverage|_
-:Documentation: http://dql.readthedocs.org/en/latest/
+:Documentation: http://dql.readthedocs.org/
 :Source: https://github.com/mathcamp/dql
 
 .. |build| image:: https://travis-ci.org/mathcamp/dql.png?branch=master
@@ -49,13 +49,3 @@ require `DynamoDB Local
 There is a nose plugin that will download and run the DynamoDB Local service
 during the tests. It requires the java 6/7 runtime, so make sure you have that
 installed.
-
-TODO
-====
-* THROTTLE keyword to avoid breaking throughput
-* Set datatypes
-* Create indexes with different projection mappings
-* More unit test coverage
-* Subqueries
-* Math expressions in UPDATE
-* Arbitrary function support (e.g. now())

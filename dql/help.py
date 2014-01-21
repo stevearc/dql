@@ -148,4 +148,5 @@ UPDATE = """
         UPDATE foobars SET foo = 'a';
         UPDATE foobars SET foo = 'a', bar += 4 WHERE id = 1 AND foo = 'b';
         UPDATE foobars SET foo = 'a', bar += 4 RETURNS ALL NEW;
+        UPDATE foobars SET myset << (5, 6, 7), mytags << 'new tag' WHERE KEYS IN ('a', 'b');
 """

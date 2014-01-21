@@ -28,9 +28,10 @@ primitive = (null.setResultsName('null') |
              num.setResultsName('number') |
              quotedString.setResultsName('str') |
              Combine('b' + quotedString).setResultsName('binary'))
+_emptyset = Keyword('()').setResultsName('set')
 set_ = (Suppress('(') + delimitedList(Group(primitive)) +
         Suppress(')')).setResultsName('set')
-value = Group(primitive | set_ | var).setName('value')
+value = Group(primitive | var | set_ | _emptyset).setName('value')
 # Wrap these in a group so they can be used independently
 primitive = Group(primitive | var).setName('primitive')
-set_ = Group(set_ | var).setName('set')
+set_ = Group(set_ | _emptyset | var).setName('set')

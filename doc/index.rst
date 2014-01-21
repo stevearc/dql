@@ -51,3 +51,13 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+TODO
+----
+* Columnated layout
+* Math expressions in UPDATE
+* Subqueries
+* Arbitrary function support (e.g. now())
+* Create indexes with different projection mappings
+* More unit test coverage
+* THROTTLE keyword to avoid breaking throughput

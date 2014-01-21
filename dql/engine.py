@@ -147,6 +147,8 @@ class Engine(object):
 
     def get_capacity(self, tablename):
         """ Get the consumed read/write capacity """
+        if self.connection.region.name == 'local':
+            return 0, 0
         return (self._get_metric(tablename, 'ConsumedReadCapacityUnits'),
                 self._get_metric(tablename, 'ConsumedWriteCapacityUnits'))
 
@@ -225,6 +227,8 @@ class Engine(object):
         elif val.getName() == 'binary':
             return Binary(val.binary)
         elif val.getName() == 'set':
+            if val.set == '()':
+                return set()
             return set([self.resolve(v) for v in val.set])
         raise SyntaxError("Unable to resolve value '%s'" % val)
 
@@ -294,6 +298,8 @@ class Engine(object):
             if tree.attrs.asList() != ['*']:
                 kwargs['attributes'] = tree.attrs.asList()
             if tree.order == 'DESC':
+                kwargs['reverse'] = False
+            else:
                 kwargs['reverse'] = True
 
             return table.query(**kwargs)
@@ -381,10 +387,18 @@ class Engine(object):
             elif op == '-=':
                 action = 'ADD'
                 value = -value
+            elif op == '<<':
+                action = 'ADD'
+                if not isinstance(value, set):
+                    value = set([value])
+            elif op == '>>':
+                action = 'DELETE'
+                if not isinstance(value, set):
+                    value = set([value])
             else:
                 raise SyntaxError("Unknown operation '%s'" % op)
             updates[field] = {'Action': action}
-            if action != 'DELETE':
+            if action != 'DELETE' or op in ('<<', '>>'):
                 updates[field]['Value'] = self.dynamizer.encode(value)
 
         def encode_pkey(pkey):
@@ -426,7 +440,7 @@ class Engine(object):
                     result.append(decode_result(ret))
         if returns == 'NONE':
             return None
-        return result
+        return (item for item in result)
 
     def _create(self, tree):
         """ Run a SELECT statement """

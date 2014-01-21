@@ -6,7 +6,7 @@ except ImportError:
 from pyparsing import ParseException
 
 from dql.grammar import statement_parser, parser
-from dql.grammar.query import where, select_where, filter_
+from dql.grammar.query import where, select_where, filter_, value
 
 
 TEST_CASES = {
@@ -75,6 +75,7 @@ TEST_CASES = {
     ],
     'update': [
         ('UPDATE foobars SET foo = 0, bar += 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '+=', ['3']]]]),
+        ('UPDATE foobars SET foo << 0, bar >> ("a", "b")', ['UPDATE', 'foobars', 'SET', [['foo', '<<', ['0']], ['bar', '>>', [['"a"'], ['"b"']]]]]),
         ('UPDATE foobars SET foo = 0 WHERE KEYS IN ("a"), ("b")', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', 'KEYS', 'IN', [[['"a"']], [['"b"']]]]),
         ('UPDATE foobars SET foo = 0 WHERE foo = 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', [['foo', '=', ['3']]]]),
         ('UPDATE foobars SET foo = 0, bar = NULL', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '=', ['NULL']]]]),
@@ -166,6 +167,16 @@ TEST_CASES = {
         ('FILTER foo BETWEEN 1', 'error'),
         ('FILTER foo BETWEEN (1, 2, 3)', 'error'),
         ('FILTER foo IN "hi"', 'error'),
+    ],
+    'variables': [
+        ('"a"', [['"a"']]),
+        ('1', [['1']]),
+        ('2.7', [['2.7']]),
+        ('b"hi"', [['b"hi"']]),
+        ('null', [['NULL']]),
+        ('()', [['()']]),
+        ('(1, 2)', [[['1'], ['2']]]),
+        ('("a", "b")', [[['"a"'], ['"b"']]]),
     ],
 }
 
@@ -273,3 +284,7 @@ class TestParser(TestCase):
     def test_filter(self):
         """ Run tests for the filter clause """
         self._run_tests('filter', filter_)
+
+    def test_variables(self):
+        """ Run tests for parsing variables """
+        self._run_tests('variables', value)

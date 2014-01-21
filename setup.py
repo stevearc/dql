@@ -11,7 +11,7 @@ README = open(os.path.join(HERE, 'README.rst')).read()
 CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
-    'boto>=2.20.1',
+    'boto>=2.23.0',
     'pyparsing',
 ]
 

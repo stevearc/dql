@@ -106,68 +106,6 @@ class TestQueries(BaseSystemTest):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
-    def test_update(self):
-        """ UPDATE sets attributes """
-        table = self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, 2)")
-        self.query("UPDATE foobar SET baz = 3")
-        items = [dict(i) for i in table.scan()]
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
-                                      {'id': 'b', 'bar': 2, 'baz': 3}])
-
-    def test_update_where(self):
-        """ UPDATE sets attributes when clause is true """
-        table = self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, 2)")
-        self.query("UPDATE foobar SET baz = 3 WHERE id = 'a'")
-        items = [dict(i) for i in table.scan()]
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
-                                      {'id': 'b', 'bar': 2, 'baz': 2}])
-
-    def test_update_where_in(self):
-        """ UPDATE sets attributes for a set of primary keys """
-        table = self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, 2)")
-        self.query(
-            "UPDATE foobar SET baz = 3 WHERE KEYS IN ('a', 1), ('b', 2)")
-        items = [dict(i) for i in table.scan()]
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
-                                      {'id': 'b', 'bar': 2, 'baz': 3}])
-
-    def test_update_increment(self):
-        """ UPDATE can increment attributes """
-        table = self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, 2)")
-        self.query("UPDATE foobar SET baz += 2")
-        self.query("UPDATE foobar SET baz -= 1")
-        items = [dict(i) for i in table.scan()]
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
-                                      {'id': 'b', 'bar': 2, 'baz': 3}])
-
-    def test_update_delete(self):
-        """ UPDATE can delete attributes """
-        table = self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, 2)")
-        self.query("UPDATE foobar SET baz = NULL")
-        items = [dict(i) for i in table.scan()]
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
-                                      {'id': 'b', 'bar': 2}])
-
-    def test_update_returns(self):
-        """ UPDATE can specify what the query returns """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, 2)")
-        result = self.query("UPDATE foobar SET baz = NULL RETURNS ALL NEW ")
-        items = [dict(i) for i in result]
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
-                                      {'id': 'b', 'bar': 2}])
-
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
         self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
@@ -485,3 +423,90 @@ class TestCreate(BaseSystemTest):
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })
+
+
+class TestUpdate(BaseSystemTest):
+
+    """ Tests for UPDATE """
+
+    def test_update(self):
+        """ UPDATE sets attributes """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = 3")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_where(self):
+        """ UPDATE sets attributes when clause is true """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = 3 WHERE id = 'a'")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
+                                      {'id': 'b', 'bar': 2, 'baz': 2}])
+
+    def test_update_where_in(self):
+        """ UPDATE sets attributes for a set of primary keys """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query(
+            "UPDATE foobar SET baz = 3 WHERE KEYS IN ('a', 1), ('b', 2)")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_increment(self):
+        """ UPDATE can increment attributes """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz += 2")
+        self.query("UPDATE foobar SET baz -= 1")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_add(self):
+        """ UPDATE can add elements to set """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, ())")
+        self.query("UPDATE foobar SET baz << 2")
+        self.query("UPDATE foobar SET baz << (1, 3)")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1,
+                                       'baz': set([1, 2, 3])}])
+
+    def test_update_remove(self):
+        """ UPDATE can remove elements from set """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES "
+                   "('a', 1, (1, 2, 3, 4))")
+        self.query("UPDATE foobar SET baz >> 2")
+        self.query("UPDATE foobar SET baz >> (1, 3)")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': set([4])}])
+
+    def test_update_delete(self):
+        """ UPDATE can delete attributes """
+        table = self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        self.query("UPDATE foobar SET baz = NULL")
+        items = [dict(i) for i in table.scan()]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
+                                      {'id': 'b', 'bar': 2}])
+
+    def test_update_returns(self):
+        """ UPDATE can specify what the query returns """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        result = self.query("UPDATE foobar SET baz = NULL RETURNS ALL NEW ")
+        items = [dict(i) for i in result]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
+                                      {'id': 'b', 'bar': 2}])

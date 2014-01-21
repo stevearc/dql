@@ -24,7 +24,8 @@ class TestEngine(TestCase):
     def test_select_consistent(self):
         """ SELECT can make a consistent read """
         self.engine.execute("SELECT CONSISTENT * FROM foobar WHERE id = 'a'")
-        self.table.query.assert_called_with(id__eq='a', consistent=True)
+        self.table.query.assert_called_with(id__eq='a', consistent=True,
+                                            reverse=True)
 
     def test_select_in_consistent(self):
         """ SELECT by primary key can make a consistent read """

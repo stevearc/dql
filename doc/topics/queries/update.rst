@@ -17,6 +17,7 @@ Examples
     UPDATE foobars SET foo = 'a';
     UPDATE foobars SET foo = 'a', bar += 4 WHERE id = 1 AND foo = 'b';
     UPDATE foobars SET foo = 'a', bar += 4 RETURNS ALL NEW;
+    UPDATE foobars SET myset << (5, 6, 7), mytags << 'new tag' WHERE KEYS IN ('a', 'b');
 
 Description
 -----------
@@ -29,8 +30,10 @@ Parameters
 
 **values**
     Comma-separated list of attribute assignments. The supported operators are
-    ``=``, ``+=``, and ``-=``. Note that ``+=`` and ``-=`` perform atomic
-    inc/decrement and may only be used on NUMBER types.
+    ``=``, ``+=``, ``-=``, ``<<``, and ``>>``. The 'shovel' operators (``<<`` &
+    ``>>``) are used to atomically add/remove items to/from a set. Likewise,
+    the ``+=`` and ``-=`` perform atomic inc/decrement and may only be used on
+    NUMBER types.
 
 **expression**
     Only return elements that match this expression. The supported operators

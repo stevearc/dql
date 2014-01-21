@@ -119,7 +119,7 @@ def create_update():
     returns, none, all_, updated, old, new = \
         map(upkey, ['returns', 'none', 'all', 'updated', 'old',
                     'new'])
-    set_op = oneOf('= += -=', caseless=True).setName('operator')
+    set_op = oneOf('= += -= << >>', caseless=True).setName('operator')
     clause = Group(var + set_op + value)
     set_values = Group(delimitedList(clause)).setResultsName('updates')
     return_ = returns + Group(none |

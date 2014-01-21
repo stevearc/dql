@@ -2,9 +2,11 @@
 import os
 
 import boto.dynamodb2
+from boto.regioninfo import RegionInfo
 import boto.exception
 import cmd
 import functools
+import inspect
 import shlex
 import subprocess
 import traceback
@@ -51,7 +53,10 @@ def connect(region, host='localhost', port=8000, access_key=None,
             secret_key=None):
     """ Create a DynamoDB connection """
     if region == 'local':
+        region = RegionInfo(name='local', endpoint=host,
+                            connection_cls=DynamoDBConnection)
         return DynamoDBConnection(
+            region=region,
             host=host,
             port=port,
             is_secure=False,
@@ -224,7 +229,7 @@ class DQLClient(cmd.Cmd):
     def _run_cmd(self, command):
         """ Run a DQL command """
         results = self.engine.execute(command, scope=self._scope)
-        if isinstance(results, ResultSet):
+        if isinstance(results, ResultSet) or inspect.isgenerator(results):
             for result in results:
                 print(20 * '-')
                 for key, val in result.items():
