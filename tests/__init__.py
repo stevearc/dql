@@ -13,11 +13,10 @@ from urllib import urlretrieve
 
 from dql import Engine
 
-
 try:
-    from unittest2 import TestCase  # pylint: disable=F0401
+    import unittest2 as unittest  # pylint: disable=F0401
 except ImportError:
-    from unittest import TestCase
+    import unittest
 
 
 DYNAMO_LOCAL = 'https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-12-12.tar.gz'
@@ -100,7 +99,7 @@ class DynamoLocalPlugin(nose.plugins.Plugin):
                 print self._dynamo_local.stdout.read()
 
 
-class BaseSystemTest(TestCase):
+class BaseSystemTest(unittest.TestCase):
 
     """ Base class for system tests """
     dynamo = None

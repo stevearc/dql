@@ -1,8 +1,8 @@
 """ Tests for queries """
 from boto.exception import JSONResponseError
+from dql.models import TableField, GlobalIndex
 
 from . import BaseSystemTest
-from dql.models import TableField, GlobalIndex
 
 
 class TestQueries(BaseSystemTest):

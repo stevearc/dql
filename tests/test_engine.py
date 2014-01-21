@@ -1,13 +1,19 @@
 """ Tests for the query engine """
+from dql.engine import Engine, FragmentEngine
+from dql.models import TableMeta, TableField
 from mock import MagicMock, patch, ANY
 from pyparsing import ParseException
 
-from . import TestCase, BaseSystemTest
-from dql.engine import Engine, FragmentEngine
-from dql.models import TableMeta, TableField
+from . import BaseSystemTest
 
 
-class TestEngine(TestCase):
+try:
+    import unittest2 as unittest  # pylint: disable=F0401
+except ImportError:
+    import unittest
+
+
+class TestEngine(unittest.TestCase):
 
     """ Unit tests for the query engine """
 
