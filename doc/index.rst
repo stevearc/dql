@@ -1,5 +1,6 @@
 DQL - DynamoDB Query Language
 =============================
+A simple, SQL-ish language for DynamoDB
 
 User Guide
 ----------

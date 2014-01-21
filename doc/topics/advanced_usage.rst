@@ -4,7 +4,9 @@ This section is devoted to some of the advanced uses of DQL
 
 API
 ---
-DQL execution is available as an API. For example::
+DQL execution is available as a python library. For example:
+
+.. code-block:: python
 
     import dql
 
@@ -20,7 +22,9 @@ Scope
 -----
 DQL supports the use of variables anywhere that you would otherwise have to
 specify a data type. Create your scope as a dict and pass it to the engine with
-the commands::
+the commands:
+
+.. code-block:: python
 
     scope = {'foo1': 1, 'foo2': 2}
     engine.execute("INSERT INTO foobars (foo) VALUES (foo1), (foo2)"),
