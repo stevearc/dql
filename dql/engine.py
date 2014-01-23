@@ -291,10 +291,7 @@ class Engine(object):
                 kwargs['index'] = self.resolve(tree.using[1])
             if tree.attrs.asList() != ['*']:
                 kwargs['attributes'] = tree.attrs.asList()
-            if tree.order == 'DESC':
-                kwargs['reverse'] = False
-            else:
-                kwargs['reverse'] = True
+            kwargs['reverse'] = tree.order != 'DESC'
 
             return table.query(**kwargs)
 

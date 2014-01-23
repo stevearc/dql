@@ -2,23 +2,24 @@
 import os
 
 import boto.dynamodb2
-from boto.regioninfo import RegionInfo
 import boto.exception
 import cmd
 import functools
 import inspect
+import json
 import shlex
 import subprocess
 import traceback
 from boto.dynamodb2.layer1 import DynamoDBConnection
 from boto.dynamodb2.results import ResultSet
+from boto.regioninfo import RegionInfo
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
-from .output import (ColumnFormat, ExpandedFormat, get_default_display, less_display,
-                     stdout_display)
 from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE)
+from .output import (ColumnFormat, ExpandedFormat, get_default_display,
+                     less_display, stdout_display)
 
 
 try:
@@ -75,6 +76,7 @@ DISPLAYS = {
     'stdout': stdout_display,
     'less': less_display,
 }
+RDISPLAYS = dict(((v, k) for k, v in DISPLAYS.iteritems()))
 
 
 class DQLClient(cmd.Cmd):
@@ -100,17 +102,25 @@ class DQLClient(cmd.Cmd):
     _secret_key = None
     _coding = False
     _scope = {}
+    _conf_dir = None
 
     def initialize(self, region='us-west-1', host='localhost', port=8000,
                    access_key=None, secret_key=None):
         """ Set up the repl for execution """
+        self._conf_dir = os.path.join(os.environ.get('HOME', '.'), '.config')
         self._access_key = access_key
         self._secret_key = secret_key
         self.region = region
         self.ddb = connect(region, host, port, access_key, secret_key)
         self.engine = FragmentEngine(self.ddb)
-        self.display = get_default_display()
-        self.formatter = ColumnFormat()
+        conf = self.load_config()
+        display_name = conf.get('display')
+        if display_name is not None:
+            self.display = DISPLAYS[display_name]
+        else:
+            self.display = get_default_display()
+        self.formatter = ColumnFormat(pagesize=conf.get('pagesize', 1000),
+                                      width=conf.get('width', 80))
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -149,11 +159,30 @@ class DQLClient(cmd.Cmd):
         """ Run a shell command """
         print subprocess.check_output(shlex.split(arglist))
 
+    def save_config_value(self, key, value):
+        """ Save your configuration settings to a file """
+        if not os.path.exists(self._conf_dir):
+            os.makedirs(self._conf_dir)
+        conf_file = os.path.join(self._conf_dir, 'dql.json')
+        conf = self.load_config()
+        conf[key] = value
+        with open(conf_file, 'w') as ofile:
+            json.dump(conf, ofile, indent=2)
+
+    def load_config(self):
+        """ Load your configuration settings from a file """
+        conf_file = os.path.join(self._conf_dir, 'dql.json')
+        if not os.path.exists(conf_file):
+            return {}
+        with open(conf_file, 'r') as ifile:
+            return json.load(ifile)
+
     @repl_command
     def do_width(self, width=None):
         """ Get or set the width of the formatted output """
         if width is not None:
             self.formatter.width = int(width)
+            self.save_config_value('width', int(width))
         print self.formatter.width
         print self.formatter.width * '-'
 
@@ -164,6 +193,7 @@ class DQLClient(cmd.Cmd):
             print self.formatter.pagesize
         else:
             self.formatter.pagesize = int(pagesize)
+            self.save_config_value('pagesize', int(pagesize))
 
     @repl_command
     def do_display(self, display=None):
@@ -176,6 +206,7 @@ class DQLClient(cmd.Cmd):
                     print '  %s' % key
         else:
             self.display = DISPLAYS[display]
+            self.save_config_value('display', display)
 
     def complete_display(self, text, *_):
         """ Autocomplete for display """
