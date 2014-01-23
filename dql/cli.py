@@ -15,6 +15,8 @@ from boto.dynamodb2.results import ResultSet
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
+from .output import (ColumnFormat, ExpandedFormat, get_default_display, less_display,
+                     stdout_display)
 from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE)
 
@@ -41,7 +43,7 @@ def repl_command(fxn):
         if arglist:
             for arg in shlex.split(arglist):
                 if '=' in arg:
-                    split = arg.split('=')
+                    split = arg.split('=', 1)
                     kwargs[split[0]] = split[1]
                 else:
                     args.append(arg)
@@ -69,6 +71,11 @@ def connect(region, host='localhost', port=8000, access_key=None,
             aws_secret_access_key=secret_key
         )
 
+DISPLAYS = {
+    'stdout': stdout_display,
+    'less': less_display,
+}
+
 
 class DQLClient(cmd.Cmd):
 
@@ -87,6 +94,8 @@ class DQLClient(cmd.Cmd):
     ddb = None
     engine = None
     region = None
+    formatter = None
+    display = None
     _access_key = None
     _secret_key = None
     _coding = False
@@ -100,6 +109,8 @@ class DQLClient(cmd.Cmd):
         self.region = region
         self.ddb = connect(region, host, port, access_key, secret_key)
         self.engine = FragmentEngine(self.ddb)
+        self.display = get_default_display()
+        self.formatter = ColumnFormat()
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -137,6 +148,50 @@ class DQLClient(cmd.Cmd):
     def do_shell(self, arglist):
         """ Run a shell command """
         print subprocess.check_output(shlex.split(arglist))
+
+    @repl_command
+    def do_width(self, width=None):
+        """ Get or set the width of the formatted output """
+        if width is not None:
+            self.formatter.width = int(width)
+        print self.formatter.width
+        print self.formatter.width * '-'
+
+    @repl_command
+    def do_pagesize(self, pagesize=None):
+        """ Get or set the page size of the query output """
+        if pagesize is None:
+            print self.formatter.pagesize
+        else:
+            self.formatter.pagesize = int(pagesize)
+
+    @repl_command
+    def do_display(self, display=None):
+        """ Get or set the type of display to use when printing results """
+        if display is None:
+            for key, val in DISPLAYS.iteritems():
+                if val == self.display:
+                    print '* %s' % key
+                else:
+                    print '  %s' % key
+        else:
+            self.display = DISPLAYS[display]
+
+    def complete_display(self, text, *_):
+        """ Autocomplete for display """
+        return [t + ' ' for t in DISPLAYS if t.startswith(text)]
+
+    @repl_command
+    def do_x(self):
+        """ Toggle expanded display format """
+        if isinstance(self.formatter, ExpandedFormat):
+            self.formatter = ColumnFormat(width=self.formatter.width,
+                                          pagesize=self.formatter.pagesize)
+            print "Expanded format disabled"
+        else:
+            self.formatter = ExpandedFormat(width=self.formatter.width,
+                                            pagesize=self.formatter.pagesize)
+            print "Expanded format enabled"
 
     @repl_command
     def do_file(self, filename):
@@ -230,10 +285,13 @@ class DQLClient(cmd.Cmd):
         """ Run a DQL command """
         results = self.engine.execute(command, scope=self._scope)
         if isinstance(results, ResultSet) or inspect.isgenerator(results):
-            for result in results:
-                print(20 * '-')
-                for key, val in result.items():
-                    print("{0}: {1:<.100}".format(key, repr(val)))
+            has_more = True
+            while has_more:
+                with self.display() as ostream:
+                    has_more = self.formatter.write(results, ostream)
+                if has_more:
+                    raw_input("Press return for next %d results:" %
+                              self.formatter.pagesize)
         elif results is not None:
             print results
 

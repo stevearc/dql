@@ -64,7 +64,7 @@ class Engine(object):
 
     Parameters
     ----------
-    connection : :class:`boto.dynamodb2.layer1.DynamoDBConnection`, optional
+    connection : :class:`~boto.dynamodb2.layer1.DynamoDBConnection`, optional
         If not present, you will need to call :meth:`.Engine.connect_to_region`
 
     Attributes
@@ -82,12 +82,6 @@ class Engine(object):
 
         engine.scope['myfoo'] = 'abc'
         engine.execute("SELECT * FROM foobars WHERE foo = myfoo")
-
-    Additionally, you may use the :meth:`.Engine.eval` method to use python
-    code to set the scope::
-
-        engine.eval("nums = set(range(10))")
-        engine.execute("SCAN foobars FILTER foo IN nums")
 
     """
 

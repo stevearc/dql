@@ -55,9 +55,9 @@ Indices and tables
 
 TODO
 ----
-* Columnated layout
 * Math expressions in UPDATE
 * Subqueries
+* Auto-load modules into scope
 * Arbitrary function support (e.g. now())
 * Create indexes with different projection mappings
 * More unit test coverage

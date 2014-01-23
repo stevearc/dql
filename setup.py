@@ -43,7 +43,6 @@ if __name__ == "__main__":
         author_email='steven@highlig.ht',
         url='http://github.com/mathcamp/dql',
         keywords='aws dynamo dynamodb sql',
-        zip_safe=False,
         include_package_data=True,
         packages=find_packages(exclude=('tests',)),
         entry_points={
