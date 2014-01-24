@@ -21,8 +21,8 @@ The return value will vary based on the type of query.
 Embedded Python
 ---------------
 DQL supports the use of python expressions anywhere that you would otherwise
-have to specify a data type. Create your variable scope as a dict and pass it
-to the engine with the commands:
+have to specify a data type. Just surround the python with backticks. Create
+your variable scope as a dict and pass it to the engine with the commands:
 
 .. code-block:: python
 
@@ -32,11 +32,26 @@ to the engine with the commands:
 
 The interactive client has a special way to modify the scope. You can switch
 into 'code' mode to execute python, and then use that scope as the engine
-scope::
+scope:
+
+.. code-block:: sql
 
     us-west-1> code
     >>> foo1 = 1
     >>> import time
     >>> endcode
-    us-west-1> INSERT INTO foobars (foo) VALUES (foo1), (time.time())
+    us-west-1> INSERT INTO foobars (foo) VALUES (`foo1`), (`time.time()`)
     success
+
+You can also spread the expressions across multiple lines by using the format
+``m`<expr>```. If you do this, you will need to ``return`` a value. The
+difference here is between using ``eval`` and ``exec`` in python.
+
+.. code-block:: sql
+
+    us-west-1> UPDATE foobars SET foo = m`
+             > if bar % 2 == 0:
+             >     return bar**2
+             > else:
+             >     return bar - 1
+             > `;

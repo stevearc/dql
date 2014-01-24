@@ -7,7 +7,6 @@ Subpackages
 .. toctree::
 
     dql.grammar
-    dql.tests
 
 Submodules
 ----------
@@ -18,6 +17,7 @@ Submodules
    dql.engine
    dql.help
    dql.models
+   dql.output
 
 Module contents
 ---------------
