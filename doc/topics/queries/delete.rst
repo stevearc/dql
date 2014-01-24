@@ -49,7 +49,5 @@ Examples
 
 Notes
 #####
-When using the ``KEYS IN`` form, DQL will perform a batch get instead of a
-table query. See the `AWS docs
-<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html>`_
-for more information on query parameters.
+Using the ``KEYS IN`` form is much more efficient because DQL will not have to
+perform a query first to get the primary keys.

@@ -15,6 +15,7 @@ TEST_CASES = {
         ('SELECT CONSISTENT * FROM foobars WHERE foo = 0', ['SELECT', 'CONSISTENT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('SELECT * FROM foobars WHERE foo = 0 DESC', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'DESC']),
         ('SELECT * FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
+        ('SELECT * FROM foobars WHERE foo = `1 + 5`', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['`1 + 5`']]]]),
         ('SELECT * FROM foobars', 'error'),
         ('SELECT * foobars WHERE foo = 0', 'error'),
         ('SELECT * FROM foobars WHERE foo != 0', 'error'),
@@ -26,12 +27,12 @@ TEST_CASES = {
         ('SELECT * FROM foobars WHERE KEYS IN ("hash1", "range1"), ("hash2", "range2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"'], ['"range1"']], [['"hash2"'], ['"range2"']]]]),
     ],
     'select_using': [
-        ('SELECT * FROM foobars WHERE foo = 0 USING my_index', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
-        ('SELECT * FROM foobars WHERE foo = 0 AND bar < 4 USING my_index', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['my_index']]),
+        ('SELECT * FROM foobars WHERE foo = 0 USING "my_index"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
+        ('SELECT * FROM foobars WHERE foo = 0 AND bar < 4 USING "my_index"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['"my_index"']]),
     ],
     'select_limit': [
         ('SELECT * FROM foobars WHERE foo = 0 LIMIT 5', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], ['LIMIT', ['5']]]),
-        ('SELECT * FROM foobars WHERE foo = 0 USING my_index LIMIT 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index'], ['LIMIT', ['2']]]),
+        ('SELECT * FROM foobars WHERE foo = 0 USING "my_index" LIMIT 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"'], ['LIMIT', ['2']]]),
         ('SELECT * FROM foobars WHERE foo > 0 LIMIT 4 garbage', 'error'),
     ],
     'select_attrs': [
@@ -56,14 +57,14 @@ TEST_CASES = {
         ('COUNT foobars WHERE foo = 0 garbage', 'error'),
     ],
     'count_using': [
-        ('COUNT foobars WHERE foo = 0 USING my_index', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
-        ('COUNT foobars WHERE foo = 0 AND bar < 4 USING my_index', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['my_index']]),
+        ('COUNT foobars WHERE foo = 0 USING "my_index"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
+        ('COUNT foobars WHERE foo = 0 AND bar < 4 USING "my_index"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['"my_index"']]),
     ],
     'delete': [
         ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('DELETE FROM foobars WHERE foo = 0 and bar = "green"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('DELETE FROM foobars WHERE foo = 0 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['my_index']]),
-        ('DELETE FROM foobars WHERE foo = 0 AND bar = 4 USING my_index', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['4']]], 'USING', ['my_index']]),
+        ('DELETE FROM foobars WHERE foo = 0 USING "my_index"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
+        ('DELETE FROM foobars WHERE foo = 0 AND bar = 4 USING "my_index"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['4']]], 'USING', ['"my_index"']]),
         ('DELETE FROM foobars', 'error'),
         ('DELETE foobars WHERE foo = 0', 'error'),
         ('DELETE FROM "foobars" WHERE foo = 0', 'error'),
@@ -80,6 +81,7 @@ TEST_CASES = {
         ('UPDATE foobars SET foo = 0 WHERE foo = 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', [['foo', '=', ['3']]]]),
         ('UPDATE foobars SET foo = 0, bar = NULL', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '=', ['NULL']]]]),
         ('UPDATE foobars SET foo = 0 RETURNS ALL OLD', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'RETURNS', ['ALL', 'OLD']]),
+        ('UPDATE foobars SET foo = `foo + bar`', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['`foo + bar`']]]]),
         ('UPDATE foobars SET foo *= 0', 'error'),
         ('UPDATE foobars SET foo = 0 RETURNS garbage', 'error'),
     ],
@@ -90,7 +92,7 @@ TEST_CASES = {
         ('CREATE TABLE IF NOT EXISTS foobars (foo string hash key)', ['CREATE', 'TABLE', ['IF', 'NOT', 'EXISTS'], 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
         ('CREATE TABLE foobars (foo string hash key, bar number range key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER', ['RANGE', 'KEY']]]]),
         ('CREATE TABLE foobars (foo binary index("foo-index"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['"foo-index"']]]]]),
-        ('CREATE TABLE foobars (foo binary index(idxname))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['idxname']]]]]),
+        ('CREATE TABLE foobars (foo binary index(`idxname`))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['`idxname`']]]]]),
         ('CREATE foobars (foo binary index(idxname))', 'error'),
         ('CREATE TABLE foobars foo binary hash key', 'error'),
         ('CREATE TABLE foobars (foo hash key)', 'error'),
@@ -177,6 +179,8 @@ TEST_CASES = {
         ('()', [['()']]),
         ('(1, 2)', [[['1'], ['2']]]),
         ('("a", "b")', [[['"a"'], ['"b"']]]),
+        ('`1 + 2`', [['`1 + 2`']]),
+        ('m`foo(bar + \n2)`', [['m`foo(bar + \n2)`']]),
     ],
 }
 

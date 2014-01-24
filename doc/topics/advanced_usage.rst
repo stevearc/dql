@@ -18,16 +18,16 @@ DQL execution is available as a python library. For example:
 
 The return value will vary based on the type of query.
 
-Scope
------
-DQL supports the use of variables anywhere that you would otherwise have to
-specify a data type. Create your scope as a dict and pass it to the engine with
-the commands:
+Embedded Python
+---------------
+DQL supports the use of python expressions anywhere that you would otherwise
+have to specify a data type. Create your variable scope as a dict and pass it
+to the engine with the commands:
 
 .. code-block:: python
 
     scope = {'foo1': 1, 'foo2': 2}
-    engine.execute("INSERT INTO foobars (foo) VALUES (foo1), (foo2)"),
+    engine.execute("INSERT INTO foobars (foo) VALUES (`foo1`), (`foo2`)"),
                    scope=scope)
 
 The interactive client has a special way to modify the scope. You can switch
@@ -36,7 +36,7 @@ scope::
 
     us-west-1> code
     >>> foo1 = 1
-    >>> foo2 = 2
+    >>> import time
     >>> endcode
-    us-west-1> INSERT INTO foobars (foo) VALUES (foo1), (foo2)
+    us-west-1> INSERT INTO foobars (foo) VALUES (foo1), (time.time())
     success

@@ -1,6 +1,6 @@
 """ Common use grammars """
 from pyparsing import (Word, Upcase, Optional, Combine, Group, alphas, nums,
-                       alphanums, quotedString, Keyword, Suppress,
+                       alphanums, quotedString, Keyword, Suppress, Regex,
                        delimitedList)
 
 
@@ -9,11 +9,13 @@ def upkey(name):
     return Upcase(Keyword(name, caseless=True))
 
 # pylint: disable=C0103
+backtickString = Regex(r'`[^`]*`').setName("string enclosed in backticks")
 
 and_, from_, into, in_, table_key, null, where_ = \
     map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where'])
 
 var = Word(alphas, alphanums + '_-').setName('variable').setResultsName('var')
+expr = Combine(Optional('m') + backtickString).setName('python expression').setResultsName('python')
 table = var.setResultsName('table')
 type_ = (upkey('string') |
          upkey('number') |
@@ -31,7 +33,7 @@ primitive = (null.setResultsName('null') |
 _emptyset = Keyword('()').setResultsName('set')
 set_ = (Suppress('(') + delimitedList(Group(primitive)) +
         Suppress(')')).setResultsName('set')
-value = Group(primitive | var | set_ | _emptyset).setName('value')
+value = Group(primitive | expr | set_ | _emptyset).setName('value')
 # Wrap these in a group so they can be used independently
-primitive = Group(primitive | var).setName('primitive')
-set_ = Group(set_ | _emptyset | var).setName('set')
+primitive = Group(primitive | expr).setName('primitive')
+set_ = Group(set_ | _emptyset | expr).setName('set')

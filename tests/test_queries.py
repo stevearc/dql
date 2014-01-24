@@ -510,3 +510,29 @@ class TestUpdate(BaseSystemTest):
         items = [dict(i) for i in result]
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
+
+    def test_update_expression(self):
+        """ UPDATE python expressions can reference item attributes """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 10), "
+                   "('b', 2, 20)")
+        self.query("UPDATE foobar SET baz = `bar + 1`")
+        result = self.query('SCAN foobar')
+        items = [dict(i) for i in result]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
+                                      {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_expression_defaults(self):
+        """ UPDATE python expressions can reference row directly """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, null)")
+        code = '\n'.join((
+            "if row.get('baz') is not None:",
+            "    return baz + 5"
+        ))
+        self.query("UPDATE foobar SET baz = m`%s`" % code)
+        result = self.query('SCAN foobar')
+        items = [dict(i) for i in result]
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 6},
+                                      {'id': 'b', 'bar': 2}])

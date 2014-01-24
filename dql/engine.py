@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import boto.dynamodb.types
 import boto.dynamodb2
+import logging
 from boto.dynamodb.types import Binary
 from boto.dynamodb2.fields import (BaseSchemaField, HashKey, RangeKey,
                                    AllIndex)
@@ -18,6 +19,8 @@ from pyparsing import ParseException
 from .grammar import parser, line_parser
 from .models import TableMeta
 
+
+LOG = logging.getLogger(__name__)
 
 # HACK to force conversion of floats to Decimals, even if inexact
 boto.dynamodb.types.DYNAMODB_CONTEXT.traps[Inexact] = False
@@ -90,7 +93,7 @@ class Engine(object):
         self.cached_descriptions = {}
         self.dynamizer = Dynamizer()
         self._cloudwatch_connection = None
-        self.scope = {}
+        self.scope = None
 
     def connect_to_region(self, region, **kwargs):
         """ Connect the engine to an AWS region """
@@ -202,13 +205,23 @@ class Engine(object):
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
-    def resolve(self, val):
+    def resolve(self, val, scope=None):
         """ Resolve a value into a string or number """
-        if val.getName() == 'var':
-            if val.var in self.scope:
-                return self.scope[val.var]
+        if scope is None:
+            scope = self.scope
+        if val.getName() == 'python':
+            if val.python[0].lower() == 'm':
+                code = val.python[2:-1]
+                func_def = 'def __dql_func():'
+                lines = [4 * ' ' + line for line in code.splitlines()]
+                lines.insert(0, func_def)
+                expr_func = '\n'.join(lines)
+                LOG.debug("Exec and run:\n%s", expr_func)
+                exec expr_func in scope
+                return scope['__dql_func']()
             else:
-                raise NameError("Name '%s' is not defined" % val.var)
+                code = val.python[1:-1]
+                return eval(code, scope)
         elif val.getName() == 'number':
             try:
                 return int(val.number)
@@ -357,7 +370,6 @@ class Engine(object):
         tablename = tree.table
         table = Table(tablename, connection=self.connection)
         desc = self.describe(tablename)
-        updates = {}
         result = []
 
         if tree.returns:
@@ -365,32 +377,41 @@ class Engine(object):
         else:
             returns = 'NONE'
 
-        for field, op, val in tree.updates:
-            value = self.resolve(val)
-            if value is None:
-                if op != '=':
-                    raise SyntaxError("Cannot increment/decrement by NULL!")
-                action = 'DELETE'
-            elif op == '=':
-                action = 'PUT'
-            elif op == '+=':
-                action = 'ADD'
-            elif op == '-=':
-                action = 'ADD'
-                value = -value
-            elif op == '<<':
-                action = 'ADD'
-                if not isinstance(value, set):
-                    value = set([value])
-            elif op == '>>':
-                action = 'DELETE'
-                if not isinstance(value, set):
-                    value = set([value])
-            else:
-                raise SyntaxError("Unknown operation '%s'" % op)
-            updates[field] = {'Action': action}
-            if action != 'DELETE' or op in ('<<', '>>'):
-                updates[field]['Value'] = self.dynamizer.encode(value)
+        def get_update_dict(item=None):
+            """ Construct a dict of values to update """
+            updates = {}
+            scope = None
+            if item is not None:
+                scope = self.scope.copy()
+                scope['row'] = dict(item)
+                scope.update(item.items())
+            for field, op, val in tree.updates:
+                value = self.resolve(val, scope)
+                if value is None:
+                    if op != '=':
+                        raise SyntaxError("Cannot increment/decrement by NULL!")
+                    action = 'DELETE'
+                elif op == '=':
+                    action = 'PUT'
+                elif op == '+=':
+                    action = 'ADD'
+                elif op == '-=':
+                    action = 'ADD'
+                    value = -value
+                elif op == '<<':
+                    action = 'ADD'
+                    if not isinstance(value, set):
+                        value = set([value])
+                elif op == '>>':
+                    action = 'DELETE'
+                    if not isinstance(value, set):
+                        value = set([value])
+                else:
+                    raise SyntaxError("Unknown operation '%s'" % op)
+                updates[field] = {'Action': action}
+                if action != 'DELETE' or op in ('<<', '>>'):
+                    updates[field]['Value'] = self.dynamizer.encode(value)
+            return updates
 
         def encode_pkey(pkey):
             """ HACK: boto doesn't encode primary keys in update_item """
@@ -405,6 +426,7 @@ class Engine(object):
             return item
 
         if tree.keys_in:
+            updates = get_update_dict()
             for key in self._iter_where_in(tree):
                 key = encode_pkey(key)
                 ret = self.connection.update_item(tablename, key, updates,
@@ -417,6 +439,7 @@ class Engine(object):
                 kwargs[key + '__' + OPS[op]] = self.resolve(val)
             for item in table.query(**kwargs):
                 key = encode_pkey(desc.primary_key(item))
+                updates = get_update_dict(item)
                 ret = self.connection.update_item(tablename, key, updates,
                                                   return_values=returns)
                 if returns != 'NONE':
@@ -425,6 +448,7 @@ class Engine(object):
             # We're updating THE WHOLE TABLE
             for item in table.scan():
                 key = encode_pkey(desc.primary_key(item))
+                updates = get_update_dict(item)
                 ret = self.connection.update_item(tablename, key, updates,
                                                   return_values=returns)
                 if returns != 'NONE':
