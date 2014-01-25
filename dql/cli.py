@@ -121,6 +121,8 @@ class DQLClient(cmd.Cmd):
             self.display = get_default_display()
         self.formatter = ColumnFormat(pagesize=conf.get('pagesize', 1000),
                                       width=conf.get('width', 80))
+        for line in conf.get('autorun', []):
+            exec line in self._scope
 
     def start(self):
         """ Start running the interactive session (blocking) """

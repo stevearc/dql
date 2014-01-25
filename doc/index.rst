@@ -55,7 +55,6 @@ Indices and tables
 
 TODO
 ----
-* Auto-load modules into scope
 * Create indexes with different projection mappings
 * More unit test coverage
 * Subqueries/Joins?
