@@ -91,19 +91,26 @@ TEST_CASES = {
         ('CREATE TABLE foobars (foo string hash key, THROUGHPUT (1, 1))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], 'THROUGHPUT', [['1'], ['1']]]),
         ('CREATE TABLE IF NOT EXISTS foobars (foo string hash key)', ['CREATE', 'TABLE', ['IF', 'NOT', 'EXISTS'], 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
         ('CREATE TABLE foobars (foo string hash key, bar number range key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER', ['RANGE', 'KEY']]]]),
-        ('CREATE TABLE foobars (foo binary index("foo-index"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['"foo-index"']]]]]),
-        ('CREATE TABLE foobars (foo binary index(`idxname`))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', ['INDEX', ['`idxname`']]]]]),
-        ('CREATE foobars (foo binary index(idxname))', 'error'),
         ('CREATE TABLE foobars foo binary hash key', 'error'),
         ('CREATE TABLE foobars (foo hash key)', 'error'),
         ('CREATE TABLE foobars (foo binary hash key) garbage', 'error'),
     ],
+    'create_index': [
+        ('CREATE TABLE foobars (foo binary index("foo-index"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INDEX'], ['"foo-index"']]]]]),
+        ('CREATE TABLE foobars (foo binary index(`idxname`))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INDEX'], ['`idxname`']]]]]),
+        ('CREATE TABLE foobars (foo binary keys index(`idxname`))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['KEYS', 'INDEX'], ['`idxname`']]]]]),
+        ('CREATE TABLE foobars (foo binary include index(`idxname`, ["foo"]))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INCLUDE', 'INDEX'], ['`idxname`'], [['"foo"']]]]]]),
+        ('CREATE TABLE foobars (foo binary INCLUDE INDEX(`idxname`, ["foo", "bar"]))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INCLUDE', 'INDEX'], ['`idxname`'], [['"foo"'], ['"bar"']]]]]]),
+        ('CREATE foobars (foo binary index(idxname))', 'error'),
+    ],
     'create_global': [
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo', 'bar']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo), ("g2idx", bar, foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo'], [['"g2idx"'], 'bar', 'foo']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo', 'bar', ['THROUGHPUT', [['2'], ['4']]]]]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['"gindex"'], 'foo', ['THROUGHPUT', [['2'], ['4']]]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo', 'bar']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo) GLOBAL INDEX ("g2idx", bar, foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo'], [['INDEX'], ['"g2idx"'], 'bar', 'foo']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo', 'bar', ['THROUGHPUT', [['2'], ['4']]]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo', ['THROUGHPUT', [['2'], ['4']]]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL KEYS INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['KEYS', 'INDEX'], ['"gindex"'], 'foo']]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INCLUDE INDEX ("g2idx", bar, foo, ["baz"])', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INCLUDE', 'INDEX'], ['"g2idx"'], 'bar', 'foo', [['"baz"']]]]]),
         ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex")', 'error'),
         ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, baz)', 'error'),
         ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar),', 'error'),
@@ -204,6 +211,11 @@ class TestParser(TestCase):
                     print string
                     print ' ' * e.loc + '^'
                     raise
+            except AssertionError:
+                print "Parsing : %s" % string
+                print "Expected: %s" % result
+                print "Got     : %s" % parse_result.asList()
+                raise
 
     def test_select(self):
         """ Run tests for SELECT statements """
@@ -252,6 +264,10 @@ class TestParser(TestCase):
     def test_create(self):
         """ Run tests for CREATE statements """
         self._run_tests('create')
+
+    def test_create_index(self):
+        """ Run tests for CREATE statements with indexes """
+        self._run_tests('create_index')
 
     def test_create_global(self):
         """ Run tests for CREATE statements with global indexes """

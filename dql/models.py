@@ -1,7 +1,8 @@
 """ Data containers """
-from decimal import Decimal
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
                                   STRING_SET, BINARY_SET)
+from decimal import Decimal
+
 
 TYPES = {
     NUMBER: 'NUMBER',
@@ -31,39 +32,34 @@ class TableField(object):
 
     """
 
-    def __init__(self, name, data_type, key_type=None, index_name=None):
+    def __init__(self, name, data_type, key_type=None):
         self.name = name
         self.data_type = data_type
         self.key_type = key_type
-        self.index_name = index_name
 
     @property
     def schema(self):
         """ The DQL syntax for creating this item """
         if self.key_type is None:
             return "%s %s" % (self.name, self.data_type)
-        elif self.index_name is not None:
-            return "%s %s %s('%s')" % (self.name, self.data_type,
-                                       self.key_type, self.index_name)
         else:
             return "%s %s %s KEY" % (self.name, self.data_type, self.key_type)
+
+    def to_index(self, index_type, index_name, includes=None):
+        """ Create an index field from this field """
+        return IndexField(self.name, self.data_type, index_type, index_name,
+                          includes)
 
     def __repr__(self):
         base = "TableField('%s', '%s'" % (self.name, self.data_type)
         if self.key_type is None:
             return base + ')'
-        base += ", '%s'" % self.key_type
-        if self.index_name is None:
-            return base + ')'
-        else:
-            return base + ", '%s')" % self.index_name
+        base += ", '%s')" % self.key_type
+        return base + ')'
 
     def __str__(self):
         if self.key_type is None:
             return "%s %s" % (self.name, self.data_type)
-        elif self.index_name is not None:
-            return "%s %s %s('%s')" % (self.name, self.data_type,
-                                       self.key_type, self.index_name)
         else:
             return "%s %s %s KEY" % (self.name, self.data_type, self.key_type)
 
@@ -73,20 +69,72 @@ class TableField(object):
     def __eq__(self, other):
         return (self.name == other.name and
                 self.data_type == other.data_type and
-                self.key_type == other.key_type and
-                self.index_name == other.index_name)
+                self.key_type == other.key_type)
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+
+class IndexField(TableField):
+
+    """ A TableField that is also part of a Local Secondary Index """
+
+    def __init__(self, name, data_type, index_type, index_name, includes=None):
+        super(IndexField, self).__init__(name, data_type, 'INDEX')
+        if index_type == 'KEYS_ONLY':
+            self.index_type = 'KEYS'
+        else:
+            self.index_type = index_type
+        self.index_name = index_name
+        self.includes = includes
+
+    @property
+    def schema(self):
+        """ The DQL syntax for creating this item """
+        schema = "%s %s %s %s('%s'" % (self.name, self.data_type,
+                                       self.index_type, self.key_type,
+                                       self.index_name)
+        if self.includes is not None:
+            schema += ', ['
+            schema += ', '.join(("'%s'" % i for i in self.includes))
+            schema += ']'
+        return schema + ')'
+
+    def __repr__(self):
+        base = ("IndexField('%s', '%s', '%s', '%s'" %
+                (self.name, self.data_type, self.index_type, self.index_name))
+        if self.includes is None:
+            return base + ')'
+        else:
+            return base + ", %s)" % (self.includes,)
+
+    def __str__(self):
+        base = "%s %s %s %s('%s'" % (self.name, self.data_type,
+                                     self.index_type, self.key_type,
+                                     self.index_name)
+        if self.includes is not None:
+            base += '[%s]' % ', '.join(("'%s'" % i for i in self.includes))
+        return base + ')'
+
+    def __eq__(self, other):
+        return (super(IndexField, self).__eq__(other) and
+                self.index_type == other.index_type and
+                self.index_name == other.index_name and
+                self.includes == other.includes)
 
 
 class GlobalIndex(object):
 
     """ Container for global index data """
 
-    def __init__(self, name, status, hash_key, range_key,
-                 read_throughput, write_throughput, size, item_count):
+    def __init__(self, name, index_type, status, hash_key, range_key,
+                 read_throughput, write_throughput, size, item_count,
+                 includes=None):
         self.name = name
+        if index_type == 'KEYS_ONLY':
+            self.index_type = 'KEYS'
+        else:
+            self.index_type = index_type
         self.size = size
         self.status = status
         self.item_count = item_count
@@ -94,11 +142,14 @@ class GlobalIndex(object):
         self.range_key = range_key
         self.read_throughput = read_throughput
         self.write_throughput = write_throughput
+        self.includes = includes
 
     @classmethod
     def from_description(cls, description, attrs):
         """ Create an object from a boto response """
         range_key = None
+        index_type = description['Projection']['ProjectionType']
+        includes = description['Projection'].get('NonKeyAttributes')
         for data in description['KeySchema']:
             name = data['AttributeName']
             key_type = data['KeyType']
@@ -107,28 +158,48 @@ class GlobalIndex(object):
             elif key_type == 'RANGE':
                 range_key = TableField(name, attrs[name].data_type, key_type)
         throughput = description['ProvisionedThroughput']
-        return cls(description['IndexName'], description['IndexStatus'],
-                   hash_key, range_key, throughput['ReadCapacityUnits'],
+        return cls(description['IndexName'], index_type,
+                   description['IndexStatus'], hash_key, range_key,
+                   throughput['ReadCapacityUnits'],
                    throughput['WriteCapacityUnits'],
-                   description['IndexSizeBytes'], description['ItemCount'])
+                   description['IndexSizeBytes'], description['ItemCount'],
+                   includes)
 
     def __repr__(self):
-        return ("GlobalIndex('%s', '%s', %s, %s, %s, %s)" %
-                (self.name, self.status, self.hash_key, self.range_key,
-                 self.read_throughput, self.write_throughput))
+        return ("GlobalIndex('%s', '%s', '%s', %s, %s, %s, %s, %s)" %
+                (self.name, self.index_type, self.status, self.hash_key,
+                 self.range_key, self.read_throughput, self.write_throughput,
+                 self.includes))
 
     def pformat(self):
         """ Pretty format for insertion into table pformat """
-        parts = ['GLOBAL INDEX', self.status, self.name]
+        parts = ['GLOBAL', self.index_type, 'INDEX', self.status, self.name]
         keys = "(%s" % self.hash_key.name
-        if self.range_key is None:
-            keys += ')'
-        else:
-            keys += ", %s)" % self.range_key.name
+        if self.range_key is not None:
+            keys += ", %s" % self.range_key.name
+        if self.includes is not None:
+            keys += ', [%s]' % ', '.join(("'%s'" % i for i in self.includes))
+        keys += ')'
+
         parts.append(keys)
         parts.extend(['THROUGHPUT', "(%d, %d)" % (self.read_throughput,
                                                   self.write_throughput)])
 
+        return ' '.join(parts)
+
+    @property
+    def schema(self):
+        """ The DQL fragment for constructing this index """
+        parts = ['GLOBAL', self.index_type, 'INDEX']
+        parts.append("('%s', %s," % (self.name, self.hash_key.name))
+        if self.range_key:
+            parts.append("%s," % self.range_key.name)
+        if self.includes:
+            parts.append("[%s]," % ', '.join(("'%s'" % i for i in
+                                              self.includes)))
+
+        parts.append("THROUGHPUT (%d, %d))" % (self.read_throughput,
+                                               self.write_throughput))
         return ' '.join(parts)
 
     def __hash__(self):
@@ -137,10 +208,12 @@ class GlobalIndex(object):
     def __eq__(self, other):
         """ Check if schemas are equivalent """
         return (self.name == other.name and
+                self.index_type == other.index_type and
                 self.hash_key == other.hash_key and
                 self.range_key == other.range_key and
                 self.read_throughput == other.read_throughput and
-                self.write_throughput == other.write_throughput)
+                self.write_throughput == other.write_throughput and
+                self.includes == other.includes)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -212,8 +285,11 @@ class TableMeta(object):
             for data in index['KeySchema']:
                 if data['KeyType'] == 'RANGE':
                     name = data['AttributeName']
-                    attrs[name].key_type = 'INDEX'
-                    attrs[name].index_name = index['IndexName']
+                    index_type = index['Projection']['ProjectionType']
+                    includes = index['Projection'].get('NonKeyAttributes')
+                    attrs[name] = attrs[name].to_index(index_type,
+                                                       index['IndexName'],
+                                                       includes)
                     break
         global_indexes = {}
         for index in table.get('GlobalSecondaryIndexes', []):
@@ -303,26 +379,19 @@ class TableMeta(object):
     @property
     def schema(self):
         """ The DQL query that will construct this table's schema """
-        parts = [
-            'CREATE TABLE %s (' % self.name,
-        ]
-        attrs = ', '.join([attr.schema for attr in self.attrs.itervalues()])
-        parts.append(attrs)
+        attrs = self.attrs.copy()
+        parts = ['CREATE', 'TABLE', self.name, '(%s,' % self.hash_key.schema]
+        del attrs[self.hash_key.name]
+        if self.range_key:
+            parts.append(self.range_key.schema + ',')
+            del attrs[self.range_key.name]
+        if attrs:
+            attr_def = ', '.join([attr.schema for attr in attrs.itervalues()])
+            parts.append(attr_def + ',')
 
-        parts.append(", THROUGHPUT (%d, %d))" % (self.read_throughput,
-                                                 self.write_throughput))
-        gindexes = []
-        for gindex in self.global_indexes.itervalues():
-            g_parts = []
-            g_parts.append("('%s', %s," % (gindex.name, gindex.hash_key.name))
-            if gindex.range_key:
-                g_parts.append("%s," % gindex.range_key.name)
-            g_parts.append("THROUGHPUT (%d, %d))" % (gindex.read_throughput,
-                                                     gindex.write_throughput))
-            gindexes.append(' '.join(g_parts))
-        if gindexes:
-            parts.append("GLOBAL INDEX")
-            parts.append(', '.join(gindexes))
+        parts.append("THROUGHPUT (%d, %d))" % (self.read_throughput,
+                                               self.write_throughput))
+        parts.extend([g.schema for g in self.global_indexes.itervalues()])
         return ' '.join(parts) + ';'
 
     def pformat(self):

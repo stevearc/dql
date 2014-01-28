@@ -9,7 +9,7 @@ Synopsis
         [IF NOT EXISTS]
         tablename
         attributes
-        [GLOBAL INDEX indexes]
+        [GLOBAL [ALL|KEYS|INCLUDE] INDEX global_index]
 
 Examples
 --------
@@ -26,9 +26,9 @@ Examples
     CREATE TABLE foobars (id STRING HASH KEY, bar STRING) GLOBAL INDEX
                          ('bar-index', bar, THROUGHPUT (1, 1));
     CREATE TABLE foobars (id STRING HASH KEY, bar STRING, baz NUMBER,
-                          THROUGHPUT (2, 2)) GLOBAL INDEX
-                         ('bar-index', bar, baz),
-                         ('baz-index', baz, THROUGHPUT (4, 2));
+                          THROUGHPUT (2, 2))
+                          GLOBAL INDEX ('bar-index', bar, baz)
+                          GLOBAL INDEX ('baz-index', baz, THROUGHPUT (4, 2));
 
 Description
 -----------
@@ -44,19 +44,23 @@ Parameters
     The name of the table that you want to alter
 
 **attributes**
-    A list of attribute declarations of the format (*name* *data type* [*key type*])
-    The available data types are ``STRING``, ``NUMBER``, and ``BINARY`` (DQL
-    does not support the SET types yet). The available key types are ``HASH
-    KEY``, ``RANGE KEY``, and ``INDEX(name)``. At the end of the attribute list
+    A list of attribute declarations of the format (*name* *data type* [*key
+    type*]) The available data types are ``STRING``, ``NUMBER``, and
+    ``BINARY``. You will not need to specify ``SET`` types, because these
+    fields are only used for index creation and it is (presently) impossible to
+    index a ``SET``.  The available key types are ``HASH KEY``, ``RANGE KEY``,
+    and ``[ALL|KEYS|INCLUDE] INDEX(name)``. At the end of the attribute list
     you may specify the ``THROUGHPUT``, which is in the form of
     ``(read_throughput, write_throughput)``. If throughput is not specified it
     will default to ``(5, 5)``.
 
-**indexes**
-    A list of the global indexes for the table. The format is (*name*, *hash
-    key*, [*range key*], [*throughput*]). The hash key and range key must be in
-    the **attributes** declaration. If throughput is not specified it will
-    default to ``(5, 5)``.
+**global_index**
+    A global index for the table. You may provide up to 5. The format is
+    (*name*, *hash key*, [*range key*], [*non-key attributes*],
+    [*throughput*]). The hash key and range key must be in the **attributes**
+    declaration. *non-key attributes* should only be provided if it is an
+    ``INCLUDE`` index. If throughput is not specified it will default to ``(5,
+    5)``.
 
 Schema Design at a Glance
 -------------------------

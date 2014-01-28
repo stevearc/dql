@@ -1,6 +1,6 @@
 """ Tests for queries """
 from boto.exception import JSONResponseError
-from dql.models import TableField, GlobalIndex
+from dql.models import TableField, IndexField, GlobalIndex
 
 from . import BaseSystemTest
 
@@ -109,9 +109,13 @@ class TestQueries(BaseSystemTest):
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
         self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
-                   "KEY, ts NUMBER INDEX('ts-index'), baz STRING, "
+                   "KEY, ts NUMBER INDEX('ts-index'), "
+                   "baz STRING KEYS INDEX('baz-index'), "
+                   "bag NUMBER INCLUDE INDEX('bag-index', ['foo']), "
                    "THROUGHPUT (2, 6)) "
-                   "GLOBAL INDEX ('myindex', bar, baz, THROUGHPUT (1, 2))")
+                   "GLOBAL INDEX ('myindex', bar, baz, THROUGHPUT (1, 2)) "
+                   "GLOBAL KEYS INDEX ('idx2', id) "
+                   "GLOBAL INCLUDE INDEX ('idx3', baz, ['foo', 'foobar'])")
         original = self.engine.describe('test')
         schema = self.query("DUMP SCHEMA")
         self.query("DROP TABLE test")
@@ -375,13 +379,11 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         self.assertEquals(desc.hash_key, TableField('owner', 'STRING', 'HASH'))
         self.assertEquals(desc.range_key, TableField('id', 'BINARY', 'RANGE'))
-        self.assertEquals(len(desc.attrs), 3)
-        self.assertTrue(TableField('owner', 'STRING', 'HASH') in
-                        desc.attrs.values())
-        self.assertTrue(TableField('id', 'BINARY', 'RANGE') in
-                        desc.attrs.values())
-        self.assertTrue(TableField('ts', 'NUMBER', 'INDEX', 'ts-index') in
-                        desc.attrs.values())
+        self.assertEqual(desc.attrs, {
+            'owner': TableField('owner', 'STRING', 'HASH'),
+            'id': TableField('id', 'BINARY', 'RANGE'),
+            'ts': IndexField('ts', 'NUMBER', 'ALL', 'ts-index'),
+        })
 
     def test_create_throughput(self):
         """ CREATE statement can specify throughput """
@@ -396,6 +398,31 @@ class TestCreate(BaseSystemTest):
         self.query("CREATE TABLE foobar (owner STRING HASH KEY)")
         self.query("CREATE TABLE IF NOT EXISTS foobar (owner STRING HASH KEY)")
 
+    def test_create_keys_index(self):
+        """ Can create a keys-only index """
+        self.query(
+            """
+            CREATE TABLE foobar (owner STRING HASH KEY,
+                                 id BINARY RANGE KEY,
+                                 ts NUMBER KEYS INDEX('ts-index'))
+            """)
+        desc = self.engine.describe('foobar')
+        self.assertEqual(desc.attrs['ts'], IndexField('ts', 'NUMBER',
+                                                      'KEYS', 'ts-index'))
+
+    def test_create_include_index(self):
+        """ Can create an include-only index """
+        self.query(
+            """
+            CREATE TABLE foobar (owner STRING HASH KEY,
+                id BINARY RANGE KEY,
+                ts NUMBER INCLUDE INDEX('ts-index', ['foo', 'bar']))
+            """)
+        desc = self.engine.describe('foobar')
+        self.assertEqual(desc.attrs['ts'], IndexField('ts', 'NUMBER',
+                                                      'INCLUDE', 'ts-index',
+                                                      ['foo', 'bar']))
+
     def test_create_global_indexes(self):
         """ Can create with global indexes """
         self.query(
@@ -405,7 +432,7 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         range_key = TableField('id', 'STRING', 'RANGE')
-        gindex = GlobalIndex('myindex', 'ACTIVE', hash_key, range_key, 1, 2, 0,
+        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, range_key, 1, 2, 0,
                              0)
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
@@ -415,11 +442,38 @@ class TestCreate(BaseSystemTest):
         """ Can create global index with no range key """
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
-            "GLOBAL INDEX ('myindex', foo, THROUGHPUT (1, 2))"
+            "GLOBAL ALL INDEX ('myindex', foo, THROUGHPUT (1, 2))"
         )
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
-        gindex = GlobalIndex('myindex', 'ACTIVE', hash_key, None, 1, 2, 0, 0)
+        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, None, 1, 2, 0, 0)
+        self.assertEquals(desc.global_indexes, {
+            'myindex': gindex,
+        })
+
+    def test_create_global_keys_index(self):
+        """ Can create a global keys-only index """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL KEYS INDEX ('myindex', foo, THROUGHPUT (1, 2))"
+        )
+        desc = self.engine.describe('foobar')
+        hash_key = TableField('foo', 'NUMBER', 'HASH')
+        gindex = GlobalIndex('myindex', 'KEYS', 'ACTIVE', hash_key, None, 1, 2,
+                             0, 0)
+        self.assertEquals(desc.global_indexes, {
+            'myindex': gindex,
+        })
+
+    def test_create_global_include_index(self):
+        """ Can create a global include-only index """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL INCLUDE INDEX ('myindex', foo, ['bar', 'baz'], THROUGHPUT (1, 2))"
+        )
+        desc = self.engine.describe('foobar')
+        hash_key = TableField('foo', 'NUMBER', 'HASH')
+        gindex = GlobalIndex('myindex', 'INCLUDE', 'ACTIVE', hash_key, None, 1, 2, 0, 0, ['bar', 'baz'])
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })

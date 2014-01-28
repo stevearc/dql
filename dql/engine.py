@@ -6,7 +6,9 @@ import boto.dynamodb2
 import logging
 from boto.dynamodb.types import Binary
 from boto.dynamodb2.fields import (BaseSchemaField, HashKey, RangeKey,
-                                   AllIndex)
+                                   AllIndex, KeysOnlyIndex, IncludeIndex,
+                                   GlobalAllIndex, GlobalKeysOnlyIndex,
+                                   GlobalIncludeIndex)
 from boto.dynamodb2.items import Item
 from boto.dynamodb2.table import Table
 from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
@@ -480,9 +482,20 @@ class Engine(object):
                     field = RangeKey(name, data_type=TYPES[type_])
                     schema.append(field.schema())
                 else:
+                    index_type = index[0]
+                    kwargs = {}
+                    if index_type[0] in ('ALL', 'INDEX'):
+                        idx_class = AllIndex
+                    elif index_type[0] == 'KEYS':
+                        idx_class = KeysOnlyIndex
+                    elif index_type[0] == 'INCLUDE':
+                        idx_class = IncludeIndex
+                        kwargs['includes'] = [self.resolve(i) for i in
+                                              index.include]
                     index_name = self.resolve(index[1])
                     field = RangeKey(name, data_type=TYPES[type_])
-                    idx = AllIndex(index_name, parts=[hash_key, field])
+                    idx = idx_class(index_name, parts=[hash_key, field],
+                                    **kwargs)
                     indexes.append(idx.schema())
             else:
                 field = BaseSchemaField(name, data_type=TYPES[type_])
@@ -490,27 +503,36 @@ class Engine(object):
             raw_attrs[name] = field
 
         for gindex in tree.global_indexes:
-            name, var1 = gindex[:2]
+            index_type, name, var1 = gindex[:3]
             hash_key = HashKey(var1, data_type=raw_attrs[var1].data_type)
             parts = [hash_key]
             throughput = None
-            for piece in gindex[2:]:
+            for piece in gindex[3:]:
                 if isinstance(piece, basestring):
                     range_key = RangeKey(piece,
                                          data_type=raw_attrs[piece].data_type)
                     parts.append(range_key)
                 else:
                     throughput = piece.throughput
-            index = AllIndex(self.resolve(name), parts=parts)
-            s = index.schema()
             read, write = 5, 5
-            if throughput is not None:
+            if throughput:
                 read, write = map(self.resolve, throughput)
-            # Manually add throughput until boto supports global indexes
-            s['ProvisionedThroughput'] = {
-                'ReadCapacityUnits': read,
-                'WriteCapacityUnits': write,
+
+            if index_type[0] in ('ALL', 'INDEX'):
+                idx_class = GlobalAllIndex
+            elif index_type[0] == 'KEYS':
+                idx_class = GlobalKeysOnlyIndex
+            elif index_type[0] == 'INCLUDE':
+                idx_class = GlobalIncludeIndex
+            index = idx_class(self.resolve(name), parts=parts)
+            index.throughput = {
+                'read': read,
+                'write': write,
             }
+            if gindex.include:
+                index.includes_fields = [self.resolve(i) for i in
+                                         gindex.include]
+            s = index.schema()
             global_indexes.append(s)
 
         read, write = 5, 5

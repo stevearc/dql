@@ -35,23 +35,23 @@ CREATE = """
         [IF NOT EXISTS]
         tablename
         attributes
-        [GLOBAL INDEX indexes]
+        [GLOBAL [ALL|KEYS|INCLUDE] INDEX global_index]
 
     Examples:
         CREATE TABLE foobars (id STRING HASH KEY);
         CREATE TABLE IF NOT EXISTS foobars (id STRING HASH KEY);
         CREATE TABLE foobars (id STRING HASH KEY, foo BINARY RANGE KEY,
-                              THROUGHPUT (1, 1));
+                            THROUGHPUT (1, 1));
         CREATE TABLE foobars (id STRING HASH KEY,
-                              foo BINARY RANGE KEY,
-                              ts NUMBER INDEX('ts-index'),
-                              views NUMBER INDEX('views-index'));
+                            foo BINARY RANGE KEY,
+                            ts NUMBER INDEX('ts-index'),
+                            views NUMBER INDEX('views-index'));
         CREATE TABLE foobars (id STRING HASH KEY, bar STRING) GLOBAL INDEX
-                             ('bar-index', bar, THROUGHPUT (1, 1));
+                            ('bar-index', bar, THROUGHPUT (1, 1));
         CREATE TABLE foobars (id STRING HASH KEY, bar STRING, baz NUMBER,
-                              THROUGHPUT (2, 2)) GLOBAL INDEX
-                             ('bar-index', bar, baz),
-                             ('baz-index', baz, THROUGHPUT (4, 2));
+                            THROUGHPUT (2, 2))
+                            GLOBAL INDEX ('bar-index', bar, baz)
+                            GLOBAL INDEX ('baz-index', baz, THROUGHPUT (4, 2));
 """
 
 DELETE = """

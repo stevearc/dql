@@ -4,7 +4,7 @@ from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        quotedString, OneOrMore, Regex)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
-                     set_)
+                     set_, primitive)
 from .query import (where, select_where, limit, if_exists, if_not_exists,
                     using, filter_)
 
@@ -12,7 +12,7 @@ from .query import (where, select_where, limit, if_exists, if_not_exists,
 def create_throughput():
     """ Create a throughput specification """
     return (upkey('throughput') + Suppress('(') +
-            Group(value + Suppress(',') + value).setResultsName('throughput') +
+            Group(primitive + Suppress(',') + primitive).setResultsName('throughput') +
             Suppress(')'))
 
 # pylint: disable=C0103
@@ -60,11 +60,15 @@ def create_create():
     range_key = Group(upkey('range') +
                       upkey('key'))
 
-    # ATTR DECLARATION
-    index = Group(upkey('index') + Suppress('(') +
-                  value + Suppress(')'))
-    index_type = (hash_key | range_key | index)\
+    index = Group(Optional(upkey('all') | upkey('keys') | upkey('include')) +
+                  upkey('index')).setResultsName('index_type')
+    include_vars = Group(Suppress('[') + delimitedList(primitive) +
+                         Suppress(']')).setResultsName('include')
+    local_index = Group(index + Suppress('(') + primitive +
+                        Optional(Suppress(',') + include_vars) + Suppress(')'))
+    index_type = (hash_key | range_key | local_index)\
         .setName('index specification').setResultsName('index')
+
     attr_declaration = Group(var.setResultsName('name') + type_ +
                              Optional(index_type))\
         .setName('attr').setResultsName('attr')
@@ -73,13 +77,17 @@ def create_create():
                          .setName('attrs').setResultsName('attrs')
                          + Optional(Suppress(',') + throughput) + Suppress(')'))
 
-    range_and_tp = ((Suppress(',') + var + Group(Suppress(',') + throughput)) |
-                    Group(Suppress(',') + throughput) |
-                    (Suppress(',') + var))
-    global_idx = Group(Suppress('(') + value + Suppress(',') + var +
-                       Optional(range_and_tp) + Suppress(')'))
-    global_indexes = Group(Suppress(upkey('global')) + Suppress(upkey('index'))
-                           + (delimitedList(global_idx)))\
+    global_dec = Suppress(upkey('global')) + index
+    range_key_etc = (Suppress(',') + Group(throughput) |
+                     Optional(Suppress(',') + var) +
+                     Optional(Suppress(',') + include_vars) +
+                     Optional(Group(Suppress(',') + throughput)))
+    global_spec = (Suppress('(') + primitive +
+                   Suppress(',') + var +
+                   range_key_etc +
+                   Suppress(')'))
+    global_index = Group(global_dec + global_spec).setName('global index')
+    global_indexes = Group(OneOrMore(global_index))\
         .setResultsName('global_indexes')
 
     return (create + table_key + Optional(if_not_exists) + table +
