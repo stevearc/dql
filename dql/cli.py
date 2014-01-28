@@ -107,6 +107,12 @@ class DQLClient(cmd.Cmd):
     def initialize(self, region='us-west-1', host='localhost', port=8000,
                    access_key=None, secret_key=None):
         """ Set up the repl for execution """
+        # Tab-complete names with a '-' in them
+        import readline
+        delims = set(readline.get_completer_delims())
+        delims.remove('-')
+        readline.set_completer_delims(''.join(delims))
+
         self._conf_dir = os.path.join(os.environ.get('HOME', '.'), '.config')
         self._access_key = access_key
         self._secret_key = secret_key

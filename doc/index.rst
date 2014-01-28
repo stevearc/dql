@@ -56,7 +56,6 @@ Indices and tables
 TODO
 ----
 * KeyError when dropping a table
-* Better autocomplete for tables with '-'
 * More unit test coverage
 * Subqueries/Joins?
 * THROTTLE keyword to avoid breaking throughput
