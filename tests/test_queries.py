@@ -1,5 +1,6 @@
 """ Tests for queries """
 from boto.exception import JSONResponseError
+from dql.engine import Binary, Table
 from dql.models import TableField, IndexField, GlobalIndex
 
 from . import BaseSystemTest
@@ -63,6 +64,14 @@ class TestQueries(BaseSystemTest):
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
+    def test_insert_binary(self):
+        """ INSERT statement can insert binary values """
+        self.query("CREATE TABLE foobar (id BINARY HASH KEY)")
+        self.query("INSERT INTO foobar (id) VALUES (b'a')")
+        table = Table('foobar', connection=self.dynamo)
+        items = [dict(i) for i in table.scan()]
+        self.assertEqual(items, [{'id': Binary(b'a')}])
+
     def test_count(self):
         """ COUNT statement counts items """
         self.make_table()
@@ -105,6 +114,16 @@ class TestQueries(BaseSystemTest):
         results = table.scan()
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
+
+    def test_delete_using(self):
+        """ DELETE statement can specify an index """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 0), "
+                   "('a', 2, 5)")
+        self.query("DELETE FROM foobar WHERE id = 'a' and ts < 8 "
+                   "USING 'ts-index'")
+        items = [dict(i) for i in table.scan()]
+        self.assertEqual(len(items), 0)
 
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
