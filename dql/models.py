@@ -274,11 +274,11 @@ class TableMeta(object):
         table = description['Table']
         throughput = table['ProvisionedThroughput']
         attrs = {}
-        for data in table['AttributeDefinitions']:
+        for data in table.get('AttributeDefinitions', []):
             field = TableField(data['AttributeName'],
                                TYPES[data['AttributeType']])
             attrs[field.name] = field
-        for data in table['KeySchema']:
+        for data in table.get('KeySchema', []):
             name = data['AttributeName']
             attrs[name].key_type = data['KeyType']
         for index in table.get('LocalSecondaryIndexes', []):
@@ -415,7 +415,8 @@ class TableMeta(object):
         for gindex in self.global_indexes.itervalues():
             lines.append(gindex.pformat())
 
-        lines.append(str(self.hash_key))
+        if self.hash_key is not None:
+            lines.append(str(self.hash_key))
         if self.range_key is not None:
             lines.append(str(self.range_key))
 
