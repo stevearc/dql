@@ -13,39 +13,39 @@ A simple, SQL-ish language for DynamoDB
 
 Getting Started
 ===============
-Here are some basic examples to get you started::
+Here are some basic examples to get you started.
 
-    $ dql
+Start the REPL::
+
+    $ dql -a <access key> -s <secret key>
+    us-west-1>
+
+Creating a table::
+
     us-west-1> CREATE TABLE forum_threads (name STRING HASH KEY,
              >                             subject STRING RANGE KEY)
              >                             THROUGHPUT (4, 2);
+
+Inserting data::
+
     us-west-1> INSERT INTO forum_threads (name, subject, views, replies)
              > VALUES ('Self Defense', 'Defense from Banana', 67, 4),
              > ('Self Defense', 'Defense from Strawberry', 10, 0),
              > ('Cheese Shop', 'Anyone seen the camembert?', 16, 1);
+
+Queries::
+
     us-west-1> SCAN forum_threads;
     us-west-1> COUNT forum_threads WHERE name = 'Self Defense';
+    us-west-1> SELECT * FROM forum_threads WHERE name = 'Self Defense';
+
+Mutations::
+
     us-west-1> UPDATE forum_threads SET views += 1 WHERE
              > name = 'Self Defense' AND subject = 'Defense from Banana';
-    us-west-1> SELECT * FROM forum_threads WHERE name = 'Self Defense';
     us-west-1> DELETE FROM forum_threads WHERE name = 'Cheese Shop';
+
+Changing tables::
+
     us-west-1> ALTER TABLE forum_threads SET THROUGHPUT (8, 4);
     us-west-1> DROP TABLE forum_threads;
-
-Development
-===========
-To get started developing dql, run the following command::
-
-    wget https://raw.github.com/mathcamp/devbox/master/devbox/unbox.py && \
-    python unbox.py git@github.com:mathcamp/dql
-
-This will clone the repository and install the package into a virtualenv
-
-Running Tests
--------------
-The command to run tests is ``python setup.py nosetests``. Some of these tests
-require `DynamoDB Local
-<http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Tools.html>`_.
-There is a nose plugin that will download and run the DynamoDB Local service
-during the tests. It requires the java 6/7 runtime, so make sure you have that
-installed.

@@ -12,6 +12,7 @@ User Guide
     topics/getting_started
     topics/advanced_usage
     topics/queries/index
+    topics/develop
 
 API Reference
 -------------
