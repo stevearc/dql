@@ -1,11 +1,13 @@
 """ Formatting and displaying output """
 from __future__ import unicode_literals
-import os
+
 import contextlib
-import sys
-import subprocess
+import os
 import stat
+import subprocess
+import sys
 import tempfile
+from decimal import Decimal
 from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
 
 
@@ -39,6 +41,17 @@ class BaseFormat(object):
         """ Format a single result and stick it in an output stream """
         raise NotImplementedError
 
+    def format_field(self, field):
+        """ Format a single Dynamo value """
+        if isinstance(field, Decimal):
+            if field % 1 == 0:
+                return unicode(int(field))
+            return unicode(float(field))
+        pretty = repr(field)
+        if pretty.startswith("u'"):
+            return pretty[1:]
+        return pretty
+
 
 class ExpandedFormat(BaseFormat):
 
@@ -46,10 +59,10 @@ class ExpandedFormat(BaseFormat):
 
     def format(self, result, ostream):
         ostream.write(self.width * '-' + '\n')
-        max_key = max((len(k) for k in result.keys())) + 1
-        for key, val in result.items():
-            val = truncate(repr(val), self.width - max_key - 2)
-            ostream.write("{0}: {1}\n".format(key.ljust(max_key), val))
+        max_key = max((len(k) for k in result.keys()))
+        for key, val in sorted(result.items()):
+            val = truncate(self.format_field(val), self.width - max_key - 3)
+            ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
 
 
 class ColumnFormat(BaseFormat):
@@ -94,7 +107,7 @@ class ColumnFormat(BaseFormat):
             ostream.write('|')
             for col in columns:
                 ostream.write(' ')
-                val = unicode(result.get(col, 'null')).ljust(col_width)
+                val = self.format_field(result.get(col, 'null')).ljust(col_width)
                 ostream.write(truncate(val, col_width).encode('utf-8'))
                 ostream.write(' |')
             ostream.write('\n')

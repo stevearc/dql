@@ -57,5 +57,6 @@ Indices and tables
 TODO
 ----
 * More unit test coverage
-* Subqueries/Joins?
-* THROTTLE keyword to avoid breaking throughput
+* Smart expanded display
+* Option to not truncate output
+* Option to color indexed fields in output
