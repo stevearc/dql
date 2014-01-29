@@ -57,6 +57,5 @@ Indices and tables
 TODO
 ----
 * More unit test coverage
-* Smart expanded display
 * Option to not truncate output
 * Option to color indexed fields in output

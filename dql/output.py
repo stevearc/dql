@@ -86,15 +86,11 @@ class ColumnFormat(BaseFormat):
         return retval
 
     def format(self, results, columns, ostream):
-        col_width = int((self.width - 2) / len(columns)) - 2
+        col_width = int((self.width - 1) / len(columns)) - 3
 
         # Print the header
-        first = True
-        header = ''
+        header = '|'
         for col in columns:
-            if first:
-                header += '|'
-                first = False
             header += ' '
             header += truncate(col.center(col_width), col_width)
             header += ' |'
@@ -112,6 +108,23 @@ class ColumnFormat(BaseFormat):
                 ostream.write(' |')
             ostream.write('\n')
         ostream.write(len(header) * '-' + '\n')
+
+
+class SmartFormat(ColumnFormat):
+
+    """ A layout that chooses column/expanded format intelligently """
+
+    def __init__(self, *args, **kwargs):
+        super(SmartFormat, self).__init__(*args, **kwargs)
+
+    def format(self, results, columns, ostream):
+        col_width = int((self.width - 2) / len(columns))
+        if col_width < 10:
+            expanded = ExpandedFormat(self.width, self.pagesize)
+            for result in results:
+                expanded.format(result, ostream)
+        else:
+            super(SmartFormat, self).format(results, columns, ostream)
 
 
 def get_default_display():

@@ -18,8 +18,8 @@ from pyparsing import ParseException
 from .engine import FragmentEngine
 from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE)
-from .output import (ColumnFormat, ExpandedFormat, get_default_display,
-                     less_display, stdout_display)
+from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
+                     get_default_display, less_display, stdout_display)
 
 
 try:
@@ -125,8 +125,8 @@ class DQLClient(cmd.Cmd):
             self.display = DISPLAYS[display_name]
         else:
             self.display = get_default_display()
-        self.formatter = ColumnFormat(pagesize=conf.get('pagesize', 1000),
-                                      width=conf.get('width', 80))
+        self.formatter = SmartFormat(pagesize=conf.get('pagesize', 1000),
+                                     width=conf.get('width', 80))
         for line in conf.get('autorun', []):
             exec line in self._scope
 
@@ -221,9 +221,17 @@ class DQLClient(cmd.Cmd):
         return [t + ' ' for t in DISPLAYS if t.startswith(text)]
 
     @repl_command
-    def do_x(self):
-        """ Toggle expanded display format """
-        if isinstance(self.formatter, ExpandedFormat):
+    def do_x(self, smart='false'):
+        """
+        Toggle expanded display format
+
+        You can set smart formatting with 'x smart'
+        """
+        if smart.lower() in ('smart', 'true'):
+            self.formatter = SmartFormat(width=self.formatter.width,
+                                         pagesize=self.formatter.pagesize)
+            print "Smart format enabled"
+        elif isinstance(self.formatter, ExpandedFormat):
             self.formatter = ColumnFormat(width=self.formatter.width,
                                           pagesize=self.formatter.pagesize)
             print "Expanded format disabled"
