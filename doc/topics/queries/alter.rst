@@ -15,15 +15,18 @@ Examples
 .. code-block:: sql
 
     ALTER TABLE foobars SET THROUGHPUT (4, 8);
-    ALTER TABLE foobars SET THROUGHPUT (7, 0);
-    ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, 0);
+    ALTER TABLE foobars SET THROUGHPUT (7, *);
+    ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, *);
 
 Description
 -----------
-Alter changes the read/write throughput on a table. You may not increase either
-value to more than double the current value. You may also only decrease the
-throughput twice per day. If you wish to change one of the throughput values
-and not the other, pass in ``0`` for the value you wish to remain unchanged.
+Alter changes the read/write throughput on a table. Dynamo stipulates that you
+may only increase the throughput by a factor of 2 at a time. If you attempt to
+increase the throughput by more than that, DQL will have to make multiple
+calls, waiting for the updates to go through in the interim. You may only
+decrease the throughput twice per day. If you wish to change one of the
+throughput values and not the other, pass in ``0`` or ``*`` for the value you
+wish to remain unchanged.
 
 Parameters
 ----------

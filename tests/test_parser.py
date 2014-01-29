@@ -133,6 +133,7 @@ TEST_CASES = {
     ],
     'alter': [
         ('ALTER TABLE foobars SET THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'THROUGHPUT', [['3'], ['4']]]),
+        ('ALTER TABLE foobars SET THROUGHPUT (0, *)', ['ALTER', 'TABLE', 'foobars', 'SET', 'THROUGHPUT', [['0'], '*']]),
         ('ALTER TABLE foobars SET INDEX foo THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'INDEX', 'foo', 'THROUGHPUT', [['3'], ['4']]]),
         ('ALTER TABLE foobars SET foo = bar', 'error'),
         ('ALTER TABLE foobars SET THROUGHPUT 1, 1', 'error'),

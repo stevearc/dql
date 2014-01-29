@@ -9,7 +9,7 @@ ALTER = """
         THROUGHPUT throughput
 
     Examples:
-        ALTER TABLE foobars SET THROUGHPUT (7, 0);
+        ALTER TABLE foobars SET THROUGHPUT (7, *);
         ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, 3);
 """
 

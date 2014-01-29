@@ -9,11 +9,11 @@ from .query import (where, select_where, limit, if_exists, if_not_exists,
                     using, filter_)
 
 
-def create_throughput():
+def create_throughput(variable=primitive):
     """ Create a throughput specification """
     return (upkey('throughput') + Suppress('(') +
-            Group(primitive + Suppress(',') + primitive).setResultsName('throughput') +
-            Suppress(')'))
+            Group(variable + Suppress(',') + variable)
+            .setResultsName('throughput') + Suppress(')'))
 
 # pylint: disable=C0103
 throughput = create_throughput()
@@ -143,9 +143,10 @@ def create_update():
 def create_alter():
     """ Create the grammar for the 'alter' statement """
     alter = upkey('alter').setResultsName('action')
+    prim_or_star = (primitive | '*')
     return (alter + table_key + table + upkey('set') +
             Optional(upkey('index') + var.setResultsName('index')) +
-            throughput)
+            create_throughput(prim_or_star))
 
 
 def create_dump():

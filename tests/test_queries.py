@@ -28,6 +28,15 @@ class TestQueries(BaseSystemTest):
         self.assertEquals(desc.read_throughput, 2)
         self.assertEquals(desc.write_throughput, 1)
 
+    def test_alter_throughput_partial_star(self):
+        """ Can alter just read or just write throughput by passing in '*' """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
+        self.query("ALTER TABLE foobar SET THROUGHPUT (2, *)")
+        desc = self.engine.describe('foobar', refresh=True)
+        self.assertEquals(desc.read_throughput, 2)
+        self.assertEquals(desc.write_throughput, 1)
+
     def test_alter_index_throughput(self):
         """ Can alter throughput of a global index """
         self.query(

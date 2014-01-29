@@ -1,4 +1,5 @@
 """ Execution engine """
+import time
 from datetime import datetime, timedelta
 
 import boto.dynamodb.types
@@ -583,34 +584,56 @@ class Engine(object):
                 raise
         return "Dropped table '%s'" % tablename
 
-    def _alter(self, tree):
-        """ Run an ALTER statement """
-        tablename = tree.table
-        desc = self.describe(tablename, refresh=True)
-        if tree.index:
-            desc = desc.global_indexes[tree.index]
+    def _set_throughput(self, tablename, read, write, index_name=None):
+        """ Set the read/write throughput on a table or global index """
+
         throughput = {
-            'ReadCapacityUnits': desc.read_throughput,
-            'WriteCapacityUnits': desc.write_throughput,
+            'ReadCapacityUnits': read,
+            'WriteCapacityUnits': write,
         }
-        read = self.resolve(tree.throughput[0])
-        write = self.resolve(tree.throughput[1])
-        if read > 0:
-            throughput['ReadCapacityUnits'] = read
-        if write > 0:
-            throughput['WriteCapacityUnits'] = write
-        if tree.index:
+        if index_name:
+            update = {
+                'Update': {
+                    'IndexName': index_name,
+                    'ProvisionedThroughput': throughput,
+                }
+            }
             self.connection.update_table(tablename,
                                          global_secondary_index_updates=[
-                                             {
-                                                 'Update': {
-                                                     'IndexName': tree.index,
-                                                     'ProvisionedThroughput': throughput,
-                                                 }
-                                             }
+                                             update,
                                          ])
         else:
             self.connection.update_table(tablename, throughput)
+
+    def _alter(self, tree):
+        """ Run an ALTER statement """
+        tablename = tree.table
+
+        def get_desc():
+            """ Get the table or global index description """
+            desc = self.describe(tablename, refresh=True)
+            if tree.index:
+                return desc.global_indexes[tree.index]
+            return desc
+        desc = get_desc()
+
+        def num_or_star(value):
+            """ * maps to 0, all other values resolved """
+            return 0 if value == '*' else self.resolve(value)
+        read = num_or_star(tree.throughput[0])
+        write = num_or_star(tree.throughput[1])
+        if read <= 0:
+            read = desc.read_throughput
+        if write <= 0:
+            write = desc.write_throughput
+        while desc.read_throughput != read or desc.write_throughput != write:
+            next_read = min(read, 2 * desc.read_throughput)
+            next_write = min(write, 2 * desc.write_throughput)
+            self._set_throughput(tablename, next_read, next_write, tree.index)
+            desc = get_desc()
+            while desc.status == 'UPDATING':  # pragma: no cover
+                time.sleep(5)
+                desc = get_desc()
         return 'success'
 
     def _dump(self, tree):
