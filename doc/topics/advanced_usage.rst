@@ -26,9 +26,8 @@ your variable scope as a dict and pass it to the engine with the commands:
 
 .. code-block:: python
 
-    scope = {'foo1': 1, 'foo2': 2}
-    engine.execute("INSERT INTO foobars (foo) VALUES (`foo1`), (`foo2`)"),
-                   scope=scope)
+    >>> engine.scope = {'foo1': 1, 'foo2': 2}
+    >>> engine.execute("INSERT INTO foobars (foo) VALUES (`foo1`), (`foo2`)")
 
 The interactive client has a special way to modify the scope. You can switch
 into 'code' mode to execute python, and then use that scope as the engine

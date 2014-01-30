@@ -96,7 +96,7 @@ class Engine(object):
         self.cached_descriptions = {}
         self.dynamizer = Dynamizer()
         self._cloudwatch_connection = None
-        self.scope = None
+        self.scope = {}
 
     def connect_to_region(self, region, **kwargs):
         """ Connect the engine to an AWS region """
@@ -165,7 +165,7 @@ class Engine(object):
 
         return self.cached_descriptions[tablename]
 
-    def execute(self, commands, scope=None):
+    def execute(self, commands):
         """
         Parse and run a DQL string
 
@@ -173,11 +173,8 @@ class Engine(object):
         ----------
         commands : str
             The DQL command string
-        scope : dict, optional
-            A dict that will provide name resolution for variables in DQL
 
         """
-        self.scope = scope or {}
         tree = parser.parseString(commands)
         for statement in tree:
             result = self._run(statement)
@@ -670,7 +667,7 @@ class FragmentEngine(Engine):
         """ Clear any query fragments from the engine """
         self.fragments = ''
 
-    def execute(self, fragment, scope=None):
+    def execute(self, fragment):
         """
         Run or aggregate a query fragment
 
@@ -687,7 +684,7 @@ class FragmentEngine(Engine):
         else:
             self.last_query = self.fragments.strip()
             self.fragments = ''
-            return super(FragmentEngine, self).execute(self.last_query, scope)
+            return super(FragmentEngine, self).execute(self.last_query)
         return None
 
     def pformat_exc(self, exc):

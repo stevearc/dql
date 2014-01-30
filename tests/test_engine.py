@@ -61,8 +61,8 @@ class TestEngineSystem(BaseSystemTest):
     def test_variables(self):
         """ Statements can use variables instead of string/number literals """
         self.make_table()
-        self.query("INSERT INTO foobar (id, bar) VALUES (`id`, 5)",
-                   scope={'id': 'a'})
+        self.engine.scope['id'] = 'a'
+        self.query("INSERT INTO foobar (id, bar) VALUES (`id`, 5)")
         results = self.query("SCAN foobar")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
@@ -81,8 +81,8 @@ class TestEngineSystem(BaseSystemTest):
     def test_insert_float_from_var(self):
         """ Inserting a float from a var doesn't cause serialization issues """
         self.make_table()
-        self.query("INSERT INTO foobar (id, bar) VALUES ('a', `bar`)", scope={
-                   'bar': 1.234})
+        self.engine.scope['bar'] = 1.234
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', `bar`)")
 
     def test_multiline_expression(self):
         """ Can create multiline expressions in python """

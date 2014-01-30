@@ -108,14 +108,6 @@ class IndexField(TableField):
         else:
             return base + ", %s)" % (self.includes,)
 
-    def __str__(self):
-        base = "%s %s %s %s('%s'" % (self.name, self.data_type,
-                                     self.index_type, self.key_type,
-                                     self.index_name)
-        if self.includes is not None:
-            base += '[%s]' % ', '.join(("'%s'" % i for i in self.includes))
-        return base + ')'
-
     def __eq__(self, other):
         return (super(IndexField, self).__eq__(other) and
                 self.index_type == other.index_type and

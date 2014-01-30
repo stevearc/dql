@@ -101,7 +101,6 @@ class DQLClient(cmd.Cmd):
     _access_key = None
     _secret_key = None
     _coding = False
-    _scope = {}
     _conf_dir = None
 
     def initialize(self, region='us-west-1', host='localhost', port=8000,
@@ -128,7 +127,7 @@ class DQLClient(cmd.Cmd):
         self.formatter = SmartFormat(pagesize=conf.get('pagesize', 1000),
                                      width=conf.get('width', 80))
         for line in conf.get('autorun', []):
-            exec line in self._scope
+            exec line in self.engine.scope
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -324,13 +323,13 @@ class DQLClient(cmd.Cmd):
 
     def default(self, command):
         if self._coding:
-            exec command in self._scope
+            exec command in self.engine.scope
         else:
             self._run_cmd(command)
 
     def _run_cmd(self, command):
         """ Run a DQL command """
-        results = self.engine.execute(command, scope=self._scope)
+        results = self.engine.execute(command)
         if isinstance(results, ResultSet) or inspect.isgenerator(results):
             has_more = True
             while has_more:
