@@ -57,5 +57,5 @@ Indices and tables
 TODO
 ----
 * More unit test coverage
-* Option to not truncate output
-* Option to color indexed fields in output
+* Update docs to reference pip for installation
+* Release to PyPI

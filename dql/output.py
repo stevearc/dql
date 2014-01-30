@@ -1,11 +1,12 @@
 """ Formatting and displaying output """
 from __future__ import unicode_literals
 
-import contextlib
 import os
 import stat
-import subprocess
 import sys
+
+import contextlib
+import subprocess
 import tempfile
 from decimal import Decimal
 from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
@@ -16,6 +17,13 @@ def truncate(string, length, ellipsis='...'):
     if len(string) > length:
         return string[:length - len(ellipsis)] + ellipsis
     return string
+
+
+def wrap(string, length, indent):
+    """ Wrap a string at a line length """
+    newline = '\n' + ' ' * indent
+    return newline.join((string[i:i + length]
+                         for i in xrange(0, len(string), length)))
 
 
 class BaseFormat(object):
@@ -61,7 +69,8 @@ class ExpandedFormat(BaseFormat):
         ostream.write(self.width * '-' + '\n')
         max_key = max((len(k) for k in result.keys()))
         for key, val in sorted(result.items()):
-            val = truncate(self.format_field(val), self.width - max_key - 3)
+            val = wrap(self.format_field(val), self.width - max_key - 3,
+                       max_key + 3)
             ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
 
 
@@ -103,7 +112,8 @@ class ColumnFormat(BaseFormat):
             ostream.write('|')
             for col in columns:
                 ostream.write(' ')
-                val = self.format_field(result.get(col, 'null')).ljust(col_width)
+                val = self.format_field(result.get(
+                    col, 'null')).ljust(col_width)
                 ostream.write(truncate(val, col_width).encode('utf-8'))
                 ostream.write(' |')
             ostream.write('\n')
