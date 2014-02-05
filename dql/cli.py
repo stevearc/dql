@@ -24,7 +24,7 @@ from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
 
 try:
     from collections import OrderedDict
-except ImportError:
+except ImportError:  # pragma: no cover
     from ordereddict import OrderedDict  # pylint: disable=F0401
 
 
@@ -109,8 +109,9 @@ class DQLClient(cmd.Cmd):
         # Tab-complete names with a '-' in them
         import readline
         delims = set(readline.get_completer_delims())
-        delims.remove('-')
-        readline.set_completer_delims(''.join(delims))
+        if '-' in delims:
+            delims.remove('-')
+            readline.set_completer_delims(''.join(delims))
 
         self._conf_dir = os.path.join(os.environ.get('HOME', '.'), '.config')
         self._access_key = access_key
@@ -139,9 +140,9 @@ class DQLClient(cmd.Cmd):
             except KeyboardInterrupt:
                 print
             except boto.exception.JSONResponseError as e:
-                try:
-                    print e.body['Message']
-                except KeyError:
+                if e.error_message is not None:
+                    print e.error_message
+                else:
                     print e
             except ParseException as e:
                 print self.engine.pformat_exc(e)
@@ -164,7 +165,10 @@ class DQLClient(cmd.Cmd):
 
     def do_shell(self, arglist):
         """ Run a shell command """
-        print subprocess.check_output(shlex.split(arglist))
+        proc = subprocess.Popen(shlex.split(arglist),
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+        print proc.communicate()[0]
 
     def save_config_value(self, key, value):
         """ Save your configuration settings to a file """
@@ -322,6 +326,7 @@ class DQLClient(cmd.Cmd):
         self.engine.connection = self.ddb
 
     def default(self, command):
+        print "Default: '%s'" % command
         if self._coding:
             exec command in self.engine.scope
         else:
