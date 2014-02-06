@@ -1,7 +1,9 @@
 DQL
 ===
 :Build: |build|_ |coverage|_
+:0.1 Build: |build-0.1|_ |coverage-0.1|_
 :Documentation: http://dql.readthedocs.org/
+:Downloads: http://pypi.python.org/pypi/dql
 :Source: https://github.com/mathcamp/dql
 
 .. |build| image:: https://travis-ci.org/mathcamp/dql.png?branch=master
@@ -9,11 +11,20 @@ DQL
 .. |coverage| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
 .. _coverage: https://coveralls.io/r/mathcamp/dql?branch=master
 
+.. |build-0.1| image:: https://travis-ci.org/mathcamp/dql.png?branch=0.1
+.. _build-0.1: https://travis-ci.org/mathcamp/dql
+.. |coverage-0.1| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.1
+.. _coverage-0.1: https://coveralls.io/r/mathcamp/dql?branch=0.1
+
 A simple, SQL-ish language for DynamoDB
 
 Getting Started
 ===============
-Here are some basic examples to get you started.
+Install with pip::
+
+    pip install dql
+
+Here are some basic DQL examples to get you going:
 
 Start the REPL::
 

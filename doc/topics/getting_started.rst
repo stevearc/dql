@@ -1,28 +1,24 @@
 Getting Started
 ===============
-To install DQL, you will need to clone the repository and install the package.
-The easiest way to do this is using `devbox
-<https://github.com/mathcamp/devbox>`_::
+Install DQL with pip::
 
-    wget https://raw.github.com/mathcamp/devbox/master/devbox/unbox.py && \
-    python unbox.py git@github.com:mathcamp/dql
+    pip install dql
 
-Then do
-
-.. code-block:: bash
-
-    $ cd dql
-    $ . dql_env/bin/activate
-    $ dql
-
-Since it uses :mod:`boto` under the hood, the authentication mechanism is the
+Since DQL uses :mod:`boto` under the hood, the authentication mechanism is the
 same. You may either set the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables, or pass them in on the command
-line. You can change the default region by setting the ``AWS_REGION`` variable.
+line:
 
 .. code-block:: bash
 
     $ dql -a <access key> -s <secret key>
+
+DQL uses ``us-west-1`` as the default region. You can change this by setting
+the ``AWS_REGION`` variable or passing it in on the command line:
+
+.. code-block:: bash
+
+    $ dql -r us-east-1
 
 You can begin using DQL immediately. Try creating a table and inserting some
 data
