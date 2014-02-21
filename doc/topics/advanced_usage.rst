@@ -21,12 +21,12 @@ The return value will vary based on the type of query.
 Embedded Python
 ---------------
 DQL supports the use of python expressions anywhere that you would otherwise
-have to specify a data type. Just surround the python with backticks. Create
-your variable scope as a dict and pass it to the engine with the commands:
+have to specify a data type by surrounding the python with backticks. Set the
+variable scope on the engine and run your query:
 
 .. code-block:: python
 
-    >>> engine.scope = {'foo1': 1, 'foo2': 2}
+    >>> engine.scope.update(foo1=1, foo2=2)
     >>> engine.execute("INSERT INTO foobars (foo) VALUES (`foo1`), (`foo2`)")
 
 The interactive client has a special way to modify the scope. You can switch

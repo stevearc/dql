@@ -70,10 +70,9 @@ row dict directly:
 
 .. code-block:: sql
 
-    us-west-1> UPDATE foobars SET foo = m`if row.get('bar'):
-             >     return bar + 1
-             > else:
-             >     return 1`;
+    us-west-1> UPDATE foobars SET foo = `row.get('bar', 0) + 1`
 
-This syntax will NOT WORK if you are using the ``KEYS IN`` form of the query,
-as that performs the update without doing any table reads.
+.. warning::
+
+    This syntax will not work if you are using the ``KEYS IN`` form of the
+    query, as that performs the update without doing any table reads.
