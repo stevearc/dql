@@ -1,4 +1,5 @@
 """ Tests for the language parser """
+import six
 try:
     from unittest2 import TestCase  # pylint: disable=F0401
 except ImportError:
@@ -209,13 +210,13 @@ class TestParser(TestCase):
                     self.assertEquals(result, parse_result.asList())
             except ParseException as e:
                 if result != 'error':
-                    print string
-                    print ' ' * e.loc + '^'
+                    six.print_(string)
+                    six.print_(' ' * e.loc + '^')
                     raise
             except AssertionError:
-                print "Parsing : %s" % string
-                print "Expected: %s" % result
-                print "Got     : %s" % parse_result.asList()
+                six.print_("Parsing : %s" % string)
+                six.print_("Expected: %s" % result)
+                six.print_("Got     : %s" % parse_result.asList())
                 raise
 
     def test_select(self):

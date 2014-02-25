@@ -1,43 +1,21 @@
 """ Execution engine """
+import six
 import time
 from datetime import datetime, timedelta
 
-import boto.dynamodb.types
-import boto.dynamodb2
 import logging
-from boto.dynamodb.types import Binary
-from boto.dynamodb2.fields import (BaseSchemaField, HashKey, RangeKey,
-                                   AllIndex, KeysOnlyIndex, IncludeIndex,
-                                   GlobalAllIndex, GlobalKeysOnlyIndex,
-                                   GlobalIncludeIndex)
-from boto.dynamodb2.items import Item
-from boto.dynamodb2.table import Table
-from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
-                                  STRING_SET, BINARY_SET, Dynamizer)
-from boto.ec2.cloudwatch import connect_to_region
-from boto.exception import JSONResponseError
 from decimal import Decimal, Inexact, Rounded
 from pyparsing import ParseException
 
 from .grammar import parser, line_parser
 from .models import TableMeta
+from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, AllIndex,
+                     KeysOnlyIndex, IncludeIndex, GlobalAllIndex,
+                     GlobalKeysOnlyIndex, GlobalIncludeIndex, DynamoDBError,
+                     ItemUpdate, Binary, Throughput)
 
 
 LOG = logging.getLogger(__name__)
-
-# HACK to force conversion of floats to Decimals, even if inexact
-boto.dynamodb.types.DYNAMODB_CONTEXT.traps[Inexact] = False
-boto.dynamodb.types.DYNAMODB_CONTEXT.traps[Rounded] = False
-
-
-def float_to_decimal(f):  # pragma: no cover
-    """ Monkey-patched replacement for boto's broken version """
-    n, d = f.as_integer_ratio()
-    numerator, denominator = Decimal(n), Decimal(d)
-    ctx = boto.dynamodb.types.DYNAMODB_CONTEXT
-    return ctx.divide(numerator, denominator)
-
-boto.dynamodb.types.float_to_decimal = float_to_decimal
 
 
 OPS = {
@@ -51,15 +29,6 @@ OPS = {
     'IN': 'in',
     'CONTAINS': 'contains',
     'NOT CONTAINS': 'ncontains',
-}
-
-TYPES = {
-    'NUMBER': NUMBER,
-    'STRING': STRING,
-    'BINARY': BINARY,
-    'NUMBER_SET': NUMBER_SET,
-    'STRING_SET': STRING_SET,
-    'BINARY_SET': BINARY_SET,
 }
 
 
@@ -94,13 +63,15 @@ class Engine(object):
     def __init__(self, connection=None):
         self._connection = connection
         self.cached_descriptions = {}
-        self.dynamizer = Dynamizer()
         self._cloudwatch_connection = None
         self.scope = {}
 
-    def connect_to_region(self, region, **kwargs):
+    def connect_to_region(self, region, *args, **kwargs):
         """ Connect the engine to an AWS region """
-        self.connection = boto.dynamodb2.connect_to_region(region, **kwargs)
+        self.connection = DynamoDBConnection.connect_to_region(region, *args, **kwargs)
+
+    def connect_to_host(self, *args, **kwargs):
+        self.connection = DynamoDBConnection.connect_to_host(*args, **kwargs)
 
     @property
     def connection(self):
@@ -127,7 +98,7 @@ class Engine(object):
 
     def describe_all(self):
         """ Describe all tables in the connected region """
-        tables = self.connection.list_tables()['TableNames']
+        tables = self.connection.list_tables()
         descs = []
         for tablename in tables:
             descs.append(self.describe(tablename, True))
@@ -147,7 +118,7 @@ class Engine(object):
 
     def get_capacity(self, tablename):
         """ Get the consumed read/write capacity """
-        if self.connection.region.name == 'local':
+        if self.connection.region == 'local':
             return 0, 0
         return (self._get_metric(tablename, 'ConsumedReadCapacityUnits'),
                 self._get_metric(tablename, 'ConsumedWriteCapacityUnits'))
@@ -155,7 +126,7 @@ class Engine(object):
     def describe(self, tablename, refresh=False, metrics=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self.cached_descriptions:
-            desc = self.connection.describe_table(tablename)
+            desc = self.connection.describe_table(tablename, raw=True)
             table = TableMeta.from_description(desc)
             self.cached_descriptions[tablename] = table
             if metrics:
@@ -217,7 +188,7 @@ class Engine(object):
                 lines.insert(0, func_def)
                 expr_func = '\n'.join(lines)
                 LOG.debug("Exec and run:\n%s", expr_func)
-                exec expr_func in scope
+                six.exec_(expr_func, scope)
                 return scope['__dql_func']()
             else:
                 code = val.python[1:-1]
@@ -266,7 +237,7 @@ class Engine(object):
                         break
             else:
                 # Must be using a global index
-                for index in desc.global_indexes.itervalues():
+                for index in six.itervalues(desc.global_indexes):
                     if index.hash_key.name in all_keys:
                         kwargs['index'] = index.name
                         break
@@ -281,32 +252,29 @@ class Engine(object):
     def _select(self, tree):
         """ Run a SELECT statement """
         tablename = tree.table
-        table = Table(tablename, connection=self.connection)
         desc = self.describe(tablename)
         kwargs = {}
         if tree.consistent:
             kwargs['consistent'] = True
+        if tree.attrs.asList() != ['*']:
+            kwargs['attributes'] = tree.attrs.asList()
 
         if tree.keys_in:
             if tree.limit:
                 raise SyntaxError("Cannot use LIMIT with WHERE KEYS IN")
             elif tree.using:
                 raise SyntaxError("Cannot use USING with WHERE KEYS IN")
-            elif tree.attrs.asList() != ['*']:
-                raise SyntaxError("Must SELECT * when using WHERE KEYS IN")
             keys = list(self._iter_where_in(tree))
-            return table.batch_get(keys=keys, **kwargs)
+            return self.connection.batch_get(tablename, keys=keys, **kwargs)
         else:
             kwargs.update(self._where_kwargs(desc, tree.where))
             if tree.limit:
                 kwargs['limit'] = self.resolve(tree.limit[1])
             if tree.using:
                 kwargs['index'] = self.resolve(tree.using[1])
-            if tree.attrs.asList() != ['*']:
-                kwargs['attributes'] = tree.attrs.asList()
-            kwargs['reverse'] = tree.order != 'DESC'
+            kwargs['desc'] = tree.order == 'DESC'
 
-            return table.query(**kwargs)
+            return self.connection.query(tablename, **kwargs)
 
     def _scan(self, tree):
         """ Run a SCAN statement """
@@ -316,8 +284,7 @@ class Engine(object):
         if tree.limit:
             kwargs['limit'] = self.resolve(tree.limit[1])
 
-        table = Table(tablename, connection=self.connection)
-        return table.scan(**kwargs)
+        return self.connection.scan(tablename, **kwargs)
 
     def _count(self, tree):
         """ Run a COUNT statement """
@@ -329,13 +296,11 @@ class Engine(object):
         if tree.consistent:
             kwargs['consistent'] = True
 
-        table = Table(tablename, connection=self.connection)
-        return table.query_count(**kwargs)
+        return self.connection.query(tablename, count=True, **kwargs)
 
     def _delete(self, tree):
         """ Run a DELETE statement """
         tablename = tree.table
-        table = Table(tablename, connection=self.connection)
         kwargs = {}
         desc = self.describe(tablename)
 
@@ -352,10 +317,10 @@ class Engine(object):
                     attributes.append(desc.range_key.name)
                 kwargs['attributes'] = attributes
                 kwargs['index'] = self.resolve(tree.using[1])
-            results = table.query(**kwargs)
+            results = self.connection.query(tablename, **kwargs)
 
         count = 0
-        with table.batch_write() as batch:
+        with self.connection.batch_write(tablename) as batch:
             for item in results:
                 # Pull out just the hash and range key from the item
                 pkey = {desc.hash_key.name: item[desc.hash_key.name]}
@@ -368,7 +333,6 @@ class Engine(object):
     def _update(self, tree):
         """ Run an UPDATE statement """
         tablename = tree.table
-        table = Table(tablename, connection=self.connection)
         desc = self.describe(tablename)
         result = []
 
@@ -377,9 +341,9 @@ class Engine(object):
         else:
             returns = 'NONE'
 
-        def get_update_dict(item=None):
-            """ Construct a dict of values to update """
-            updates = {}
+        def get_updates(item=None):
+            """ Construct a list of values to update """
+            updates = []
             scope = None
             if item is not None:
                 scope = self.scope.copy()
@@ -389,73 +353,58 @@ class Engine(object):
                 value = self.resolve(val, scope)
                 if value is None:
                     if op != '=':
-                        raise SyntaxError("Cannot increment/decrement by NULL!")
-                    action = 'DELETE'
+                        raise SyntaxError(
+                            "Cannot increment/decrement by NULL!")
+                    action = ItemUpdate.DELETE
                 elif op == '=':
-                    action = 'PUT'
+                    action = ItemUpdate.PUT
                 elif op == '+=':
-                    action = 'ADD'
+                    action = ItemUpdate.ADD
                 elif op == '-=':
-                    action = 'ADD'
+                    action = ItemUpdate.ADD
                     value = -value
                 elif op == '<<':
-                    action = 'ADD'
+                    action = ItemUpdate.ADD
                     if not isinstance(value, set):
                         value = set([value])
                 elif op == '>>':
-                    action = 'DELETE'
+                    action = ItemUpdate.DELETE
                     if not isinstance(value, set):
                         value = set([value])
                 else:
                     raise SyntaxError("Unknown operation '%s'" % op)
-                updates[field] = {'Action': action}
-                if action != 'DELETE' or op in ('<<', '>>'):
-                    updates[field]['Value'] = self.dynamizer.encode(value)
+                updates.append(ItemUpdate(action, field, value))
             return updates
 
-        def encode_pkey(pkey):
-            """ HACK: boto doesn't encode primary keys in update_item """
-            return dict([(k, self.dynamizer.encode(v)) for k, v in
-                         pkey.iteritems()])
-
-        def decode_result(result):
-            """ Create an Item from a raw return result """
-            data = dict([(k, self.dynamizer.decode(v)) for k, v in
-                         result.get('Attributes', {}).iteritems()])
-            item = Item(table, data=data)
-            return item
-
         if tree.keys_in:
-            updates = get_update_dict()
+            updates = get_updates()
             for key in self._iter_where_in(tree):
-                key = encode_pkey(key)
                 ret = self.connection.update_item(tablename, key, updates,
                                                   return_values=returns)
-                if returns != 'NONE':
-                    result.append(decode_result(ret))
+                if ret:
+                    result.append(ret)
         elif tree.where:
             kwargs = {}
             for key, op, val in tree.where:
                 kwargs[key + '__' + OPS[op]] = self.resolve(val)
-            for item in table.query(**kwargs):
-                key = encode_pkey(desc.primary_key(item))
-                updates = get_update_dict(item)
+            for item in self.connection.query(tablename, **kwargs):
+                key = desc.primary_key(item)
+                updates = get_updates(item)
                 ret = self.connection.update_item(tablename, key, updates,
                                                   return_values=returns)
-                if returns != 'NONE':
-                    result.append(decode_result(ret))
+                if ret:
+                    result.append(ret)
         else:
             # We're updating THE WHOLE TABLE
-            for item in table.scan():
-                key = encode_pkey(desc.primary_key(item))
-                updates = get_update_dict(item)
+            for item in self.connection.scan(tablename):
+                key = desc.primary_key(item)
+                updates = get_updates(item)
                 ret = self.connection.update_item(tablename, key, updates,
                                                   return_values=returns)
-                if returns != 'NONE':
-                    result.append(decode_result(ret))
-        if returns == 'NONE':
-            return None
-        return (item for item in result)
+                if ret:
+                    result.append(ret)
+        if result:
+            return result
 
     def _create(self, tree):
         """ Run a SELECT statement """
@@ -465,7 +414,8 @@ class Engine(object):
         indexes = []
         global_indexes = []
         hash_key = None
-        raw_attrs = {}
+        range_key = None
+        attrs = {}
         for declaration in tree.attrs:
             name, type_ = declaration[:2]
             if len(declaration) > 2:
@@ -474,11 +424,9 @@ class Engine(object):
                 index = None
             if index is not None:
                 if index[0] == 'HASH':
-                    field = hash_key = HashKey(name, data_type=TYPES[type_])
-                    schema.insert(0, field.schema())
+                    field = hash_key = DynamoKey(name, data_type=TYPES[type_])
                 elif index[0] == 'RANGE':
-                    field = RangeKey(name, data_type=TYPES[type_])
-                    schema.append(field.schema())
+                    field = range_key = DynamoKey(name, data_type=TYPES[type_])
                 else:
                     index_type = index[0]
                     kwargs = {}
@@ -491,30 +439,24 @@ class Engine(object):
                         kwargs['includes'] = [self.resolve(i) for i in
                                               index.include]
                     index_name = self.resolve(index[1])
-                    field = RangeKey(name, data_type=TYPES[type_])
-                    idx = idx_class(index_name, parts=[hash_key, field],
-                                    **kwargs)
-                    indexes.append(idx.schema())
+                    field = DynamoKey(name, data_type=TYPES[type_])
+                    idx = idx_class(index_name, field, **kwargs)
+                    indexes.append(idx)
             else:
-                field = BaseSchemaField(name, data_type=TYPES[type_])
-            attrs.append(field.definition())
-            raw_attrs[name] = field
+                field = DynamoKey(name, data_type=TYPES[type_])
+            attrs[field.name] = field
 
         for gindex in tree.global_indexes:
             index_type, name, var1 = gindex[:3]
-            hash_key = HashKey(var1, data_type=raw_attrs[var1].data_type)
-            parts = [hash_key]
-            throughput = None
+            g_hash_key = attrs[var1]
+            g_range_key = None
+            kwargs = {}
             for piece in gindex[3:]:
-                if isinstance(piece, basestring):
-                    range_key = RangeKey(piece,
-                                         data_type=raw_attrs[piece].data_type)
-                    parts.append(range_key)
+                if isinstance(piece, six.string_types):
+                    g_range_key = attrs[piece]
                 else:
-                    throughput = piece.throughput
-            read, write = 5, 5
-            if throughput:
-                read, write = map(self.resolve, throughput)
+                    kwargs['throughput'] = Throughput(*map(self.resolve,
+                                                           piece.throughput))
 
             if index_type[0] in ('ALL', 'INDEX'):
                 idx_class = GlobalAllIndex
@@ -522,83 +464,59 @@ class Engine(object):
                 idx_class = GlobalKeysOnlyIndex
             elif index_type[0] == 'INCLUDE':
                 idx_class = GlobalIncludeIndex
-            index = idx_class(self.resolve(name), parts=parts)
-            index.throughput = {
-                'read': read,
-                'write': write,
-            }
-            if gindex.include:
-                index.includes_fields = [self.resolve(i) for i in
-                                         gindex.include]
-            s = index.schema()
-            global_indexes.append(s)
+                kwargs['includes'] = [self.resolve(i) for i in gindex.include]
+            index = idx_class(self.resolve(name), g_hash_key, g_range_key, **kwargs)
+            global_indexes.append(index)
 
-        read, write = 5, 5
+        throughput = None
         if tree.throughput:
-            read, write = map(self.resolve, tree.throughput)
-        throughput = {
-            'ReadCapacityUnits': read,
-            'WriteCapacityUnits': write,
-        }
+            throughput = Throughput(*map(self.resolve, tree.throughput))
 
-        # Make sure indexes & global indexes either have data or are None
-        indexes = indexes or None
-        global_indexes = global_indexes or None
         try:
             self.connection.create_table(
-                attrs, tablename, schema, throughput,
-                local_secondary_indexes=indexes,
-                global_secondary_indexes=global_indexes)
-        except JSONResponseError as e:
-            if e.status != 400 or not tree.not_exists:
-                raise
+                tablename, hash_key, range_key, indexes=indexes,
+                global_indexes=global_indexes, throughput=throughput)
+        except DynamoDBError as e:
+            if e.kwargs['Code'] == 'ResourceInUseException' or tree.not_exists:
+                return "Table '%s' already exists" % tablename
+            raise
         return "Created table '%s'" % tablename
 
     def _insert(self, tree):
         """ Run an INSERT statement """
         tablename = tree.table
         keys = tree.attrs
-        table = Table(tablename, connection=self.connection)
         count = 0
-        with table.batch_write() as batch:
+        with self.connection.batch_write(tablename) as batch:
             for values in tree.data:
                 if len(keys) != len(values):
                     raise SyntaxError("Values '%s' do not match attributes "
                                       "'%s'" % (values, keys))
-                data = dict(zip(keys, [self.resolve(v) for v in values]))
-                batch.put_item(data=data, overwrite=True)
+                data = dict(zip(keys, map(self.resolve, values)))
+                batch.put_item(data)
                 count += 1
         return "Inserted %d items" % count
 
     def _drop(self, tree):
         """ Run a DROP statement """
         tablename = tree.table
-        table = Table(tablename, connection=self.connection)
         try:
-            table.delete()
-        except JSONResponseError as e:
-            if e.status != 400 or not tree.exists:
-                raise
+            self.connection.delete_table(tablename)
+        except DynamoDBError as e:
+            if e.kwargs['Code'] == 'ResourceNotFoundException' and tree.exists:
+                return "Table '%s' does not exist" % tablename
+            raise
         return "Dropped table '%s'" % tablename
 
     def _set_throughput(self, tablename, read, write, index_name=None):
         """ Set the read/write throughput on a table or global index """
 
-        throughput = {
-            'ReadCapacityUnits': read,
-            'WriteCapacityUnits': write,
-        }
+        throughput = Throughput(read, write)
         if index_name:
-            update = {
-                'Update': {
-                    'IndexName': index_name,
-                    'ProvisionedThroughput': throughput,
-                }
-            }
             self.connection.update_table(tablename,
-                                         global_secondary_index_updates=[
-                                             update,
-                                         ])
+                                         global_indexes={
+                                             index_name: throughput,
+                                         })
         else:
             self.connection.update_table(tablename, throughput)
 

@@ -1,10 +1,13 @@
 """ Tests for the CLI """
-from dql.cli import repl_command, DQLClient
-from cStringIO import StringIO
-from contextlib import contextmanager
-from mock import patch
 import shutil
 import tempfile
+
+import six
+from mock import patch
+
+from dql.cli import repl_command, DQLClient
+
+
 try:
     import unittest2 as unittest  # pylint: disable=F0401
 except ImportError:
@@ -28,7 +31,7 @@ class TestCli(unittest.TestCase):
 
     def assert_prints(self, command, message):
         """ Assert that a cli command will print a message to the console """
-        out = StringIO()
+        out = six.StringIO()
         with patch('sys.stdout', out):
             self.cli.onecmd(command)
         self.assertEqual(out.getvalue().strip(), message.strip())

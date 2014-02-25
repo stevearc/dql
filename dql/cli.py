@@ -1,8 +1,8 @@
 """ Interative DQL client """
+import botocore
+import six
 import os
 
-import boto.dynamodb2
-import boto.exception
 import cmd
 import functools
 import inspect
@@ -10,9 +10,6 @@ import json
 import shlex
 import subprocess
 import traceback
-from boto.dynamodb2.layer1 import DynamoDBConnection
-from boto.dynamodb2.results import ResultSet
-from boto.regioninfo import RegionInfo
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
@@ -20,6 +17,7 @@ from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE)
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
+from dynamo3 import DynamoDBConnection, ResultSet
 
 
 try:
@@ -52,60 +50,37 @@ def repl_command(fxn):
     return wrapper
 
 
-def connect(region, host='localhost', port=8000, access_key=None,
-            secret_key=None):
-    """ Create a DynamoDB connection """
-    if region == 'local':
-        region = RegionInfo(name='local', endpoint=host,
-                            connection_cls=DynamoDBConnection)
-        return DynamoDBConnection(
-            region=region,
-            host=host,
-            port=port,
-            is_secure=False,
-            aws_access_key_id='',
-            aws_secret_access_key='')
-    else:
-        return boto.dynamodb2.connect_to_region(
-            region,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key
-        )
-
 DISPLAYS = {
     'stdout': stdout_display,
     'less': less_display,
 }
-RDISPLAYS = dict(((v, k) for k, v in DISPLAYS.iteritems()))
+RDISPLAYS = dict(((v, k) for k, v in six.iteritems(DISPLAYS)))
 
 
 class DQLClient(cmd.Cmd):
 
     """
-    Interactive commandline interface
+    Interactive commandline interface.
 
     Attributes
     ----------
     running : bool
         True while session is active, False after quitting
-    ddb : :class:`boto.dynamodb2.layer1.DynamoDBConnection`
     engine : :class:`dql.engine.FragmentEngine`
 
     """
+
     running = False
-    ddb = None
     engine = None
-    region = None
     formatter = None
     display = None
-    _access_key = None
-    _secret_key = None
+    session = None
     _coding = False
     _conf_dir = None
 
     def initialize(self, region='us-west-1', host='localhost', port=8000,
                    access_key=None, secret_key=None):
-        """ Set up the repl for execution """
+        """ Set up the repl for execution. """
         # Tab-complete names with a '-' in them
         import readline
         delims = set(readline.get_completer_delims())
@@ -114,11 +89,16 @@ class DQLClient(cmd.Cmd):
             readline.set_completer_delims(''.join(delims))
 
         self._conf_dir = os.path.join(os.environ.get('HOME', '.'), '.config')
-        self._access_key = access_key
-        self._secret_key = secret_key
-        self.region = region
-        self.ddb = connect(region, host, port, access_key, secret_key)
-        self.engine = FragmentEngine(self.ddb)
+        self.session = botocore.session.get_session()
+        if access_key:
+            self.session.set_credentials(access_key, secret_key)
+        if region == 'local':
+            conn = DynamoDBConnection.connect_to_host(host, port,
+                                                      session=self.session)
+        else:
+            conn = DynamoDBConnection.connect_to_region(region, self.session)
+        self.engine = FragmentEngine(conn)
+
         conf = self.load_config()
         display_name = conf.get('display')
         if display_name is not None:
@@ -128,7 +108,7 @@ class DQLClient(cmd.Cmd):
         self.formatter = SmartFormat(pagesize=conf.get('pagesize', 1000),
                                      width=conf.get('width', 80))
         for line in conf.get('autorun', []):
-            exec line in self.engine.scope
+            six.exec_(line, self.engine.scope)
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -138,14 +118,11 @@ class DQLClient(cmd.Cmd):
             try:
                 self.cmdloop()
             except KeyboardInterrupt:
-                print
-            except boto.exception.JSONResponseError as e:
-                if e.error_message is not None:
-                    print e.error_message
-                else:
-                    print e
+                six.print_()
+            except botocore.exceptions.BotoCoreError as e:
+                six.print_(e)
             except ParseException as e:
-                print self.engine.pformat_exc(e)
+                six.print_(self.engine.pformat_exc(e))
             except:
                 traceback.print_exc()
             self.engine.reset()
@@ -159,16 +136,16 @@ class DQLClient(cmd.Cmd):
         if self._coding:
             self.prompt = '>>> '
         elif self.engine.partial:
-            self.prompt = len(self.region) * ' ' + '> '
+            self.prompt = len(self.engine.connection.region) * ' ' + '> '
         else:
-            self.prompt = self.region + '> '
+            self.prompt = self.engine.connection.region + '> '
 
     def do_shell(self, arglist):
         """ Run a shell command """
         proc = subprocess.Popen(shlex.split(arglist),
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
-        print proc.communicate()[0]
+        six.print_(proc.communicate()[0])
 
     def save_config_value(self, key, value):
         """ Save your configuration settings to a file """
@@ -194,14 +171,14 @@ class DQLClient(cmd.Cmd):
         if width is not None:
             self.formatter.width = int(width)
             self.save_config_value('width', int(width))
-        print self.formatter.width
-        print self.formatter.width * '-'
+        six.print_(self.formatter.width)
+        six.print_(self.formatter.width * '-')
 
     @repl_command
     def do_pagesize(self, pagesize=None):
         """ Get or set the page size of the query output """
         if pagesize is None:
-            print self.formatter.pagesize
+            six.print_(self.formatter.pagesize)
         else:
             self.formatter.pagesize = int(pagesize)
             self.save_config_value('pagesize', int(pagesize))
@@ -210,11 +187,11 @@ class DQLClient(cmd.Cmd):
     def do_display(self, display=None):
         """ Get or set the type of display to use when printing results """
         if display is None:
-            for key, val in DISPLAYS.iteritems():
+            for key, val in six.iteritems(DISPLAYS):
                 if val == self.display:
-                    print '* %s' % key
+                    six.print_('* %s' % key)
                 else:
-                    print '  %s' % key
+                    six.print_('  %s' % key)
         else:
             self.display = DISPLAYS[display]
             self.save_config_value('display', display)
@@ -233,15 +210,15 @@ class DQLClient(cmd.Cmd):
         if smart.lower() in ('smart', 'true'):
             self.formatter = SmartFormat(width=self.formatter.width,
                                          pagesize=self.formatter.pagesize)
-            print "Smart format enabled"
+            six.print_("Smart format enabled")
         elif isinstance(self.formatter, ExpandedFormat):
             self.formatter = ColumnFormat(width=self.formatter.width,
                                           pagesize=self.formatter.pagesize)
-            print "Expanded format disabled"
+            six.print_("Expanded format disabled")
         else:
             self.formatter = ExpandedFormat(width=self.formatter.width,
                                             pagesize=self.formatter.pagesize)
-            print "Expanded format enabled"
+            six.print_("Expanded format enabled")
 
     @repl_command
     def do_file(self, filename):
@@ -291,20 +268,21 @@ class DQLClient(cmd.Cmd):
                                   ('Write', 'total_write_throughput')])
             tables = self.engine.describe_all()
             # Calculate max width of all items for each column
-            sizes = [1 + max([len(str(getattr(t, f))) for t in tables] +
-                             [len(title)]) for title, f in fields.iteritems()]
+            sizes = [1 +
+                     max([len(str(getattr(t, f))) for t in tables] +
+                         [len(title)]) for title, f in six.iteritems(fields)]
             # Print the header
             for size, title in zip(sizes, fields):
-                print title.ljust(size),
-            print
+                six.print_(title.ljust(size), end='')
+            six.print_()
             # Print each table row
             for table in tables:
                 for size, field in zip(sizes, fields.values()):
-                    print str(getattr(table, field)).ljust(size),
-                print
+                    six.print_(str(getattr(table, field)).ljust(size), end='')
+                six.print_()
         else:
-            print self.engine.describe(table, refresh=True,
-                                       metrics=True).pformat()
+            six.print_(self.engine.describe(table, refresh=True,
+                                            metrics=True).pformat())
 
     def complete_ls(self, text, *_):
         """ Autocomplete for ls """
@@ -320,22 +298,22 @@ class DQLClient(cmd.Cmd):
         DynamoDB Local service
 
         """
-        self.region = region
-        self.ddb = connect(region, host, port, self._access_key,
-                           self._secret_key)
-        self.engine.connection = self.ddb
+        if region == 'local':
+            conn = DynamoDBConnection.connect_to_host(host, port, session=self.session)
+        else:
+            conn = DynamoDBConnection.connect_to_region(region, self.session)
+        self.engine.connection = conn
 
     def default(self, command):
-        print "Default: '%s'" % command
         if self._coding:
-            exec command in self.engine.scope
+            six.exec_(command, self.engine.scope)
         else:
             self._run_cmd(command)
 
     def _run_cmd(self, command):
         """ Run a DQL command """
         results = self.engine.execute(command)
-        if isinstance(results, ResultSet) or inspect.isgenerator(results):
+        if isinstance(results, (list, ResultSet)) or inspect.isgenerator(results):
             has_more = True
             while has_more:
                 with self.display() as ostream:
@@ -344,13 +322,13 @@ class DQLClient(cmd.Cmd):
                     raw_input("Press return for next %d results:" %
                               self.formatter.pagesize)
         elif results is not None:
-            print results
+            six.print_(results)
 
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
         """Exit"""
         if self._coding:
-            print
+            six.print_()
             return self.onecmd('endcode')
         else:
             return self.onecmd('exit')
@@ -359,7 +337,7 @@ class DQLClient(cmd.Cmd):
     def do_exit(self):
         """Exit"""
         self.running = False
-        print
+        six.print_()
         return True
 
     def emptyline(self):
@@ -367,44 +345,44 @@ class DQLClient(cmd.Cmd):
 
     def help_help(self):
         """Print the help text for help"""
-        print "List commands or print details about a command"
+        six.print_("List commands or print details about a command")
 
     def help_alter(self):
         """ Print the help text for ALTER """
-        print ALTER
+        six.print_(ALTER)
 
     def help_count(self):
         """ Print the help text for COUNT """
-        print COUNT
+        six.print_(COUNT)
 
     def help_create(self):
         """ Print the help text for CREATE """
-        print CREATE
+        six.print_(CREATE)
 
     def help_delete(self):
         """ Print the help text for DELETE """
-        print DELETE
+        six.print_(DELETE)
 
     def help_drop(self):
         """ Print the help text for DROP """
-        print DROP
+        six.print_(DROP)
 
     def help_dump(self):
         """ Print the help text for DUMP """
-        print DUMP
+        six.print_(DUMP)
 
     def help_insert(self):
         """ Print the help text for INSERT """
-        print INSERT
+        six.print_(INSERT)
 
     def help_scan(self):
         """ Print the help text for SCAN """
-        print SCAN
+        six.print_(SCAN)
 
     def help_select(self):
         """ Print the help text for SELECT """
-        print SELECT
+        six.print_(SELECT)
 
     def help_update(self):
         """ Print the help text for UPDATE """
-        print UPDATE
+        six.print_(UPDATE)

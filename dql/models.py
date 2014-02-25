@@ -1,18 +1,7 @@
 """ Data containers """
-from boto.dynamodb2.types import (NUMBER, STRING, BINARY, NUMBER_SET,
-                                  STRING_SET, BINARY_SET)
+import six
 from decimal import Decimal
-
-
-TYPES = {
-    NUMBER: 'NUMBER',
-    STRING: 'STRING',
-    BINARY: 'BINARY',
-    NUMBER_SET: 'NUMBER_SET',
-    STRING_SET: 'STRING_SET',
-    BINARY_SET: 'BINARY_SET',
-}
-
+from dynamo3 import TYPES_REV
 
 class TableField(object):
 
@@ -254,21 +243,20 @@ class TableMeta(object):
         self.consumed_write_capacity = None
         self.hash_key = None
         self.range_key = None
-        for field in attrs.itervalues():
+        for field in six.itervalues(attrs):
             if field.key_type == 'HASH':
                 self.hash_key = field
             elif field.key_type == 'RANGE':
                 self.range_key = field
 
     @classmethod
-    def from_description(cls, description):
+    def from_description(cls, table):
         """ Factory method that uses the boto 'describe' return value """
-        table = description['Table']
         throughput = table['ProvisionedThroughput']
         attrs = {}
         for data in table.get('AttributeDefinitions', []):
             field = TableField(data['AttributeName'],
-                               TYPES[data['AttributeType']])
+                               TYPES_REV[data['AttributeType']])
             attrs[field.name] = field
         for data in table.get('KeySchema', []):
             name = data['AttributeName']
@@ -301,7 +289,7 @@ class TableMeta(object):
         you may pass in an Item itself
 
         """
-        if isinstance(hkey, basestring):
+        if isinstance(hkey, six.string_types):
             pkey = {
                 self.hash_key.name: hkey
             }
@@ -332,7 +320,7 @@ class TableMeta(object):
     def total_read_throughput(self):
         """ Combined read throughput of table and global indexes """
         total = self.read_throughput
-        for index in self.global_indexes.itervalues():
+        for index in six.itervalues(self.global_indexes):
             total += index.read_throughput
         return total
 
@@ -340,7 +328,7 @@ class TableMeta(object):
     def total_write_throughput(self):
         """ Combined write throughput of table and global indexes """
         total = self.write_throughput
-        for index in self.global_indexes.itervalues():
+        for index in six.itervalues(self.global_indexes):
             total += index.write_throughput
         return total
 
@@ -378,12 +366,12 @@ class TableMeta(object):
             parts.append(self.range_key.schema + ',')
             del attrs[self.range_key.name]
         if attrs:
-            attr_def = ', '.join([attr.schema for attr in attrs.itervalues()])
+            attr_def = ', '.join([attr.schema for attr in six.itervalues(attrs)])
             parts.append(attr_def + ',')
 
         parts.append("THROUGHPUT (%d, %d))" % (self.read_throughput,
                                                self.write_throughput))
-        parts.extend([g.schema for g in self.global_indexes.itervalues()])
+        parts.extend([g.schema for g in six.itervalues(self.global_indexes)])
         return ' '.join(parts) + ';'
 
     def pformat(self):
@@ -404,7 +392,7 @@ class TableMeta(object):
                                  write_percent))
         lines.append('decreases remaining: %d' % self.decreases_remaining)
 
-        for gindex in self.global_indexes.itervalues():
+        for gindex in six.itervalues(self.global_indexes):
             lines.append(gindex.pformat())
 
         if self.hash_key is not None:
@@ -412,11 +400,11 @@ class TableMeta(object):
         if self.range_key is not None:
             lines.append(str(self.range_key))
 
-        for field in self.attrs.itervalues():
+        for field in six.itervalues(self.attrs):
             if field.key_type == 'INDEX':
                 lines.append(str(field))
 
-        for field in self.attrs.itervalues():
+        for field in six.itervalues(self.attrs):
             if field.key_type is None:
                 lines.append(str(field))
 

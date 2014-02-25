@@ -11,7 +11,8 @@ README = open(os.path.join(HERE, 'README.rst')).read()
 CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
-    'boto>=2.23.0',
+    'dynamo3',
+    'six',
     'pyparsing',
 ]
 
@@ -46,9 +47,6 @@ if __name__ == "__main__":
         include_package_data=True,
         packages=find_packages(exclude=('tests',)),
         entry_points={
-            'nose.plugins': [
-                'dynamolocal=tests:DynamoLocalPlugin',
-            ],
             'console_scripts': [
                 'dql = dql:main',
             ],
