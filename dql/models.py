@@ -3,6 +3,7 @@ import six
 from decimal import Decimal
 from dynamo3 import TYPES_REV
 
+
 class TableField(object):
 
     """
@@ -250,8 +251,9 @@ class TableMeta(object):
                 self.range_key = field
 
     @classmethod
-    def from_description(cls, table):
+    def from_description(cls, desc):
         """ Factory method that uses the boto 'describe' return value """
+        table = desc['Table']
         throughput = table['ProvisionedThroughput']
         attrs = {}
         for data in table.get('AttributeDefinitions', []):

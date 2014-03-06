@@ -1,18 +1,18 @@
 """ Execution engine """
-import six
 import time
 from datetime import datetime, timedelta
 
+import botocore.session
 import logging
-from decimal import Decimal, Inexact, Rounded
+import six
+from decimal import Decimal
 from pyparsing import ParseException
 
 from .grammar import parser, line_parser
 from .models import TableMeta
-from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, AllIndex,
-                     KeysOnlyIndex, IncludeIndex, GlobalAllIndex,
-                     GlobalKeysOnlyIndex, GlobalIncludeIndex, DynamoDBError,
-                     ItemUpdate, Binary, Throughput)
+from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
+                     GlobalIndex, DynamoDBError, ItemUpdate, Binary,
+                     Throughput)
 
 
 LOG = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ class Engine(object):
         self.connection = DynamoDBConnection.connect_to_region(region, *args, **kwargs)
 
     def connect_to_host(self, *args, **kwargs):
+        """ Connect the engine to a specific host """
         self.connection = DynamoDBConnection.connect_to_host(*args, **kwargs)
 
     @property
@@ -82,6 +83,8 @@ class Engine(object):
     def cloudwatch_connection(self):
         """ Lazy create a connection to cloudwatch """
         if self._cloudwatch_connection is None:
+            session = botocore.session.get_session()
+            # TODO: (stevearc 2014-02-28) set credentials, connect to service
             self._cloudwatch_connection = \
                 connect_to_region(
                     self.connection.region.name,
@@ -108,6 +111,7 @@ class Engine(object):
         """ Fetch a read/write capacity metric """
         end = datetime.now()
         begin = end - timedelta(minutes=5)
+        # TODO: (stevearc 2014-02-28) Fix this for botocore
         m = self.cloudwatch_connection.get_metric_statistics(
             60, begin, end, metric, 'AWS/DynamoDB', ['Sum'],
             {'TableName': [tablename]})
@@ -118,6 +122,8 @@ class Engine(object):
 
     def get_capacity(self, tablename):
         """ Get the consumed read/write capacity """
+        # If we're connected to a DynamoDB Local instance, don't connect to the
+        # actual cloudwatch endpoint
         if self.connection.region == 'local':
             return 0, 0
         return (self._get_metric(tablename, 'ConsumedReadCapacityUnits'),
@@ -126,7 +132,7 @@ class Engine(object):
     def describe(self, tablename, refresh=False, metrics=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self.cached_descriptions:
-            desc = self.connection.describe_table(tablename, raw=True)
+            desc = self.connection.call('DescribeTable', table_name=tablename)
             table = TableMeta.from_description(desc)
             self.cached_descriptions[tablename] = table
             if metrics:
@@ -327,7 +333,7 @@ class Engine(object):
                 if desc.range_key is not None:
                     pkey[desc.range_key.name] = item[desc.range_key.name]
                 count += 1
-                batch.delete_item(**pkey)
+                batch.delete(pkey)
         return 'deleted %d items' % count
 
     def _update(self, tree):
@@ -380,7 +386,7 @@ class Engine(object):
             updates = get_updates()
             for key in self._iter_where_in(tree):
                 ret = self.connection.update_item(tablename, key, updates,
-                                                  return_values=returns)
+                                                  returns=returns)
                 if ret:
                     result.append(ret)
         elif tree.where:
@@ -391,7 +397,7 @@ class Engine(object):
                 key = desc.primary_key(item)
                 updates = get_updates(item)
                 ret = self.connection.update_item(tablename, key, updates,
-                                                  return_values=returns)
+                                                  returns=returns)
                 if ret:
                     result.append(ret)
         else:
@@ -400,7 +406,7 @@ class Engine(object):
                 key = desc.primary_key(item)
                 updates = get_updates(item)
                 ret = self.connection.update_item(tablename, key, updates,
-                                                  return_values=returns)
+                                                  returns=returns)
                 if ret:
                     result.append(ret)
         if result:
@@ -410,7 +416,6 @@ class Engine(object):
         """ Run a SELECT statement """
         tablename = tree.table
         attrs = []
-        schema = []
         indexes = []
         global_indexes = []
         hash_key = None
@@ -431,16 +436,16 @@ class Engine(object):
                     index_type = index[0]
                     kwargs = {}
                     if index_type[0] in ('ALL', 'INDEX'):
-                        idx_class = AllIndex
+                        factory = LocalIndex.all
                     elif index_type[0] == 'KEYS':
-                        idx_class = KeysOnlyIndex
+                        factory = LocalIndex.keys
                     elif index_type[0] == 'INCLUDE':
-                        idx_class = IncludeIndex
+                        factory = LocalIndex.include
                         kwargs['includes'] = [self.resolve(i) for i in
                                               index.include]
                     index_name = self.resolve(index[1])
                     field = DynamoKey(name, data_type=TYPES[type_])
-                    idx = idx_class(index_name, field, **kwargs)
+                    idx = factory(index_name, field, **kwargs)
                     indexes.append(idx)
             else:
                 field = DynamoKey(name, data_type=TYPES[type_])
@@ -459,13 +464,14 @@ class Engine(object):
                                                            piece.throughput))
 
             if index_type[0] in ('ALL', 'INDEX'):
-                idx_class = GlobalAllIndex
+                factory = GlobalIndex.all
             elif index_type[0] == 'KEYS':
-                idx_class = GlobalKeysOnlyIndex
+                factory = GlobalIndex.keys
             elif index_type[0] == 'INCLUDE':
-                idx_class = GlobalIncludeIndex
+                factory = GlobalIndex.include
                 kwargs['includes'] = [self.resolve(i) for i in gindex.include]
-            index = idx_class(self.resolve(name), g_hash_key, g_range_key, **kwargs)
+            index = factory(self.resolve(name), g_hash_key, g_range_key,
+                            **kwargs)
             global_indexes.append(index)
 
         throughput = None
@@ -493,7 +499,7 @@ class Engine(object):
                     raise SyntaxError("Values '%s' do not match attributes "
                                       "'%s'" % (values, keys))
                 data = dict(zip(keys, map(self.resolve, values)))
-                batch.put_item(data)
+                batch.put(data)
                 count += 1
         return "Inserted %d items" % count
 

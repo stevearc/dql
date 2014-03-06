@@ -151,6 +151,7 @@ def get_default_display():
 
 
 class SmartBuffer(io.BufferedWriter):
+
     """ A buffer that wraps another buffer and encodes unicode strings. """
 
     def __init__(self, buf):
@@ -165,7 +166,6 @@ class SmartBuffer(io.BufferedWriter):
 
     def flush(self):
         return self._buffer.flush()
-
 
 
 @contextlib.contextmanager

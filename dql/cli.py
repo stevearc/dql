@@ -17,7 +17,7 @@ from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE)
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
-from dynamo3 import DynamoDBConnection, ResultSet
+from dynamo3 import DynamoDBConnection
 
 
 try:
@@ -79,7 +79,7 @@ class DQLClient(cmd.Cmd):
     _conf_dir = None
 
     def initialize(self, region='us-west-1', host='localhost', port=8000,
-                   access_key=None, secret_key=None):
+                   access_key=None, secret_key=None, config_dir=None):
         """ Set up the repl for execution. """
         # Tab-complete names with a '-' in them
         import readline
@@ -88,7 +88,8 @@ class DQLClient(cmd.Cmd):
             delims.remove('-')
             readline.set_completer_delims(''.join(delims))
 
-        self._conf_dir = os.path.join(os.environ.get('HOME', '.'), '.config')
+        self._conf_dir = (config_dir or
+                          os.path.join(os.environ.get('HOME', '.'), '.config'))
         self.session = botocore.session.get_session()
         if access_key:
             self.session.set_credentials(access_key, secret_key)
@@ -299,7 +300,8 @@ class DQLClient(cmd.Cmd):
 
         """
         if region == 'local':
-            conn = DynamoDBConnection.connect_to_host(host, port, session=self.session)
+            conn = DynamoDBConnection.connect_to_host(
+                host, port, session=self.session)
         else:
             conn = DynamoDBConnection.connect_to_region(region, self.session)
         self.engine.connection = conn
@@ -313,7 +315,7 @@ class DQLClient(cmd.Cmd):
     def _run_cmd(self, command):
         """ Run a DQL command """
         results = self.engine.execute(command)
-        if isinstance(results, (list, ResultSet)) or inspect.isgenerator(results):
+        if isinstance(results, list) or inspect.isgenerator(results):
             has_more = True
             while has_more:
                 with self.display() as ostream:

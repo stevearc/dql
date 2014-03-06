@@ -1,9 +1,9 @@
 """ Tests for the CLI """
 import shutil
-import tempfile
-
 import six
+import tempfile
 from mock import patch
+from six.moves.urllib.parse import urlparse  # pylint: disable=F0401,E0611
 
 from dql.cli import repl_command, DQLClient
 
@@ -23,7 +23,8 @@ class TestCli(unittest.TestCase):
         super(TestCli, self).setUp()
         self.confdir = tempfile.mkdtemp()
         self.cli = DQLClient()
-        self.cli.initialize('local', self.dynamo.port)
+        host = urlparse(self.dynamo.host)
+        self.cli.initialize('local', port=host.port, config_dir=self.confdir)
 
     def tearDown(self):
         super(TestCli, self).tearDown()

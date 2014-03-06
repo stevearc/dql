@@ -51,12 +51,8 @@ class TestQueries(BaseSystemTest):
         """ DROP statement should drop a table """
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("DROP TABLE foobar")
-        try:
-            self.dynamo.describe_table('foobar')['Table']
-        except DynamoDBError as e:
-            self.assertEquals(e.status_code, 400)
-        else:
-            assert False, "Table should not exist"
+        table = self.dynamo.describe_table('foobar')
+        self.assertIsNone(table)
 
     def test_drop_if_exists(self):
         """ DROP IF EXISTS shouldn't fail if no table """
