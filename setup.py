@@ -11,8 +11,10 @@ README = open(os.path.join(HERE, 'README.rst')).read()
 CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
-    'boto>=2.23.0',
+    'dynamo3',
+    'six',
     'pyparsing',
+    'python-dateutil',
 ]
 
 TEST_REQUIREMENTS = [
@@ -32,8 +34,10 @@ if __name__ == "__main__":
         description='DynamoDB Query Language',
         long_description=README + '\n\n' + CHANGES,
         classifiers=[
+            'Development Status :: 4 - Beta',
             'Intended Audience :: Developers',
             'License :: OSI Approved :: MIT License',
+            'Operating System :: OS Independent',
             'Programming Language :: Python',
             'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 2.6',
@@ -43,12 +47,10 @@ if __name__ == "__main__":
         author_email='steven@highlig.ht',
         url='http://github.com/mathcamp/dql',
         keywords='aws dynamo dynamodb sql',
+        platforms='any',
         include_package_data=True,
         packages=find_packages(exclude=('tests',)),
         entry_points={
-            'nose.plugins': [
-                'dynamolocal=tests:DynamoLocalPlugin',
-            ],
             'console_scripts': [
                 'dql = dql:main',
             ],

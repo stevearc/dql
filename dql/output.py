@@ -1,18 +1,23 @@
+# -*- coding: utf-8 -*-
 """ Formatting and displaying output """
 from __future__ import unicode_literals
 
-import os
-import stat
-import sys
-
 import contextlib
+import io
 import subprocess
+import sys
 import tempfile
 from decimal import Decimal
 from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
 
+import six
 
-def truncate(string, length, ellipsis='...'):
+import locale
+import os
+import stat
+
+
+def truncate(string, length, ellipsis='…'):
     """ Truncate a string to a length, ending with '...' if it overflows """
     if len(string) > length:
         return string[:length - len(ellipsis)] + ellipsis
@@ -104,7 +109,7 @@ class ColumnFormat(BaseFormat):
             header += truncate(col.center(col_width), col_width)
             header += ' |'
         ostream.write(len(header) * '-' + '\n')
-        ostream.write(header.encode('utf-8'))
+        ostream.write(header)
         ostream.write('\n')
         ostream.write(len(header) * '-' + '\n')
 
@@ -113,8 +118,8 @@ class ColumnFormat(BaseFormat):
             for col in columns:
                 ostream.write(' ')
                 val = self.format_field(result.get(
-                    col, 'null')).ljust(col_width)
-                ostream.write(truncate(val, col_width).encode('utf-8'))
+                    col, None)).ljust(col_width)
+                ostream.write(truncate(val, col_width))
                 ostream.write(' |')
             ostream.write('\n')
         ostream.write(len(header) * '-' + '\n')
@@ -145,6 +150,25 @@ def get_default_display():
         return stdout_display
 
 
+class SmartBuffer(object):
+
+    """ A buffer that wraps another buffer and encodes unicode strings. """
+
+    def __init__(self, buf):
+        self._buffer = buf
+        self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
+
+    def write(self, arg):
+        """ Write a string or bytes object to the buffer """
+        if isinstance(arg, six.text_type):
+            arg = arg.encode(self.encoding)
+        return self._buffer.write(arg)
+
+    def flush(self):
+        """ flush the buffer """
+        return self._buffer.flush()
+
+
 @contextlib.contextmanager
 def less_display():
     """ Use smoke and mirrors to acquire 'less' for pretty paging """
@@ -155,9 +179,9 @@ def less_display():
     mode = stat.S_IRUSR | stat.S_IWUSR
     outfile = None
     outfile = os.fdopen(os.open(filename,
-                                os.O_WRONLY | os.O_CREAT, mode), 'w')
+                                os.O_WRONLY | os.O_CREAT, mode), 'wb')
     try:
-        yield outfile
+        yield SmartBuffer(outfile)
         outfile.flush()
         subprocess.call(['less', '-FXR', filename])
     finally:
@@ -170,4 +194,4 @@ def less_display():
 @contextlib.contextmanager
 def stdout_display():
     """ Print results straight to stdout """
-    yield sys.stdout
+    yield SmartBuffer(sys.stdout)

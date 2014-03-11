@@ -1,6 +1,5 @@
 """ Tests for queries """
-from boto.exception import JSONResponseError
-from dql.engine import Binary, Table
+from dynamo3 import DynamoDBError, Binary
 from dql.models import TableField, IndexField, GlobalIndex
 
 from . import BaseSystemTest
@@ -52,12 +51,8 @@ class TestQueries(BaseSystemTest):
         """ DROP statement should drop a table """
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("DROP TABLE foobar")
-        try:
-            self.dynamo.describe_table('foobar')['Table']
-        except JSONResponseError as e:
-            self.assertEquals(e.status, 400)
-        else:
-            assert False, "Table should not exist"
+        table = self.dynamo.describe_table('foobar')
+        self.assertIsNone(table)
 
     def test_drop_if_exists(self):
         """ DROP IF EXISTS shouldn't fail if no table """
@@ -69,7 +64,7 @@ class TestQueries(BaseSystemTest):
         """ INSERT statement should create items """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        items = [dict(i) for i in table.scan()]
+        items = [dict(i) for i in self.dynamo.scan(table)]
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
@@ -77,8 +72,7 @@ class TestQueries(BaseSystemTest):
         """ INSERT statement can insert binary values """
         self.query("CREATE TABLE foobar (id BINARY HASH KEY)")
         self.query("INSERT INTO foobar (id) VALUES (b'a')")
-        table = Table('foobar', connection=self.dynamo)
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan('foobar'))
         self.assertEqual(items, [{'id': Binary(b'a')}])
 
     def test_count(self):
@@ -102,7 +96,7 @@ class TestQueries(BaseSystemTest):
         table = self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar WHERE id = 'a' and bar = 1")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
 
     def test_delete_in(self):
@@ -110,7 +104,7 @@ class TestQueries(BaseSystemTest):
         table = self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar WHERE KEYS IN ('a', 1)")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
 
     def test_delete_smart_index(self):
@@ -120,8 +114,7 @@ class TestQueries(BaseSystemTest):
                    "('a', 2, 200)")
         self.query("DELETE FROM foobar WHERE id = 'a' "
                    "and ts > 150")
-        results = table.scan()
-        results = [dict(r) for r in results]
+        results = list(self.dynamo.scan(table))
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
     def test_delete_using(self):
@@ -131,7 +124,7 @@ class TestQueries(BaseSystemTest):
                    "('a', 2, 5)")
         self.query("DELETE FROM foobar WHERE id = 'a' and ts < 8 "
                    "USING 'ts-index'")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertEqual(len(items), 0)
 
     def test_dump(self):
@@ -162,8 +155,8 @@ class TestQueries(BaseSystemTest):
         self.engine.describe('test2', True)
         try:
             self.engine.describe('test', True)
-        except JSONResponseError as e:
-            self.assertEquals(e.status, 400)
+        except DynamoDBError as e:
+            self.assertEquals(e.status_code, 400)
         else:
             assert False, "The test table should not exist"
 
@@ -174,7 +167,7 @@ class TestQueries(BaseSystemTest):
             INSERT INTO test (id, foo) VALUES ('a', 1), ('b', 2);
             SCAN test
         """)
-        scan_result = [dict(r) for r in result]
+        scan_result = list(result)
         self.assertItemsEqual(scan_result, [{'id': 'a', 'foo': 1},
                                             {'id': 'b', 'foo': 2}])
 
@@ -188,7 +181,7 @@ class TestSelect(BaseSystemTest):
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a'")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
     def test_hash_range(self):
@@ -196,7 +189,7 @@ class TestSelect(BaseSystemTest):
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' and bar = 1")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
     def test_get(self):
@@ -205,7 +198,7 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE "
                              "KEYS IN ('a', 1), ('b', 2)")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
                                         {'id': 'b', 'bar': 2}])
 
@@ -215,8 +208,8 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('a', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' ASC")
         rev_results = self.query("SELECT * FROM foobar WHERE id = 'a' DESC")
-        results = [dict(r) for r in results]
-        rev_results = [dict(r) for r in reversed(list(rev_results))]
+        results = list(results)
+        rev_results = list(reversed(list(rev_results)))
         self.assertEquals(results, rev_results)
 
     def test_hash_index(self):
@@ -226,7 +219,7 @@ class TestSelect(BaseSystemTest):
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' "
                              "and ts < 150 USING 'ts-index'")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
     def test_smart_index(self):
@@ -236,7 +229,7 @@ class TestSelect(BaseSystemTest):
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' "
                              "and ts < 150")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
     def test_smart_global_index(self):
@@ -246,8 +239,7 @@ class TestSelect(BaseSystemTest):
                    "GLOBAL INDEX ('gindex', baz)")
         self.query("INSERT INTO foobar (id, foo, bar, baz) VALUES "
                    "('a', 'a', 1, 'a'), ('b', 'b', 2, 'b')")
-        results = self.query("SELECT * FROM foobar WHERE baz = 'a'")
-        results = [dict(r) for r in results]
+        results = list(self.query("SELECT * FROM foobar WHERE baz = 'a'"))
         self.assertItemsEqual(results, [{'id': 'a', 'foo': 'a',
                                          'bar': 1, 'baz': 'a'}])
 
@@ -300,7 +292,7 @@ class TestScan(BaseSystemTest):
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SCAN foobar")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
                                         {'id': 'b', 'bar': 2}])
 
@@ -309,7 +301,7 @@ class TestScan(BaseSystemTest):
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SCAN foobar FILTER id = 'a'")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
     def test_limit(self):
@@ -327,7 +319,7 @@ class TestScan(BaseSystemTest):
                    "(1, 'abc'), (1, 'def')")
         results = self.query("SCAN foobar "
                              "FILTER id = 1 AND bar BEGINS WITH 'a'")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 1, 'bar': 'abc'}])
 
     def test_between(self):
@@ -337,7 +329,7 @@ class TestScan(BaseSystemTest):
                    "('a', 5), ('a', 10)")
         results = self.query("SCAN foobar "
                              "FILTER id = 'a' AND bar BETWEEN (1, 8)")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
 
     def test_null(self):
@@ -347,7 +339,7 @@ class TestScan(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
         results = self.query("SCAN foobar "
                              "FILTER id = 'a' AND baz IS NULL")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
 
     def test_not_null(self):
@@ -357,7 +349,7 @@ class TestScan(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
         results = self.query("SCAN foobar "
                              "FILTER id = 'a' AND baz IS NOT NULL")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'baz': 1}])
 
     def test_in(self):
@@ -366,7 +358,7 @@ class TestScan(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5), ('a', 2)")
         results = self.query("SCAN foobar "
                              "FILTER id = 'a' AND bar IN (1, 3, 5)")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
 
     def test_contains(self):
@@ -376,7 +368,7 @@ class TestScan(BaseSystemTest):
                    "('a', 5, (1, 2, 3)), ('a', 1, (4, 5, 6))")
         results = self.query("SCAN foobar "
                              "FILTER id = 'a' AND baz CONTAINS 2")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5,
                                          'baz': set([1, 2, 3])}])
 
@@ -387,7 +379,7 @@ class TestScan(BaseSystemTest):
                    "('a', 5, (1, 2, 3)), ('a', 1, (4, 5, 6))")
         results = self.query("SCAN foobar "
                              "FILTER id = 'a' AND baz NOT CONTAINS 5")
-        results = [dict(r) for r in results]
+        results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5,
                                          'baz': set([1, 2, 3])}])
 
@@ -517,7 +509,7 @@ class TestUpdate(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
         self.query("UPDATE foobar SET baz = 3")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
                                       {'id': 'b', 'bar': 2, 'baz': 3}])
 
@@ -527,7 +519,7 @@ class TestUpdate(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
         self.query("UPDATE foobar SET baz = 3 WHERE id = 'a'")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
                                       {'id': 'b', 'bar': 2, 'baz': 2}])
 
@@ -538,7 +530,7 @@ class TestUpdate(BaseSystemTest):
                    "('b', 2, 2)")
         self.query(
             "UPDATE foobar SET baz = 3 WHERE KEYS IN ('a', 1), ('b', 2)")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
                                       {'id': 'b', 'bar': 2, 'baz': 3}])
 
@@ -549,7 +541,7 @@ class TestUpdate(BaseSystemTest):
                    "('b', 2, 2)")
         self.query("UPDATE foobar SET baz += 2")
         self.query("UPDATE foobar SET baz -= 1")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
                                       {'id': 'b', 'bar': 2, 'baz': 3}])
 
@@ -559,7 +551,7 @@ class TestUpdate(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, ())")
         self.query("UPDATE foobar SET baz << 2")
         self.query("UPDATE foobar SET baz << (1, 3)")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1,
                                        'baz': set([1, 2, 3])}])
 
@@ -570,7 +562,7 @@ class TestUpdate(BaseSystemTest):
                    "('a', 1, (1, 2, 3, 4))")
         self.query("UPDATE foobar SET baz >> 2")
         self.query("UPDATE foobar SET baz >> (1, 3)")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': set([4])}])
 
     def test_update_delete(self):
@@ -579,7 +571,7 @@ class TestUpdate(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
         self.query("UPDATE foobar SET baz = NULL")
-        items = [dict(i) for i in table.scan()]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
@@ -589,7 +581,7 @@ class TestUpdate(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
         result = self.query("UPDATE foobar SET baz = NULL RETURNS ALL NEW ")
-        items = [dict(i) for i in result]
+        items = list(result)
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
@@ -600,7 +592,7 @@ class TestUpdate(BaseSystemTest):
                    "('b', 2, 20)")
         self.query("UPDATE foobar SET baz = `bar + 1`")
         result = self.query('SCAN foobar')
-        items = [dict(i) for i in result]
+        items = list(result)
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
                                       {'id': 'b', 'bar': 2, 'baz': 3}])
 
@@ -615,6 +607,6 @@ class TestUpdate(BaseSystemTest):
         ))
         self.query("UPDATE foobar SET baz = m`%s`" % code)
         result = self.query('SCAN foobar')
-        items = [dict(i) for i in result]
+        items = list(result)
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 6},
                                       {'id': 'b', 'bar': 2}])

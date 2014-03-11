@@ -13,47 +13,6 @@ except ImportError:
     import unittest
 
 
-class TestEngine(unittest.TestCase):
-
-    """ Unit tests for the query engine """
-
-    def setUp(self):
-        super(TestEngine, self).setUp()
-        self.table = patch('dql.engine.Table').start()()
-        self.describe = patch('dql.engine.Engine.describe').start()
-        self.engine = Engine(MagicMock())
-
-    def tearDown(self):
-        super(TestEngine, self).tearDown()
-        patch.stopall()
-
-    def test_select_consistent(self):
-        """ SELECT can make a consistent read """
-        self.engine.execute("SELECT CONSISTENT * FROM foobar WHERE id = 'a'")
-        self.table.query.assert_called_with(id__eq='a', consistent=True,
-                                            reverse=True)
-
-    def test_select_in_consistent(self):
-        """ SELECT by primary key can make a consistent read """
-        attrs = {
-            'foo': TableField('foo', 'NUMBER', 'HASH'),
-        }
-        self.describe.return_value = TableMeta('', '', attrs, {}, 1, 1, 0, 0,
-                                               0)
-        self.engine.execute("SELECT CONSISTENT * FROM foobar "
-                            "WHERE KEYS IN ('a', 1)")
-        self.table.batch_get.assert_called_with(keys=ANY, consistent=True)
-
-    def test_count_consistent(self):
-        """ COUNT can make a consistent read """
-        attrs = {
-            'foo': TableField('foo', 'NUMBER', 'HASH'),
-        }
-        self.describe.return_value = TableMeta('', '', attrs, {}, 1, 1, 0, 0, 0)
-        self.engine.execute("count CONSISTENT foobar WHERE id = 'a'")
-        self.table.query_count.assert_called_with(id__eq='a', consistent=True)
-
-
 class TestEngineSystem(BaseSystemTest):
 
     """ System tests for the Engine """

@@ -37,7 +37,7 @@ nosetests.xml
 dql_env
 .ropeproject
 _version.py
-_localhost.db
+*.db
 
 # docs
 _build
