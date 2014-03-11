@@ -3,7 +3,6 @@ import os
 import sys
 
 from setuptools import setup, find_packages
-from dql_version import git_version, UpdateVersion
 
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -29,8 +28,7 @@ if sys.version_info[:2] < (2, 7):
 if __name__ == "__main__":
     setup(
         name='dql',
-        version=git_version('dql'),
-        cmdclass={'update_version': UpdateVersion},
+        version='0.2.0',
         description='DynamoDB Query Language',
         long_description=README + '\n\n' + CHANGES,
         classifiers=[
@@ -42,11 +40,15 @@ if __name__ == "__main__":
             'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 2.6',
             'Programming Language :: Python :: 2.7',
+            'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 3.2',
+            'Programming Language :: Python :: 3.3',
         ],
         author='Steven Arcangeli',
-        author_email='steven@highlig.ht',
+        author_email='stevearc@stevearc.com',
         url='http://github.com/mathcamp/dql',
         keywords='aws dynamo dynamodb sql',
+        license='MIT',
         platforms='any',
         include_package_data=True,
         packages=find_packages(exclude=('tests',)),
