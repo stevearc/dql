@@ -1,3 +1,6 @@
+Changelog
+=========
+
 0.2.0
 -----
 * Feature: Python 3 support

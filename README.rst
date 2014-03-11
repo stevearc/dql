@@ -1,7 +1,8 @@
 DQL
 ===
-:Build: |build|_ |coverage|_
-:0.1 Build: |build-0.1|_ |coverage-0.1|_
+:Dev Build: |build|_ |coverage|_
+:0.1 Branch: |build-0.1|_ |coverage-0.1|_
+:0.2 Branch: |build-0.2|_ |coverage-0.2|_
 :Documentation: http://dql.readthedocs.org/
 :Downloads: http://pypi.python.org/pypi/dql
 :Source: https://github.com/mathcamp/dql
@@ -15,6 +16,11 @@ DQL
 .. _build-0.1: https://travis-ci.org/mathcamp/dql
 .. |coverage-0.1| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.1
 .. _coverage-0.1: https://coveralls.io/r/mathcamp/dql?branch=0.1
+
+.. |build-0.2| image:: https://travis-ci.org/mathcamp/dql.png?branch=0.2
+.. _build-0.2: https://travis-ci.org/mathcamp/dql
+.. |coverage-0.2| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.2
+.. _coverage-0.2: https://coveralls.io/r/mathcamp/dql?branch=0.2
 
 A simple, SQL-ish language for DynamoDB
 
@@ -60,3 +66,5 @@ Changing tables::
 
     us-west-1> ALTER TABLE forum_threads SET THROUGHPUT (8, 4);
     us-west-1> DROP TABLE forum_threads;
+
+And don't forget to use ``help``!
