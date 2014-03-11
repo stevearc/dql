@@ -1,10 +1,9 @@
 """ Execution engine """
 import time
-from datetime import datetime, timedelta
 
-import botocore.session
 import logging
 import six
+from dateutil.parser import parse
 from decimal import Decimal
 from pyparsing import ParseException
 
@@ -39,7 +38,7 @@ class Engine(object):
 
     Parameters
     ----------
-    connection : :class:`~boto.dynamodb2.layer1.DynamoDBConnection`, optional
+    connection : :class:`~dynamo3.DynamoDBConnection`, optional
         If not present, you will need to call :meth:`.Engine.connect_to_region`
 
     Attributes
@@ -68,7 +67,8 @@ class Engine(object):
 
     def connect_to_region(self, region, *args, **kwargs):
         """ Connect the engine to an AWS region """
-        self.connection = DynamoDBConnection.connect_to_region(region, *args, **kwargs)
+        self.connection = DynamoDBConnection.connect_to_region(region, *args,
+                                                               **kwargs)
 
     def connect_to_host(self, *args, **kwargs):
         """ Connect the engine to a specific host """
@@ -79,25 +79,21 @@ class Engine(object):
         """ Get the dynamo connection """
         return self._connection
 
-    @property
-    def cloudwatch_connection(self):
-        """ Lazy create a connection to cloudwatch """
-        if self._cloudwatch_connection is None:
-            session = botocore.session.get_session()
-            # TODO: (stevearc 2014-02-28) set credentials, connect to service
-            self._cloudwatch_connection = \
-                connect_to_region(
-                    self.connection.region.name,
-                    aws_access_key_id=self.connection.aws_access_key_id,
-                    aws_secret_access_key=self.connection.aws_secret_access_key)
-        return self._cloudwatch_connection
-
     @connection.setter
     def connection(self, connection):
         """ Change the dynamo connection """
         self._connection = connection
         self._cloudwatch_connection = None
         self.cached_descriptions = {}
+
+    @property
+    def cloudwatch_connection(self):
+        """ Lazy create a connection to cloudwatch """
+        if self._cloudwatch_connection is None:
+            session = self.connection.service.session
+            self._cloudwatch_connection = \
+                session.get_service('cloudwatch')
+        return self._cloudwatch_connection
 
     def describe_all(self):
         """ Describe all tables in the connected region """
@@ -109,16 +105,30 @@ class Engine(object):
 
     def _get_metric(self, tablename, metric):
         """ Fetch a read/write capacity metric """
-        end = datetime.now()
-        begin = end - timedelta(minutes=5)
-        # TODO: (stevearc 2014-02-28) Fix this for botocore
-        m = self.cloudwatch_connection.get_metric_statistics(
-            60, begin, end, metric, 'AWS/DynamoDB', ['Sum'],
-            {'TableName': [tablename]})
-        if len(m) == 0:
+        end = time.time()
+        begin = end - 20 * 60  # 20 minute window
+        op = self.cloudwatch_connection.get_operation('get_metric_statistics')
+        kwargs = {
+            'period': 60,
+            'start_time': begin,
+            'end_time': end,
+            'metric_name': metric,
+            'namespace': 'AWS/DynamoDB',
+            'statistics': ['Sum'],
+            'dimensions': [{'Name': 'TableName', 'Value': tablename}],
+        }
+        endpoint = self.cloudwatch_connection.get_endpoint(
+            self.connection.region)
+        data = op.call(endpoint, **kwargs)[1]
+        points = data['Datapoints']
+        if len(points) < 2:
             return 0
         else:
-            return m[0]['Sum'] / float((end - begin).total_seconds())
+            points.sort(key=lambda r: parse(r['Timestamp']))
+            start, end = points[-2:]
+            time_range = parse(end['Timestamp']) - parse(start['Timestamp'])
+            total = end['Sum']
+            return total / float(time_range.total_seconds())
 
     def get_capacity(self, tablename):
         """ Get the consumed read/write capacity """
@@ -217,7 +227,7 @@ class Engine(object):
         raise SyntaxError("Unable to resolve value '%s'" % val)
 
     def _where_kwargs(self, desc, clause, index=True):
-        """ Generate boto kwargs from a where clause """
+        """ Generate dynamo3 kwargs from a where clause """
         kwargs = {}
         all_keys = []
         for key, op, val in clause:

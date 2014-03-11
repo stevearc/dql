@@ -150,21 +150,22 @@ def get_default_display():
         return stdout_display
 
 
-class SmartBuffer(io.BufferedWriter):
+class SmartBuffer(object):
 
     """ A buffer that wraps another buffer and encodes unicode strings. """
 
     def __init__(self, buf):
-        super(SmartBuffer, io.BufferedWriter).__init__()
         self._buffer = buf
         self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
 
     def write(self, arg):
+        """ Write a string or bytes object to the buffer """
         if isinstance(arg, six.text_type):
             arg = arg.encode(self.encoding)
         return self._buffer.write(arg)
 
     def flush(self):
+        """ flush the buffer """
         return self._buffer.flush()
 
 

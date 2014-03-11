@@ -128,7 +128,7 @@ class GlobalIndex(object):
 
     @classmethod
     def from_description(cls, description, attrs):
-        """ Create an object from a boto response """
+        """ Create an object from a dynamo3 response """
         range_key = None
         index_type = description['Projection']['ProjectionType']
         includes = description['Projection'].get('NonKeyAttributes')
@@ -252,7 +252,7 @@ class TableMeta(object):
 
     @classmethod
     def from_description(cls, desc):
-        """ Factory method that uses the boto 'describe' return value """
+        """ Factory method that uses the dynamo3 'describe' return value """
         table = desc['Table']
         throughput = table['ProvisionedThroughput']
         attrs = {}

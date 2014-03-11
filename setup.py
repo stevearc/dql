@@ -14,6 +14,7 @@ REQUIREMENTS = [
     'dynamo3',
     'six',
     'pyparsing',
+    'python-dateutil',
 ]
 
 TEST_REQUIREMENTS = [
