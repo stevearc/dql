@@ -315,9 +315,12 @@ class DQLClient(cmd.Cmd):
     def _run_cmd(self, command):
         """ Run a DQL command """
         results = self.engine.execute(command)
+        printable_types = six.string_types + six.integer_types + (float,)
         if results is None:
             pass
-        elif not isinstance(results, six.string_types):
+        elif isinstance(results, printable_types):
+            six.print_(results)
+        else:
             has_more = True
             while has_more:
                 with self.display() as ostream:
@@ -325,8 +328,6 @@ class DQLClient(cmd.Cmd):
                 if has_more:
                     raw_input("Press return for next %d results:" %
                               self.formatter.pagesize)
-        else:
-            six.print_(results)
 
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
