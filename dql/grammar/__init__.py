@@ -131,10 +131,10 @@ def create_update():
     clause = Group(var + set_op + value)
     set_values = Group(delimitedList(clause)).setResultsName('updates')
     return_ = returns + Group(none |
-                             (all_ + old) |
-                             (all_ + new) |
-                             (updated + old) |
-                             (updated + new))\
+                              (all_ + old) |
+                              (all_ + new) |
+                              (updated + old) |
+                              (updated + new))\
         .setResultsName('returns')
     return (update + table + upkey('set') + set_values + Optional(select_where)
             + Optional(return_))
