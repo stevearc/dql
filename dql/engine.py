@@ -312,7 +312,7 @@ class Engine(object):
         if tree.consistent:
             kwargs['consistent'] = True
 
-        return self.connection.query(tablename, count=True, **kwargs)
+        return [{'count': self.connection.query(tablename, count=True, **kwargs)}]
 
     def _delete(self, tree):
         """ Run a DELETE statement """
