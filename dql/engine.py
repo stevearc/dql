@@ -229,9 +229,16 @@ class Engine(object):
     def _where_kwargs(self, desc, clause, index=True):
         """ Generate dynamo3 kwargs from a where clause """
         kwargs = {}
-        all_keys = []
+        all_keys = set()
+        if not index:
+            for conjunction in clause[3::2]:
+                if conjunction != clause[1]:
+                    raise SyntaxError("Cannot mix AND and OR inside FILTER clause")
+            clause = clause[0::2]
         for key, op, val in clause:
-            all_keys.append(key)
+            if key in all_keys:
+                raise SyntaxError("Cannot use a field more than once in a FILTER clause")
+            all_keys.add(key)
             if op == 'BETWEEN':
                 kwargs[key + '__between'] = (self.resolve(val[0]),
                                              self.resolve(val[1]))
@@ -280,6 +287,8 @@ class Engine(object):
                 raise SyntaxError("Cannot use LIMIT with WHERE KEYS IN")
             elif tree.using:
                 raise SyntaxError("Cannot use USING with WHERE KEYS IN")
+            elif tree.filter:
+                raise SyntaxError("Cannot use FILTER with WHERE KEYS IN")
             keys = list(self._iter_where_in(tree))
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
         else:
@@ -288,6 +297,12 @@ class Engine(object):
                 kwargs['limit'] = self.resolve(tree.limit[1])
             if tree.using:
                 kwargs['index'] = self.resolve(tree.using[1])
+            if tree.filter:
+                kwargs['filter'] = self._where_kwargs(self.describe(tablename),
+                                                      tree.filter, index=False)
+                if len(tree.filter) > 1:
+                    kwargs['filter_or'] = tree.filter[1] == 'OR'
+
             kwargs['desc'] = tree.order == 'DESC'
 
             return self.connection.query(tablename, **kwargs)
@@ -297,6 +312,8 @@ class Engine(object):
         tablename = tree.table
         kwargs = self._where_kwargs(self.describe(tablename), tree.filter,
                                     index=False)
+        if len(tree.filter) > 1:
+            kwargs['filter_or'] = tree.filter[1] == 'OR'
         if tree.limit:
             kwargs['limit'] = self.resolve(tree.limit[1])
 
@@ -311,6 +328,11 @@ class Engine(object):
             kwargs['index'] = self.resolve(tree.using[1])
         if tree.consistent:
             kwargs['consistent'] = True
+        if tree.filter:
+            kwargs['filter'] = self._where_kwargs(self.describe(tablename),
+                                                  tree.filter, index=False)
+            if len(tree.filter) > 1:
+                kwargs['filter_or'] = tree.filter[1] == 'OR'
 
         return self.connection.query(tablename, count=True, **kwargs)
 

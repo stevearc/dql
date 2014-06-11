@@ -13,6 +13,7 @@ backtickString = Regex(r'`[^`]*`').setName("string enclosed in backticks")
 
 and_, from_, into, in_, table_key, null, where_ = \
     map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where'])
+and_or = and_ | upkey('or')
 
 var = Word(alphas, alphanums + '_-').setName('variable').setResultsName('var')
 expr = Combine(Optional('m') + backtickString).setName('python expression').setResultsName('python')

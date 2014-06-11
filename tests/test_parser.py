@@ -41,10 +41,16 @@ TEST_CASES = {
         ('SELECT (foo, bar) FROM foobars WHERE foo = 0', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('SELECT foo, bar FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
     ],
+    'select_filter': [
+        ('SELECT * FROM foobars WHERE foo = 0 FILTER bar = 1', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']]]]),
+        ('SELECT * FROM foobars WHERE foo = 0 FILTER bar = 1 AND baz > 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'AND', ['baz', '>', ['2']]]]),
+        ('SELECT * FROM foobars WHERE foo = 0 FILTER bar = 1 OR baz > 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'OR', ['baz', '>', ['2']]]]),
+    ],
     'scan': [
         ('SCAN foobars', ['SCAN', 'foobars']),
         ('SCAN foobars FILTER foo = 0', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']]]]),
-        ('SCAN foobars FILTER foo = 0 and bar != "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], ['bar', '!=', ['"green"']]]]),
+        ('SCAN foobars FILTER foo = 0 and bar != "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], 'AND', ['bar', '!=', ['"green"']]]]),
+        ('SCAN foobars FILTER foo = 0 OR bar != "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], 'OR', ['bar', '!=', ['"green"']]]]),
         ('SCAN "foobars"', 'error'),
         ('SCAN foobars garbage', 'error'),
     ],
@@ -60,6 +66,11 @@ TEST_CASES = {
     'count_using': [
         ('COUNT foobars WHERE foo = 0 USING "my_index"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
         ('COUNT foobars WHERE foo = 0 AND bar < 4 USING "my_index"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['"my_index"']]),
+    ],
+    'count_filter': [
+        ('COUNT foobars WHERE foo = 0 FILTER bar = 1', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']]]]),
+        ('COUNT foobars WHERE foo = 0 FILTER bar = 1 AND baz > 2', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'AND', ['baz', '>', ['2']]]]),
+        ('COUNT foobars WHERE foo = 0 FILTER bar = 1 OR baz > 2', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'OR', ['baz', '>', ['2']]]]),
     ],
     'delete': [
         ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
@@ -166,10 +177,10 @@ TEST_CASES = {
         ('WHERE KEYS IN (1, 2, 3)', 'error'),
     ],
     'filter': [
-        ('FILTER foo = 1 AND bar > 1', ['FILTER', [['foo', '=', ['1']], ['bar', '>', ['1']]]]),
-        ('FILTER foo >= 1 AND bar < 1', ['FILTER', [['foo', '>=', ['1']], ['bar', '<', ['1']]]]),
-        ('FILTER foo <= 1 AND bar != 1', ['FILTER', [['foo', '<=', ['1']], ['bar', '!=', ['1']]]]),
-        ('FILTER foo IS NULL AND bar IS NOT NULL', ['FILTER', [['foo', 'IS', 'NULL'], ['bar', 'IS', 'NOT NULL']]]),
+        ('FILTER foo = 1 AND bar > 1', ['FILTER', [['foo', '=', ['1']], 'AND', ['bar', '>', ['1']]]]),
+        ('FILTER foo >= 1 AND bar < 1', ['FILTER', [['foo', '>=', ['1']], 'AND', ['bar', '<', ['1']]]]),
+        ('FILTER foo <= 1 AND bar != 1', ['FILTER', [['foo', '<=', ['1']], 'AND', ['bar', '!=', ['1']]]]),
+        ('FILTER foo IS NULL OR bar IS NOT NULL', ['FILTER', [['foo', 'IS', 'NULL'], 'OR', ['bar', 'IS', 'NOT NULL']]]),
         ('FILTER foo BEGINS WITH "flap"', ['FILTER', [['foo', 'BEGINS WITH', ['"flap"']]]]),
         ('FILTER foo CONTAINS 1', ['FILTER', [['foo', 'CONTAINS', ['1']]]]),
         ('FILTER foo NOT CONTAINS 1', ['FILTER', [['foo', 'NOT CONTAINS', ['1']]]]),
@@ -239,6 +250,10 @@ class TestParser(TestCase):
         """ SELECT may fetch only specific attributes """
         self._run_tests('select_attrs')
 
+    def test_select_filter(self):
+        """ SELECT tests with the FILTER clause """
+        self._run_tests('select_filter')
+
     def test_scan(self):
         """ Run tests for SCAN statements """
         self._run_tests('scan')
@@ -250,6 +265,10 @@ class TestParser(TestCase):
     def test_count_using(self):
         """ COUNT tests that specify an index """
         self._run_tests('count_using')
+
+    def test_count_filter(self):
+        """ COUNT tests that specify an index """
+        self._run_tests('count_filter')
 
     def test_delete(self):
         """ Run tests for DELETE statements """

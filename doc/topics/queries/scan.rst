@@ -16,6 +16,7 @@ Examples
     SCAN foobars;
     SCAN foobars FILTER id = 'a' AND foo = 4;
     SCAN foobars FILTER id = 'a' AND foo CONTAINS 4 LIMIT 100;
+    SCAN foobars FILTER id = 'a' OR foo IS NULL;
 
 Description
 -----------
@@ -32,17 +33,23 @@ Parameters
 
 Filter Clause
 -------------
+FILTER clauses give the query a way to eliminate results server-side. The query
+will still not be using an index, but it may be faster since it will transmit
+less data. FILTER may use additional operators that WHERE cannot use (IS NULL,
+IS NOT NULL, CONTAINS, and IN). FILTER may also join these conditions with AND
+or OR (though not both).
 
 Examples
 ########
 .. code-block:: sql
 
     FILTER hkey = 'a' AND bar > 5 AND baz != 16
-    FILTER hkey = 1 AND bar BEGINS WITH "prefix"
-    FILTER hkey = 1 AND bar BETWEEN (1, 100)
-    FILTER hkey = 1 AND bar IS NULL AND baz IS NOT NULL
-    FILTER hkey = 1 AND bar CONTAINS 5 AND baz NOT CONTAINS 5
-    FILTER hkey = 1 AND bar IN (1, 3, 5, 7, 9)
+    FILTER bar BEGINS WITH "prefix"
+    FILTER bar BETWEEN (1, 100)
+    FILTER bar IS NULL AND baz IS NOT NULL
+    FILTER bar CONTAINS 5 AND baz NOT CONTAINS 2
+    FILTER bar BETWEEN (1, 100) OR baz BETWEEN (1, 100)
+    FILTER bar IN (1, 3, 5, 7, 9)
 
 Notes
 #####
