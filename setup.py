@@ -28,7 +28,7 @@ if sys.version_info[:2] < (2, 7):
 if __name__ == "__main__":
     setup(
         name='dql',
-        version='0.2.1',
+        version='0.3.0',
         description='DynamoDB Query Language',
         long_description=README + '\n\n' + CHANGES,
         classifiers=[
