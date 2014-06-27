@@ -9,6 +9,7 @@ Synopsis
         [ CONSISTENT ]
         tablename
         WHERE expression
+        [ FILTER expression ]
         [ USING index ]
 
 Examples
@@ -16,6 +17,7 @@ Examples
 .. code-block:: sql
 
     COUNT foobars WHERE foo = 'bar';
+    COUNT foobars WHERE foo = 'bar' FILTER baz IN (1, 3, 5);
     COUNT CONSISTENT foobars WHERE foo != 'bar' AND baz >= 3;
     COUNT foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
 
@@ -52,3 +54,7 @@ Examples
     WHERE hkey = 'a' AND bar > 5 AND baz <= 16
     WHERE hkey = 1 AND bar BEGINS WITH "prefix"
     WHERE hkey = 1 AND bar BETWEEN (1, 100)
+
+Filter Clause
+-------------
+FILTER works the same was as it does for SELECT.

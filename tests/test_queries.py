@@ -91,6 +91,13 @@ class TestQueries(BaseSystemTest):
         count = self.query("COUNT foobar WHERE id = 'a' and ts < 150")
         self.assertEquals(count, 1)
 
+    def test_count_filter(self):
+        """ COUNT can use conditional filter on results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES ('a', 1, 1), ('a', 2, 2)")
+        count = self.query("COUNT foobar WHERE id = 'a' FILTER foo = 1")
+        self.assertEqual(count, 1)
+
     def test_delete(self):
         """ DELETE statement removes items """
         table = self.make_table(index='ts')
@@ -282,6 +289,44 @@ class TestSelect(BaseSystemTest):
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
 
+    def test_filter(self):
+        """ SELECT can filter results before returning them """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES "
+                   "('a', 1, 1), ('a', 2, 2)")
+        results = self.query("SELECT * FROM foobar "
+                             "WHERE id = 'a' FILTER baz = 1")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'baz': 1}])
+
+    def test_filter_and(self):
+        """ SELECT can use multi-conditional filter on results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar, baz) VALUES "
+                   "('a', 1, 1, 1), ('a', 2, 2, 1)")
+        results = self.query("SELECT * FROM foobar "
+                             "WHERE id = 'a' FILTER baz = 1 AND foo = 1")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1, 'baz': 1}])
+
+    def test_filter_or(self):
+        """ SELECT can use multi-conditional OR filter on results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar, baz) VALUES "
+                   "('a', 1, 1, 1), ('a', 2, 2, 2)")
+        results = self.query("SELECT * FROM foobar "
+                             "WHERE id = 'a' FILTER baz = 1 OR foo = 2")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1, 'baz': 1},
+                                        {'id': 'a', 'foo': 2, 'bar': 2, 'baz': 2}])
+
+    def test_filter_same_key(self):
+        """ Cannot filter twice on the same key """
+        self.make_table()
+        with self.assertRaises(SyntaxError):
+            self.query("SELECT * FROM foobar "
+                       "WHERE id = 'a' FILTER foo = 1 OR foo = 2")
+
 
 class TestScan(BaseSystemTest):
 
@@ -382,6 +427,25 @@ class TestScan(BaseSystemTest):
         results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5,
                                          'baz': set([1, 2, 3])}])
+
+    def test_filter_and(self):
+        """ SCAN can use multi-conditional filter on results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES ('a', 1, 1), ('b', 1, 2)")
+        results = self.query("SCAN foobar FILTER foo = 1 AND bar = 1")
+        results = list(results)
+        self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1}])
+
+    def test_filter_or(self):
+        """ SCAN can use multi-conditional OR filter on results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 1, 1), ('b', 2, 2)")
+        results = self.query("SCAN foobar "
+                             "FILTER foo = 1 OR bar = 2")
+        results = [dict(r) for r in results]
+        self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1},
+                                        {'id': 'b', 'foo': 2, 'bar': 2}])
 
 
 class TestCreate(BaseSystemTest):

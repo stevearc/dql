@@ -2,7 +2,7 @@
 from pyparsing import (Group, ZeroOrMore, delimitedList, Suppress, Optional,
                        oneOf, Combine)
 
-from .common import var, value, and_, in_, upkey, where_, primitive, set_
+from .common import var, value, and_, and_or, in_, upkey, where_, primitive, set_
 
 
 def create_query_constraint():
@@ -69,7 +69,7 @@ def create_select_where():
 def create_filter():
     """ Create a grammar for filtering on table scans """
     filter_exp = Group(Optional(Suppress('(')) + filter_constraint +
-                       ZeroOrMore(Suppress(and_) + filter_constraint) +
+                       ZeroOrMore(and_or + filter_constraint) +
                        Optional(Suppress(')')))
     return (upkey('filter') + filter_exp.setResultsName('filter'))
 

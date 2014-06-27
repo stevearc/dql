@@ -33,6 +33,7 @@ def create_select():
     ordering = Optional(upkey('desc') | upkey('asc')).setResultsName('order')
 
     return (select + Optional(consist) + attrs + from_ + table + select_where +
+            Optional(filter_) +
             Optional(using + value).setResultsName('using') +
             Optional(limit) + ordering)
 
@@ -49,6 +50,7 @@ def create_count():
     consist = upkey('consistent').setResultsName('consistent')
 
     return (count + Optional(consist) + table + where +
+            Optional(filter_) +
             Optional(using + value).setResultsName('using'))
 
 

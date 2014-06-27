@@ -20,10 +20,12 @@ COUNT = """
         [ CONSISTENT ]
         tablename
         WHERE expression
+        [ FILTER expression ]
         [ USING index ]
 
     Examples:
         COUNT foobars WHERE foo = 'bar';
+        COUNT foobars WHERE foo = 'bar' FILTER baz IN (1, 3, 5);
         COUNT CONSISTENT foobars WHERE foo != 'bar' AND baz >= 3;
         COUNT foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
 """
@@ -115,6 +117,7 @@ SCAN = """
         SCAN foobars;
         SCAN foobars FILTER id = 'a' AND foo = 4;
         SCAN foobars FILTER id = 'a' AND foo CONTAINS 4 LIMIT 100;
+        SCAN foobars FILTER id = 'a' OR foo IS NULL;
 """
 
 SELECT = """
@@ -125,6 +128,7 @@ SELECT = """
         attributes
         FROM tablename
         WHERE expression
+        [ FILTER expression ]
         [ USING index ]
         [ LIMIT limit ]
         [ ASC | DESC ]
@@ -132,6 +136,7 @@ SELECT = """
     Examples:
         SELECT * FROM foobars WHERE foo = 'bar';
         SELECT CONSISTENT * foobars WHERE foo = 'bar' AND baz >= 3;
+        SELECT * foobars WHERE foo = 'bar' AND baz > 3 FILTER data IS NOT NULL;
         SELECT foo, bar FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
         SELECT * FROM foobars WHERE foo = 'bar' AND baz >= 3 LIMIT 50 DESC;
 """
