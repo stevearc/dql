@@ -16,7 +16,7 @@ TEST_CASES = {
         ('SELECT CONSISTENT * FROM foobars WHERE foo = 0', ['SELECT', 'CONSISTENT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
         ('SELECT * FROM foobars WHERE foo = 0 DESC', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'DESC']),
         ('SELECT * FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('SELECT * FROM foobars WHERE foo = `1 + 5`', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['`1 + 5`']]]]),
+        ('SELECT * FROM foobars.foo WHERE foo = `1 + 5`', ['SELECT', ['*'], 'FROM', 'foobars.foo', 'WHERE', [['foo', '=', ['`1 + 5`']]]]),
         ('SELECT * FROM foobars', 'error'),
         ('SELECT * foobars WHERE foo = 0', 'error'),
         ('SELECT * FROM foobars WHERE foo != 0', 'error'),
