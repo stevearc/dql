@@ -17,7 +17,7 @@ and_or = and_ | upkey('or')
 
 var = Word(alphas, alphanums + '_-').setName('variable').setResultsName('var')
 expr = Combine(Optional('m') + backtickString).setName('python expression').setResultsName('python')
-table = var.setResultsName('table')
+table = Word(alphas, alphanums + '_-.').setResultsName('table')
 type_ = (upkey('string') |
          upkey('number') |
          upkey('binary'))\

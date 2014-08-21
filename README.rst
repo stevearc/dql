@@ -1,8 +1,7 @@
 DQL
 ===
 :Dev Build: |build|_ |coverage|_
-:0.1 Branch: |build-0.1|_ |coverage-0.1|_
-:0.2 Branch: |build-0.2|_ |coverage-0.2|_
+:0.3 Branch: |build-0.3|_ |coverage-0.3|_
 :Documentation: http://dql.readthedocs.org/
 :Downloads: http://pypi.python.org/pypi/dql
 :Source: https://github.com/mathcamp/dql
@@ -12,15 +11,10 @@ DQL
 .. |coverage| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
 .. _coverage: https://coveralls.io/r/mathcamp/dql?branch=master
 
-.. |build-0.1| image:: https://travis-ci.org/mathcamp/dql.png?branch=0.1
-.. _build-0.1: https://travis-ci.org/mathcamp/dql
-.. |coverage-0.1| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.1
-.. _coverage-0.1: https://coveralls.io/r/mathcamp/dql?branch=0.1
-
-.. |build-0.2| image:: https://travis-ci.org/mathcamp/dql.png?branch=0.2
-.. _build-0.2: https://travis-ci.org/mathcamp/dql
-.. |coverage-0.2| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.2
-.. _coverage-0.2: https://coveralls.io/r/mathcamp/dql?branch=0.2
+.. |build-0.3| image:: https://travis-ci.org/mathcamp/dql.png?branch=0.3
+.. _build-0.3: https://travis-ci.org/mathcamp/dql
+.. |coverage-0.3| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.3
+.. _coverage-0.3: https://coveralls.io/r/mathcamp/dql?branch=0.3
 
 A simple, SQL-ish language for DynamoDB
 

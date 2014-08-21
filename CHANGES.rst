@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.3.1
+-----
+* Bug fix: Allow '.' in table names
+
 0.3.0
 -----
 * Feature: SELECT and COUNT can have FILTER clause
