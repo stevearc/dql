@@ -300,6 +300,7 @@ class DQLClient(cmd.Cmd):
 
         """
         if region == 'local':
+            port = int(port)
             conn = DynamoDBConnection.connect_to_host(
                 host, port, session=self.session)
         else:
