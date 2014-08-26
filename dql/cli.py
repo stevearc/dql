@@ -1,15 +1,14 @@
 """ Interative DQL client """
-import botocore
-import six
-import os
-
 import cmd
 import functools
-import inspect
 import json
+import os
 import shlex
 import subprocess
 import traceback
+
+import botocore
+import six
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
@@ -17,7 +16,6 @@ from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE)
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
-from dynamo3 import DynamoDBConnection
 
 
 try:
@@ -93,12 +91,11 @@ class DQLClient(cmd.Cmd):
         self.session = botocore.session.get_session()
         if access_key:
             self.session.set_credentials(access_key, secret_key)
+        self.engine = FragmentEngine()
         if region == 'local':
-            conn = DynamoDBConnection.connect_to_host(host, port,
-                                                      session=self.session)
+            self.engine.connect_to_host(host, port, session=self.session)
         else:
-            conn = DynamoDBConnection.connect_to_region(region, self.session)
-        self.engine = FragmentEngine(conn)
+            self.engine.connect_to_region(region, self.session)
 
         conf = self.load_config()
         display_name = conf.get('display')
@@ -137,9 +134,9 @@ class DQLClient(cmd.Cmd):
         if self._coding:
             self.prompt = '>>> '
         elif self.engine.partial:
-            self.prompt = len(self.engine.connection.region) * ' ' + '> '
+            self.prompt = len(self.engine.region) * ' ' + '> '
         else:
-            self.prompt = self.engine.connection.region + '> '
+            self.prompt = self.engine.region + '> '
 
     def do_shell(self, arglist):
         """ Run a shell command """
@@ -301,11 +298,10 @@ class DQLClient(cmd.Cmd):
         """
         if region == 'local':
             port = int(port)
-            conn = DynamoDBConnection.connect_to_host(
+            self.engine.connect_to_host(
                 host, port, session=self.session)
         else:
-            conn = DynamoDBConnection.connect_to_region(region, self.session)
-        self.engine.connection = conn
+            self.engine.connect_to_region(region, self.session)
 
     def default(self, command):
         if self._coding:
