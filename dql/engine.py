@@ -64,20 +64,30 @@ class Engine(object):
         self.cached_descriptions = {}
         self._cloudwatch_connection = None
         self.scope = {}
+        self._host = None
 
     def connect_to_region(self, region, *args, **kwargs):
         """ Connect the engine to an AWS region """
+        self._host = None
         self.connection = DynamoDBConnection.connect_to_region(region, *args,
                                                                **kwargs)
 
     def connect_to_host(self, *args, **kwargs):
         """ Connect the engine to a specific host """
+        self._host = args[0]
         self.connection = DynamoDBConnection.connect_to_host(*args, **kwargs)
 
     @property
     def connection(self):
         """ Get the dynamo connection """
         return self._connection
+
+    @property
+    def region(self):
+        """ Get the connected dynamo region or host """
+        if self._host is not None:
+            return self._host
+        return self._connection.region
 
     @connection.setter
     def connection(self, connection):
@@ -609,7 +619,7 @@ class FragmentEngine(Engine):
 
     """
 
-    def __init__(self, connection):
+    def __init__(self, connection=None):
         super(FragmentEngine, self).__init__(connection)
         self.fragments = ''
         self.last_query = ''

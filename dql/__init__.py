@@ -6,7 +6,7 @@ import argparse
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
     parse.add_argument('-H', '--host', default='localhost',
                        help="Host to connect to if region is 'local' "
                        "(default %(default)s)")
-    parse.add_argument('-p', '--port', default=8000,
+    parse.add_argument('-p', '--port', default=8000, type=int,
                        help="Port to connect to if region is 'local' "
                        "(default %(default)s)")
     parse.add_argument('-a', '--access-key', help="Your AWS access key id")

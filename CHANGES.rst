@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.3.2
+-----
+* Bug fix: Allow '.' in table names of DUMP SCHEMA command
+* Bug fix: Passing a port argument to local connection doesn't crash
+* Bug fix: Prompt says 'localhost' when connected to DynamoDB local
+
 0.3.1
 -----
 * Bug fix: Allow '.' in table names

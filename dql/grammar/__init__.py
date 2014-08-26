@@ -155,7 +155,7 @@ def create_dump():
     """ Create the grammar for the 'dump' statement """
     dump = upkey('dump').setResultsName('action')
     return (dump + upkey('schema') +
-            Optional(Group(delimitedList(var)).setResultsName('tables')))
+            Optional(Group(delimitedList(table)).setResultsName('tables')))
 
 
 def create_parser():
