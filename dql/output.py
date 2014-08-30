@@ -3,7 +3,10 @@
 from __future__ import unicode_literals
 
 import contextlib
-import io
+import json
+import locale
+import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -11,10 +14,6 @@ from decimal import Decimal
 from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
 
 import six
-
-import locale
-import os
-import stat
 
 
 def truncate(string, length, ellipsis='…'):
@@ -74,8 +73,17 @@ class ExpandedFormat(BaseFormat):
         ostream.write(self.width * '-' + '\n')
         max_key = max((len(k) for k in result.keys()))
         for key, val in sorted(result.items()):
-            val = wrap(self.format_field(val), self.width - max_key - 3,
-                       max_key + 3)
+            # If the value is json, try to unpack it and format it better.
+            if isinstance(val, six.string_types) and val.startswith("{"):
+                try:
+                    data = json.loads(val)
+                    indent = '\n' + ' ' * (max_key + 3)
+                    val = indent.join(json.dumps(data, indent=2).split('\n'))
+                except ValueError:
+                    pass
+            else:
+                val = wrap(self.format_field(val), self.width - max_key - 3,
+                           max_key + 3)
             ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
 
 
