@@ -103,7 +103,7 @@ class DQLClient(cmd.Cmd):
             self.display = DISPLAYS[display_name]
         else:
             self.display = get_default_display()
-        self.formatter = SmartFormat(pagesize=conf.get('pagesize', 1000),
+        self.formatter = SmartFormat(pagesize=conf.get('pagesize', 100),
                                      width=conf.get('width', 80))
         for line in conf.get('autorun', []):
             six.exec_(line, self.engine.scope)
