@@ -23,6 +23,17 @@ try:
 except ImportError:  # pragma: no cover
     from ordereddict import OrderedDict  # pylint: disable=F0401
 
+REGIONS = [
+    'ap-northeast-1',
+    'ap-southeast-1',
+    'ap-southeast-2',
+    'eu-west-1',
+    'sa-east-1',
+    'us-east-1',
+    'us-west-1',
+    'us-west-2',
+]
+
 
 def repl_command(fxn):
     """
@@ -75,8 +86,9 @@ class DQLClient(cmd.Cmd):
     session = None
     _coding = False
     _conf_dir = None
+    _local_endpoint = None
 
-    def initialize(self, region='us-west-1', host='localhost', port=8000,
+    def initialize(self, region='us-west-1', host=None, port=8000,
                    access_key=None, secret_key=None, config_dir=None):
         """ Set up the repl for execution. """
         # Tab-complete names with a '-' in them
@@ -92,10 +104,10 @@ class DQLClient(cmd.Cmd):
         if access_key:
             self.session.set_credentials(access_key, secret_key)
         self.engine = FragmentEngine()
-        if region == 'local':
-            self.engine.connect_to_host(host, port, session=self.session)
-        else:
-            self.engine.connect_to_region(region, self.session)
+        if host is not None:
+            self._local_endpoint = (host, port)
+        self.engine.connect(region, self.session, host=host, port=port,
+                            is_secure=(host is None))
 
         conf = self.load_config()
         display_name = conf.get('display')
@@ -133,10 +145,15 @@ class DQLClient(cmd.Cmd):
         """ Update the prompt """
         if self._coding:
             self.prompt = '>>> '
-        elif self.engine.partial:
-            self.prompt = len(self.engine.region) * ' ' + '> '
         else:
-            self.prompt = self.engine.region + '> '
+            prefix = ''
+            if self._local_endpoint is not None:
+                prefix += "(%s:%d) " % self._local_endpoint
+            prefix += self.engine.region
+            if self.engine.partial:
+                self.prompt = len(prefix) * ' ' + '> '
+            else:
+                self.prompt = prefix + '> '
 
     def do_shell(self, arglist):
         """ Run a shell command """
@@ -288,20 +305,41 @@ class DQLClient(cmd.Cmd):
                 t.startswith(text)]
 
     @repl_command
-    def do_use(self, region, host='localhost', port=8000):
+    def do_local(self, host='localhost', port=8000):
+        """
+        Connect to a local DynamoDB instance. Use 'local off' to disable.
+
+        > local
+        > local host=localhost port=8001
+        > local off
+
+        """
+        port = int(port)
+        if host == 'off':
+            self._local_endpoint = None
+        else:
+            self._local_endpoint = (host, port)
+        self.onecmd('use %s' % self.engine.region)
+
+    @repl_command
+    def do_use(self, region):
         """
         Switch the AWS region
 
-        You may also specify 'use local host=localhost port=8000' to use the
-        DynamoDB Local service
+        > use us-west-1
+        > use us-east-1
 
         """
-        if region == 'local':
-            port = int(port)
-            self.engine.connect_to_host(
-                host, port, session=self.session)
+        if self._local_endpoint is not None:
+            host, port = self._local_endpoint  # pylint: disable=W0633
+            self.engine.connect(region, session=self.session, host=host,
+                                port=port, is_secure=False)
         else:
-            self.engine.connect_to_region(region, self.session)
+            self.engine.connect(region, session=self.session)
+
+    def complete_use(self, text, *_):
+        """ Autocomplete for use """
+        return [t + ' ' for t in REGIONS if t.startswith(text)]
 
     def default(self, command):
         if self._coding:

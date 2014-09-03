@@ -64,17 +64,28 @@ class Engine(object):
         self.cached_descriptions = {}
         self._cloudwatch_connection = None
         self.scope = {}
-        self._host = None
+
+    def connect(self, *args, **kwargs):
+        """ Proxy to DynamoDBConnection.connect. """
+        self.connection = DynamoDBConnection.connect(*args, **kwargs)
 
     def connect_to_region(self, region, *args, **kwargs):
-        """ Connect the engine to an AWS region """
-        self._host = None
+        """
+        Connect the engine to an AWS region.
+
+        Deprecated in favor of :meth:`~.connect`
+
+        """
         self.connection = DynamoDBConnection.connect_to_region(region, *args,
                                                                **kwargs)
 
     def connect_to_host(self, *args, **kwargs):
-        """ Connect the engine to a specific host """
-        self._host = args[0]
+        """
+        Connect the engine to a specific host.
+
+        Deprecated in favor of :meth:`~.connect`
+
+        """
         self.connection = DynamoDBConnection.connect_to_host(*args, **kwargs)
 
     @property
@@ -85,8 +96,6 @@ class Engine(object):
     @property
     def region(self):
         """ Get the connected dynamo region or host """
-        if self._host is not None:
-            return self._host
         return self._connection.region
 
     @connection.setter
