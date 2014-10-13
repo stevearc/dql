@@ -5,13 +5,13 @@ import logging
 import six
 from dateutil.parser import parse
 from decimal import Decimal
+from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
+                     GlobalIndex, DynamoDBError, ItemUpdate, Binary,
+                     Throughput)
 from pyparsing import ParseException
 
 from .grammar import parser, line_parser
 from .models import TableMeta
-from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
-                     GlobalIndex, DynamoDBError, ItemUpdate, Binary,
-                     Throughput)
 
 
 LOG = logging.getLogger(__name__)
@@ -215,7 +215,9 @@ class Engine(object):
         """ Resolve a value into a string or number """
         if scope is None:
             scope = self.scope
-        if val.getName() == 'python':
+
+        name = val.getName()
+        if name == 'python':
             if val.python[0].lower() == 'm':
                 code = val.python[2:-1]
                 func_def = 'def __dql_func():'
@@ -228,22 +230,32 @@ class Engine(object):
             else:
                 code = val.python[1:-1]
                 return eval(code, scope)
-        elif val.getName() == 'number':
+        elif name == 'number':
             try:
                 return int(val.number)
             except ValueError:
                 return Decimal(val.number)
-        elif val.getName() == 'str':
+        elif name == 'str':
             return val.str[1:-1]
-        elif val.getName() == 'null':
+        elif name == 'null':
             return None
-        elif val.getName() == 'binary':
+        elif name == 'binary':
             return Binary(val.binary[2:-1])
-        elif val.getName() == 'set':
+        elif name == 'set':
             if val.set == '()':
                 return set()
             return set([self.resolve(v) for v in val.set])
-        raise SyntaxError("Unable to resolve value '%s'" % val)
+        elif name == 'bool':
+            return val.bool == 'TRUE'
+        elif name == 'list':
+            return [self.resolve(v, scope) for v in val.list]
+        elif name == 'dict':
+            dict_val = {}
+            for k, v in val.dict:
+                dict_val[self.resolve(k, scope)] = self.resolve(v, scope)
+            return dict_val
+        else:
+            raise SyntaxError("Unable to resolve value '%s'" % val)
 
     def _where_kwargs(self, desc, clause, index=True):
         """ Generate dynamo3 kwargs from a where clause """
@@ -429,7 +441,7 @@ class Engine(object):
                     if not isinstance(value, set):
                         value = set([value])
                 else:
-                    raise SyntaxError("Unknown operation '%s'" % op)
+                    raise SyntaxError("Unknown operation %r" % op)
                 updates.append(ItemUpdate(action, field, value))
             return updates
 
@@ -598,14 +610,11 @@ class Engine(object):
             read = desc.read_throughput
         if write <= 0:
             write = desc.write_throughput
-        while desc.read_throughput != read or desc.write_throughput != write:
-            next_read = min(read, 2 * desc.read_throughput)
-            next_write = min(write, 2 * desc.write_throughput)
-            self._set_throughput(tablename, next_read, next_write, tree.index)
+        self._set_throughput(tablename, read, write, tree.index)
+        desc = get_desc()
+        while desc.status == 'UPDATING':  # pragma: no cover
+            time.sleep(5)
             desc = get_desc()
-            while desc.status == 'UPDATING':  # pragma: no cover
-                time.sleep(5)
-                desc = get_desc()
         return 'success'
 
     def _dump(self, tree):

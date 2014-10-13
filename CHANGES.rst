@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.4.0
+-----
+* **Breakage**: Dropping support for python 3.2 due to lack of botocore support
+* Feature: Support for JSON data types
+
 0.3.2
 -----
 * Bug fix: Allow '.' in table names of DUMP SCHEMA command

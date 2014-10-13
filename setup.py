@@ -10,7 +10,7 @@ README = open(os.path.join(HERE, 'README.rst')).read()
 CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
-    'dynamo3>=0.2.1',
+    'dynamo3>=0.3.0',
     'six',
     'pyparsing',
     'python-dateutil',
@@ -41,8 +41,8 @@ if __name__ == "__main__":
             'Programming Language :: Python :: 2.6',
             'Programming Language :: Python :: 2.7',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.2',
             'Programming Language :: Python :: 3.3',
+            'Programming Language :: Python :: 3.4',
         ],
         author='Steven Arcangeli',
         author_email='stevearc@stevearc.com',

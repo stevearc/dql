@@ -1,16 +1,100 @@
 """ Tests for the query engine """
-from dql.engine import Engine, FragmentEngine
-from dql.models import TableMeta, TableField
-from mock import MagicMock, patch, ANY
+from decimal import Decimal
+from dynamo3 import Binary
 from pyparsing import ParseException
 
 from . import BaseSystemTest
+from dql.engine import FragmentEngine
 
 
 try:
     import unittest2 as unittest  # pylint: disable=F0401
 except ImportError:
     import unittest
+
+
+class TestDataTypes(BaseSystemTest):
+
+    """ Make sure we can parse and handle all data types """
+
+    def test_str(self):
+        """ Can insert string literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id) VALUES ('a')")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result, {'id': 'a'})
+
+    def test_int(self):
+        """ Can insert integer literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], 5)
+
+    def test_float(self):
+        """ Can insert float literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1.2345)")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], Decimal('1.2345'))
+
+    def test_bool(self):
+        """ Can insert boolean literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', false)")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], False)
+
+    def test_binary(self):
+        """ Can insert binary literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', b'abc')")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertTrue(isinstance(result['bar'], Binary))
+        self.assertEqual(result['bar'], 'abc')
+
+    def test_list(self):
+        """ Can insert list literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1, null, 'a'])")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], [1, None, 'a'])
+
+    def test_empty_list(self):
+        """ Can insert empty list literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', [])")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], [])
+
+    def test_nested_list(self):
+        """ Can insert nested list literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1, [2, 3]])")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], [1, [2, 3]])
+
+    def test_dict(self):
+        """ Can insert dict literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', {'a': 2})")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], {'a': 2})
+
+    def test_empty_dict(self):
+        """ Can insert empty dict literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', {})")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], {})
+
+    def test_nested_dict(self):
+        """ Can insert nested dict literals """
+        self.make_table(range_key=None)
+        self.query(
+            "INSERT INTO foobar (id, bar) VALUES ('a', {'a': {'b': null}})")
+        result = dict(next(self.query("SCAN foobar")))
+        self.assertEqual(result['bar'], {'a': {'b': None}})
 
 
 class TestEngineSystem(BaseSystemTest):
@@ -31,11 +115,6 @@ class TestEngineSystem(BaseSystemTest):
         self.make_table()
         self.assertRaises(NameError, self.query,
                           "INSERT INTO foobar (id, bar) VALUES (`myid`, 5)")
-
-    def test_insert_float(self):
-        """ Inserting a float doesn't cause serialization issues """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5.284)")
 
     def test_insert_float_from_var(self):
         """ Inserting a float from a var doesn't cause serialization issues """
@@ -92,9 +171,12 @@ class TestFragmentEngine(BaseSystemTest):
                 self.query(fragment)
         except ParseException as e:
             pretty = self.engine.pformat_exc(e)
-            self.assertEquals(pretty, query + '\n' +
-                              '^\n' +
-                              "Expected variable (at char 27), (line:4, col:1)")
+            self.assertEquals(
+                pretty,
+                query +
+                '\n' +
+                '^\n' +
+                "Expected variable (at char 27), (line:4, col:1)")
         else:
             assert False, "Engine should raise exception if parsing fails"
 
