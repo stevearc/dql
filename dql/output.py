@@ -2,19 +2,18 @@
 """ Formatting and displaying output """
 from __future__ import unicode_literals
 
-import contextlib
-import io
-import subprocess
-import sys
-import tempfile
-from decimal import Decimal
-from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
-
-import six
-
 import locale
 import os
 import stat
+import sys
+from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
+
+import contextlib
+import json
+import six
+import subprocess
+import tempfile
+from decimal import Decimal
 
 
 def truncate(string, length, ellipsis='…'):
@@ -29,6 +28,21 @@ def wrap(string, length, indent):
     newline = '\n' + ' ' * indent
     return newline.join((string[i:i + length]
                          for i in xrange(0, len(string), length)))
+
+
+def serialize_json_var(obj):
+    """ Serialize custom types to JSON """
+    if isinstance(obj, Decimal):
+        return str(obj)
+    else:
+        raise TypeError("%r is not JSON serializable" % obj)
+
+
+def format_json(json_object, indent):
+    """ Pretty-format json data """
+    indent_str = '\n' + ' ' * indent
+    json_str = json.dumps(json_object, indent=2, default=serialize_json_var)
+    return indent_str.join(json_str.split('\n'))
 
 
 class BaseFormat(object):
@@ -74,8 +88,19 @@ class ExpandedFormat(BaseFormat):
         ostream.write(self.width * '-' + '\n')
         max_key = max((len(k) for k in result.keys()))
         for key, val in sorted(result.items()):
-            val = wrap(self.format_field(val), self.width - max_key - 3,
-                       max_key + 3)
+            # If the value is json, try to unpack it and format it better.
+            if isinstance(val, six.string_types) and val.startswith("{"):
+                try:
+                    data = json.loads(val)
+                except ValueError:
+                    pass
+                else:
+                    val = format_json(data, max_key + 3)
+            elif isinstance(val, dict) or isinstance(val, list):
+                val = format_json(val, max_key + 3)
+            else:
+                val = wrap(self.format_field(val), self.width - max_key - 3,
+                           max_key + 3)
             ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
 
 

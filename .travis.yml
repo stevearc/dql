@@ -3,8 +3,8 @@ python: "2.7"
 env:
   - TOXENV=py26
   - TOXENV=py27
-  - TOXENV=py32
   - TOXENV=py33
+  - TOXENV=py34
 install:
   - pip install tox coveralls --use-mirrors
 script: tox

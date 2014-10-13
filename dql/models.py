@@ -314,11 +314,6 @@ class TableMeta(object):
             return pkey
 
     @property
-    def decreases_remaining(self):
-        """ Number of remaining times you may decrease throughput today """
-        return 2 - self.decreases_today
-
-    @property
     def total_read_throughput(self):
         """ Combined read throughput of table and global indexes """
         total = self.read_throughput
@@ -392,7 +387,7 @@ class TableMeta(object):
                          .format(self.consumed_read_capacity,
                                  self.consumed_write_capacity, read_percent,
                                  write_percent))
-        lines.append('decreases remaining: %d' % self.decreases_remaining)
+        lines.append('decreases today: %d' % self.decreases_today)
 
         for gindex in six.itervalues(self.global_indexes):
             lines.append(gindex.pformat())
