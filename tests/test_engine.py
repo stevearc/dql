@@ -51,7 +51,7 @@ class TestDataTypes(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', b'abc')")
         result = dict(next(self.query("SCAN foobar")))
         self.assertTrue(isinstance(result['bar'], Binary))
-        self.assertEqual(result['bar'], 'abc')
+        self.assertEqual(result['bar'], b'abc')
 
     def test_list(self):
         """ Can insert list literals """
