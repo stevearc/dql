@@ -260,8 +260,8 @@ class DQLClient(cmd.Cmd):
                 return path + '/'
         if not os.path.exists(curpath) or not os.path.isdir(curpath):
             curpath = os.path.dirname(curpath)
-        return [addslash(f) for f in os.listdir(curpath) if f.startswith(text)
-                and isdql(curpath, f)]
+        return [addslash(f) for f in os.listdir(curpath)
+                if f.startswith(text) and isdql(curpath, f)]
 
     @repl_command
     def do_code(self):
