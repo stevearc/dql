@@ -217,10 +217,6 @@ class TableMeta(object):
     read_throughput : int
     write_throughput : int
     decreases_today : int
-    consumed_read_capacity : int
-        May be None if unknown
-    consumed_write_capacity : int
-        May be None if unknown
     size : int
         Size of the table in bytes
     item_count : int
@@ -240,8 +236,7 @@ class TableMeta(object):
         self.read_throughput = read_throughput
         self.write_throughput = write_throughput
         self.decreases_today = decreases_today
-        self.consumed_read_capacity = None
-        self.consumed_write_capacity = None
+        self.consumed_capacity = {}
         self.hash_key = None
         self.range_key = None
         for field in six.itervalues(attrs):
@@ -363,7 +358,8 @@ class TableMeta(object):
             parts.append(self.range_key.schema + ',')
             del attrs[self.range_key.name]
         if attrs:
-            attr_def = ', '.join([attr.schema for attr in six.itervalues(attrs)])
+            attr_def = ', '.join([attr.schema for attr in
+                                  six.itervalues(attrs)])
             parts.append(attr_def + ',')
 
         parts.append("THROUGHPUT (%d, %d))" % (self.read_throughput,
@@ -377,20 +373,26 @@ class TableMeta(object):
         lines.append(("%s (%s)" % (self.name, self.status)).center(50, '-'))
         lines.append('items: {0:,} ({1:,} bytes)'.format(self.item_count,
                                                          self.size))
-        lines.append('read/write: %d/%d' % (self.read_throughput,
-                                            self.write_throughput))
-        if self.consumed_read_capacity is not None:
-            read_percent = self.consumed_read_capacity / self.read_throughput
-            write_percent = (self.consumed_write_capacity /
-                             self.write_throughput)
-            lines.append('read/write usage: {0:.1f}/{1:.1f} ({2:.1%}/{3:.1%})'
-                         .format(self.consumed_read_capacity,
-                                 self.consumed_write_capacity, read_percent,
+        lines.append('read/write avail: %d/%d' % (self.read_throughput,
+                                                  self.write_throughput))
+        cap = self.consumed_capacity.get('__table__')
+        if cap is not None:
+            read_percent = cap['read'] / self.read_throughput
+            write_percent = (cap['write'] / self.write_throughput)
+            lines.append('read/write usage: {0:.0f}/{1:.0f} ({2:.0%}/{3:.0%})'
+                         .format(cap['read'], cap['write'], read_percent,
                                  write_percent))
         lines.append('decreases today: %d' % self.decreases_today)
 
-        for gindex in six.itervalues(self.global_indexes):
+        for index_name, gindex in six.iteritems(self.global_indexes):
             lines.append(gindex.pformat())
+            cap = self.consumed_capacity.get(index_name)
+            if cap is not None:
+                read_percent = cap['read'] / gindex.read_throughput
+                write_percent = (cap['write'] / gindex.write_throughput)
+                lines.append('  r/w usage: {0:.0f}/{1:.0f} ({2:.0%}/{3:.0%})'
+                             .format(cap['read'], cap['write'], read_percent,
+                                     write_percent))
 
         if self.hash_key is not None:
             lines.append(str(self.hash_key))

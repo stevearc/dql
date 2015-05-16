@@ -76,8 +76,8 @@ def create_create():
         .setName('attr').setResultsName('attr')
     attrs_declaration = (Suppress('(') +
                          Group(delimitedList(attr_declaration))
-                         .setName('attrs').setResultsName('attrs')
-                         + Optional(Suppress(',') + throughput) + Suppress(')'))
+                         .setName('attrs').setResultsName('attrs') +
+                         Optional(Suppress(',') + throughput) + Suppress(')'))
 
     global_dec = Suppress(upkey('global')) + index
     range_key_etc = (Suppress(',') + Group(throughput) |
@@ -138,8 +138,8 @@ def create_update():
                               (updated + old) |
                               (updated + new))\
         .setResultsName('returns')
-    return (update + table + upkey('set') + set_values + Optional(select_where)
-            + Optional(return_))
+    return (update + table + upkey('set') + set_values +
+            Optional(select_where) + Optional(return_))
 
 
 def create_alter():
