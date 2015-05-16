@@ -3,6 +3,7 @@ import time
 
 import logging
 import six
+from botocore.exceptions import ClientError
 from dateutil.parser import parse
 from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
@@ -68,6 +69,7 @@ class Engine(object):
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
         self.connection = DynamoDBConnection.connect(*args, **kwargs)
+        self._session = kwargs.get('session')
 
     def connect_to_region(self, region, *args, **kwargs):
         """
@@ -109,9 +111,9 @@ class Engine(object):
     def cloudwatch_connection(self):
         """ Lazy create a connection to cloudwatch """
         if self._cloudwatch_connection is None:
-            session = self.connection.service.session
-            self._cloudwatch_connection = \
-                session.get_service('cloudwatch')
+            conn = self._session.create_client('cloudwatch',
+                                               self.connection.region)
+            self._cloudwatch_connection = conn
         return self._cloudwatch_connection
 
     def describe_all(self):
@@ -122,52 +124,65 @@ class Engine(object):
             descs.append(self.describe(tablename, True))
         return descs
 
-    def _get_metric(self, tablename, metric):
+    def _get_metric(self, metric, tablename, index_name=None):
         """ Fetch a read/write capacity metric """
         end = time.time()
         begin = end - 20 * 60  # 20 minute window
-        op = self.cloudwatch_connection.get_operation('get_metric_statistics')
-        kwargs = {
-            'period': 60,
-            'start_time': begin,
-            'end_time': end,
-            'metric_name': metric,
-            'namespace': 'AWS/DynamoDB',
-            'statistics': ['Sum'],
-            'dimensions': [{'Name': 'TableName', 'Value': tablename}],
-        }
-        endpoint = self.cloudwatch_connection.get_endpoint(
-            self.connection.region)
-        data = op.call(endpoint, **kwargs)[1]
+        dimensions = [{'Name': 'TableName', 'Value': tablename}]
+        if index_name is not None:
+            dimensions.append({'Name': 'GlobalSecondaryIndexName',
+                               'Value': index_name})
+        data = self.cloudwatch_connection.get_metric_statistics(
+            Period=60,
+            StartTime=begin,
+            EndTime=end,
+            MetricName=metric,
+            Namespace='AWS/DynamoDB',
+            Statistics=['Average'],
+            Dimensions=dimensions,
+        )
         points = data['Datapoints']
-        if len(points) < 2:
+        if len(points) == 0:
             return 0
         else:
-            points.sort(key=lambda r: parse(r['Timestamp']))
-            start, end = points[-2:]
-            time_range = parse(end['Timestamp']) - parse(start['Timestamp'])
-            total = end['Sum']
-            return total / float(time_range.total_seconds())
+            points.sort(key=lambda r: r['Timestamp'])
+            return points[-1]['Average']
 
-    def get_capacity(self, tablename):
+    def get_capacity(self, tablename, index_name=None):
         """ Get the consumed read/write capacity """
         # If we're connected to a DynamoDB Local instance, don't connect to the
         # actual cloudwatch endpoint
         if self.connection.region == 'local':
             return 0, 0
-        return (self._get_metric(tablename, 'ConsumedReadCapacityUnits'),
-                self._get_metric(tablename, 'ConsumedWriteCapacityUnits'))
+        # Gracefully fail if we get exceptions from CloudWatch
+        try:
+            return (
+                self._get_metric('ConsumedReadCapacityUnits', tablename,
+                                 index_name),
+                self._get_metric('ConsumedWriteCapacityUnits', tablename,
+                                 index_name),
+            )
+        except ClientError:
+            return 0, 0
 
     def describe(self, tablename, refresh=False, metrics=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self.cached_descriptions:
-            desc = self.connection.call('DescribeTable', table_name=tablename)
+            desc = self.connection.call('describe_table', TableName=tablename)
             table = TableMeta.from_description(desc)
             self.cached_descriptions[tablename] = table
             if metrics:
                 read, write = self.get_capacity(tablename)
-                table.consumed_read_capacity = read
-                table.consumed_write_capacity = write
+                table.consumed_capacity['__table__'] = {
+                    'read': read,
+                    'write': write,
+                }
+                for index_name in table.global_indexes:
+                    read, write = self.get_capacity(tablename, index_name)
+                    table.consumed_capacity[index_name] = {
+                        'read': read,
+                        'write': write,
+                    }
 
         return self.cached_descriptions[tablename]
 
@@ -264,11 +279,13 @@ class Engine(object):
         if not index:
             for conjunction in clause[3::2]:
                 if conjunction != clause[1]:
-                    raise SyntaxError("Cannot mix AND and OR inside FILTER clause")
+                    raise SyntaxError(
+                        "Cannot mix AND and OR inside FILTER clause")
             clause = clause[0::2]
         for key, op, val in clause:
             if key in all_keys:
-                raise SyntaxError("Cannot use a field more than once in a FILTER clause")
+                raise SyntaxError(
+                    "Cannot use a field more than once in a FILTER clause")
             all_keys.add(key)
             if op == 'BETWEEN':
                 kwargs[key + '__between'] = (self.resolve(val[0]),

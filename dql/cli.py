@@ -106,7 +106,7 @@ class DQLClient(cmd.Cmd):
         self.engine = FragmentEngine()
         if host is not None:
             self._local_endpoint = (host, port)
-        self.engine.connect(region, self.session, host=host, port=port,
+        self.engine.connect(region, session=self.session, host=host, port=port,
                             is_secure=(host is None))
 
         conf = self.load_config()
