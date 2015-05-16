@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.4.1
+-----
+* Update to maintain compatibility with new versions of botocore and dynamo3
+* Improving CloudWatch support (which is used to get consumed table capacity)
+
 0.4.0
 -----
 * **Breakage**: Dropping support for python 3.2 due to lack of botocore support
