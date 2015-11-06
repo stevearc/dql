@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.5.0
+-----
+* **Breakage**: New syntax for SELECT, SCAN, UPDATE, DELETE
+* **Breakage**: Removed COUNT query (now ``SELECT count(*)``)
+* **Breakage**: Removed the ability to embed python in queries
+* New alternative syntax for INSERT
+* ALTER can create and drop global indexes
+* Queries and updates now use the most recent DynamoDB expressions API
+* Unified options in CLI under the ``opt`` command
+
 0.4.1
 -----
 * Update to maintain compatibility with new versions of botocore and dynamo3

@@ -1,57 +1,64 @@
 """ DQL language parser """
 from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        Suppress, ZeroOrMore, oneOf, StringEnd, CharsNotIn,
-                       quotedString, OneOrMore, Regex)
+                       quotedString, OneOrMore, Regex, Word)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
                      set_, primitive)
-from .query import (where, select_where, limit, if_exists, if_not_exists,
-                    using, filter_)
+from .query import where, limit, if_exists, if_not_exists, keys_in
 
 
 def create_throughput(variable=primitive):
     """ Create a throughput specification """
-    return (upkey('throughput') + Suppress('(') +
-            Group(variable + Suppress(',') + variable)
-            .setResultsName('throughput') + Suppress(')'))
-
-# pylint: disable=C0103
-throughput = create_throughput()
-# pylint: enable=C0103
+    return (Suppress(upkey('throughput') | upkey('tp')) + Suppress('(') +
+            variable + Suppress(',') + variable + Suppress(')'))\
+        .setResultsName('throughput')
 
 # pylint: disable=W0104,W0106
 
 
-def create_select():
-    """ Create the grammar for the 'select' statement """
-    select = upkey('select').setResultsName('action')
+def _query(cmd):
+    """ Create the grammar for a scan/query """
+    action = upkey(cmd).setResultsName('action')
     consist = upkey('consistent').setResultsName('consistent')
-    attrs = Group(Keyword('*') |
+    attrs = Group(Keyword('*') | upkey('count(*)') |
                   (Optional(Suppress('(')) + delimitedList(var) +
                    Optional(Suppress(')'))))\
         .setResultsName('attrs')
-    ordering = Optional(upkey('desc') | upkey('asc')).setResultsName('order')
+    ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
 
-    return (select + Optional(consist) + attrs + from_ + table + select_where +
-            Optional(filter_) +
-            Optional(using + value).setResultsName('using') +
-            Optional(limit) + ordering)
+    return (action + Optional(consist) + attrs + from_ + table +
+            Optional(keys_in | where) +
+            Optional(using) +
+            Optional(limit) +
+            Optional(ordering))
+
+
+def create_select():
+    """ Create the grammar for the 'select' statement """
+    return _query('select')
 
 
 def create_scan():
     """ Create the grammar for the 'scan' statement """
-    scan = upkey('scan').setResultsName('action')
-    return (scan + table + Optional(filter_) + Optional(limit))
+    return _query('scan')
 
 
-def create_count():
-    """ Create the grammar for the 'count' statement """
-    count = upkey('count').setResultsName('action')
-    consist = upkey('consistent').setResultsName('consistent')
-
-    return (count + Optional(consist) + table + where +
-            Optional(filter_) +
-            Optional(using + value).setResultsName('using'))
+def _global_index():
+    """ Create grammar for a global index declaration """
+    var_and_type = (var + Optional(type_))
+    global_dec = Suppress(upkey('global')) + index
+    range_key_etc = (Suppress(',') + Group(throughput) |
+                     Optional(Group(Suppress(',') + var_and_type)
+                              .setResultsName('range_key')) +
+                     Optional(Suppress(',') + include_vars) +
+                     Optional(Group(Suppress(',') + throughput)))
+    global_spec = (Suppress('(') + primitive +
+                   Suppress(',') + Group(var_and_type)
+                   .setResultsName('hash_key') +
+                   range_key_etc +
+                   Suppress(')'))
+    return Group(global_dec + global_spec).setName('global index')
 
 
 def create_create():
@@ -62,10 +69,6 @@ def create_create():
     range_key = Group(upkey('range') +
                       upkey('key'))
 
-    index = Group(Optional(upkey('all') | upkey('keys') | upkey('include')) +
-                  upkey('index')).setResultsName('index_type')
-    include_vars = Group(Suppress('[') + delimitedList(primitive) +
-                         Suppress(']')).setResultsName('include')
     local_index = Group(index + Suppress('(') + primitive +
                         Optional(Suppress(',') + include_vars) + Suppress(')'))
     index_type = (hash_key | range_key | local_index)\
@@ -79,16 +82,7 @@ def create_create():
                          .setName('attrs').setResultsName('attrs') +
                          Optional(Suppress(',') + throughput) + Suppress(')'))
 
-    global_dec = Suppress(upkey('global')) + index
-    range_key_etc = (Suppress(',') + Group(throughput) |
-                     Optional(Suppress(',') + var) +
-                     Optional(Suppress(',') + include_vars) +
-                     Optional(Group(Suppress(',') + throughput)))
-    global_spec = (Suppress('(') + primitive +
-                   Suppress(',') + var +
-                   range_key_etc +
-                   Suppress(')'))
-    global_index = Group(global_dec + global_spec).setName('global index')
+    global_index = _global_index()
     global_indexes = Group(OneOrMore(global_index))\
         .setResultsName('global_indexes')
 
@@ -99,22 +93,32 @@ def create_create():
 def create_delete():
     """ Create the grammar for the 'delete' statement """
     delete = upkey('delete').setResultsName('action')
-    return (delete + from_ + table + select_where +
-            Optional(using + value).setResultsName('using'))
+    return (
+        delete +
+        from_ +
+        table +
+        Optional(keys_in) +
+        Optional(where) +
+        Optional(using))
 
 
 def create_insert():
     """ Create the grammar for the 'insert' statement """
     insert = upkey('insert').setResultsName('action')
-    attrs = Group(delimitedList(var)).setResultsName('attrs')
 
     # VALUES
-    values_key = upkey('values')
+    attrs = Group(delimitedList(var)).setResultsName('attrs')
     value_group = Group(Suppress('(') + delimitedList(value) + Suppress(')'))
-    values = Group(delimitedList(value_group)).setResultsName('data')
+    values = Group(delimitedList(value_group)).setResultsName('list_values')
+    values_insert = (Suppress('(') + attrs + Suppress(')') + upkey('values') +
+                     values)
 
-    return (insert + into + table + Suppress('(') + attrs + Suppress(')') +
-            values_key + values)
+    # KEYWORDS
+    keyword = Group(var + Suppress('=') + value)
+    item = Group(Suppress('(') + delimitedList(keyword) + Suppress(')'))
+    keyword_insert = delimitedList(item).setResultsName('map_values')
+
+    return (insert + into + table + (values_insert | keyword_insert))
 
 
 def create_drop():
@@ -123,32 +127,68 @@ def create_drop():
     return (drop + table_key + Optional(if_exists) + table)
 
 
+def _create_update_expression():
+    """ Create the grammar for an update expression """
+    var_val = (var.setResultsName('field') | value)
+    ine = (Word('if_not_exists') + Suppress('(') + var +
+           Suppress(',') + var_val + Suppress(')'))
+    list_append = (Word('list_append') + Suppress('(') + var_val +
+                   Suppress(',') + var_val + Suppress(')'))
+    fxn = Group(ine | list_append).setResultsName('set_function')
+    path = (fxn | var | value)
+    set_val = ((path + oneOf('+ -') + path) | path)
+    set_cmd = Group(var + Suppress('=') + set_val)
+    set_expr = (Suppress(upkey('set')) +
+                delimitedList(set_cmd)).setResultsName('set_expr')
+    add_expr = (Suppress(upkey('add')) +
+                delimitedList(Group(var + value)))\
+        .setResultsName('add_expr')
+    delete_expr = (Suppress(upkey('delete')) +
+                   delimitedList(Group(var + value)))\
+        .setResultsName('delete_expr')
+    remove_expr = (
+        Suppress(
+            upkey('remove')) +
+        delimitedList(var)).setResultsName('remove_expr')
+    return OneOrMore(set_expr | add_expr | delete_expr | remove_expr)\
+        .setResultsName('update')
+
+
 def create_update():
     """ Create the grammar for the 'update' statement """
     update = upkey('update').setResultsName('action')
     returns, none, all_, updated, old, new = \
         map(upkey, ['returns', 'none', 'all', 'updated', 'old',
                     'new'])
-    set_op = oneOf('= += -= << >>', caseless=True).setName('operator')
-    clause = Group(var + set_op + value)
-    set_values = Group(delimitedList(clause)).setResultsName('updates')
     return_ = returns + Group(none |
                               (all_ + old) |
                               (all_ + new) |
                               (updated + old) |
                               (updated + new))\
         .setResultsName('returns')
-    return (update + table + upkey('set') + set_values +
-            Optional(select_where) + Optional(return_))
+    return (update + table + update_expr +
+            Optional(keys_in) + Optional(where) +
+            Optional(using) + Optional(return_))
 
 
 def create_alter():
     """ Create the grammar for the 'alter' statement """
     alter = upkey('alter').setResultsName('action')
     prim_or_star = (primitive | '*')
-    return (alter + table_key + table + upkey('set') +
-            Optional(upkey('index') + var.setResultsName('index')) +
-            create_throughput(prim_or_star))
+
+    set_throughput = (
+        Suppress(upkey('set')) +
+        Optional(Suppress(upkey('index')) + var.setResultsName('index')) +
+        create_throughput(prim_or_star))
+
+    drop_index = (Suppress(upkey('drop') + upkey('index')) + var)\
+        .setResultsName('drop_index')
+    global_index = _global_index()
+    create_index = (Suppress(upkey('create')) +
+                    global_index.setResultsName('create_index'))
+
+    return (alter + table_key + table +
+            (set_throughput | drop_index | create_index))
 
 
 def create_dump():
@@ -162,7 +202,6 @@ def create_parser():
     """ Create the language parser """
     dql = (create_select() |
            create_scan() |
-           create_count() |
            create_delete() |
            create_update() |
            create_create() |
@@ -177,8 +216,15 @@ def create_parser():
     return dql
 
 # pylint: disable=C0103
+using = (upkey('using') + var).setResultsName('using')
+throughput = create_throughput()
+index = Group(Optional(upkey('all') | upkey('keys') | upkey('include')) +
+              upkey('index')).setResultsName('index_type')
+include_vars = Group(Suppress('[') + delimitedList(primitive) +
+                     Suppress(']')).setResultsName('include_vars')
+update_expr = _create_update_expression()
 _statement = create_parser()
 statement_parser = _statement + Suppress(';' | StringEnd())
-parser = Group(_statement) + ZeroOrMore(Suppress(
-    ';') + Group(_statement)) + Suppress(';' | StringEnd())
+parser = (Group(_statement) + ZeroOrMore(Suppress(';') + Group(_statement)) +
+          Suppress(';' | StringEnd()))
 line_parser = OneOrMore(ZeroOrMore(CharsNotIn(';')) + ';') + StringEnd()

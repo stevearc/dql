@@ -1,106 +1,23 @@
 """ Tests for the language parser """
 import six
+from pyparsing import ParseException
+
+from dql.expressions import ConstraintExpression, UpdateExpression
+from dql.grammar import statement_parser, parser, update_expr
+from dql.grammar.query import where, value
+
+
 try:
     from unittest2 import TestCase  # pylint: disable=F0401
 except ImportError:
     from unittest import TestCase
-from pyparsing import ParseException
-
-from dql.grammar import statement_parser, parser
-from dql.grammar.query import where, select_where, filter_, value
 
 
 TEST_CASES = {
-    'select': [
-        ('SELECT * FROM foobars WHERE foo = 0', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('SELECT CONSISTENT * FROM foobars WHERE foo = 0', ['SELECT', 'CONSISTENT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('SELECT * FROM foobars WHERE foo = 0 DESC', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'DESC']),
-        ('SELECT * FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('SELECT * FROM foobars.foo WHERE foo = `1 + 5`', ['SELECT', ['*'], 'FROM', 'foobars.foo', 'WHERE', [['foo', '=', ['`1 + 5`']]]]),
-        ('SELECT * FROM foobars', 'error'),
-        ('SELECT * foobars WHERE foo = 0', 'error'),
-        ('SELECT * FROM foobars WHERE foo != 0', 'error'),
-        ('SELECT * FROM "foobars" WHERE foo = 0', 'error'),
-        ('SELECT * FROM foobars WHERE foo = 0 garbage', 'error'),
-    ],
-    'select_in': [
-        ('SELECT * FROM foobars WHERE KEYS IN ("hash1"), ("hash2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"']], [['"hash2"']]]]),
-        ('SELECT * FROM foobars WHERE KEYS IN ("hash1", "range1"), ("hash2", "range2")', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"'], ['"range1"']], [['"hash2"'], ['"range2"']]]]),
-    ],
-    'select_using': [
-        ('SELECT * FROM foobars WHERE foo = 0 USING "my_index"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
-        ('SELECT * FROM foobars WHERE foo = 0 AND bar < 4 USING "my_index"', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['"my_index"']]),
-    ],
-    'select_limit': [
-        ('SELECT * FROM foobars WHERE foo = 0 LIMIT 5', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], ['LIMIT', ['5']]]),
-        ('SELECT * FROM foobars WHERE foo = 0 USING "my_index" LIMIT 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"'], ['LIMIT', ['2']]]),
-        ('SELECT * FROM foobars WHERE foo > 0 LIMIT 4 garbage', 'error'),
-    ],
-    'select_attrs': [
-        ('SELECT foo, bar FROM foobars WHERE foo = 0', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('SELECT (foo, bar) FROM foobars WHERE foo = 0', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('SELECT foo, bar FROM foobars WHERE foo = 0 and bar = "green"', ['SELECT', ['foo', 'bar'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-    ],
-    'select_filter': [
-        ('SELECT * FROM foobars WHERE foo = 0 FILTER bar = 1', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']]]]),
-        ('SELECT * FROM foobars WHERE foo = 0 FILTER bar = 1 AND baz > 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'AND', ['baz', '>', ['2']]]]),
-        ('SELECT * FROM foobars WHERE foo = 0 FILTER bar = 1 OR baz > 2', ['SELECT', ['*'], 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'OR', ['baz', '>', ['2']]]]),
-    ],
-    'scan': [
-        ('SCAN foobars', ['SCAN', 'foobars']),
-        ('SCAN foobars FILTER foo = 0', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']]]]),
-        ('SCAN foobars FILTER foo = 0 and bar != "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], 'AND', ['bar', '!=', ['"green"']]]]),
-        ('SCAN foobars FILTER foo = 0 OR bar != "green"', ['SCAN', 'foobars', 'FILTER', [['foo', '=', ['0']], 'OR', ['bar', '!=', ['"green"']]]]),
-        ('SCAN "foobars"', 'error'),
-        ('SCAN foobars garbage', 'error'),
-    ],
-    'count': [
-        ('COUNT foobars WHERE foo = 0', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('COUNT CONSISTENT foobars WHERE foo = 0', ['COUNT', 'CONSISTENT', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('COUNT foobars WHERE foo = 0 and bar = "green"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('COUNT foobars', 'error'),
-        ('COUNT WHERE foo = 0', 'error'),
-        ('COUNT "foobars" WHERE foo = 0', 'error'),
-        ('COUNT foobars WHERE foo = 0 garbage', 'error'),
-    ],
-    'count_using': [
-        ('COUNT foobars WHERE foo = 0 USING "my_index"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
-        ('COUNT foobars WHERE foo = 0 AND bar < 4 USING "my_index"', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '<', ['4']]], 'USING', ['"my_index"']]),
-    ],
-    'count_filter': [
-        ('COUNT foobars WHERE foo = 0 FILTER bar = 1', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']]]]),
-        ('COUNT foobars WHERE foo = 0 FILTER bar = 1 AND baz > 2', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'AND', ['baz', '>', ['2']]]]),
-        ('COUNT foobars WHERE foo = 0 FILTER bar = 1 OR baz > 2', ['COUNT', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'FILTER', [['bar', '=', ['1']], 'OR', ['baz', '>', ['2']]]]),
-    ],
-    'delete': [
-        ('DELETE FROM foobars WHERE foo = 0', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]]]),
-        ('DELETE FROM foobars WHERE foo = 0 and bar = "green"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['"green"']]]]),
-        ('DELETE FROM foobars WHERE foo = 0 USING "my_index"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']]], 'USING', ['"my_index"']]),
-        ('DELETE FROM foobars WHERE foo = 0 AND bar = 4 USING "my_index"', ['DELETE', 'FROM', 'foobars', 'WHERE', [['foo', '=', ['0']], ['bar', '=', ['4']]], 'USING', ['"my_index"']]),
-        ('DELETE FROM foobars', 'error'),
-        ('DELETE foobars WHERE foo = 0', 'error'),
-        ('DELETE FROM "foobars" WHERE foo = 0', 'error'),
-        ('DELETE FROM foobars WHERE foo = 0 garbage', 'error'),
-    ],
-    'delete_in': [
-        ('DELETE FROM foobars WHERE KEYS IN ("hash1"), ("hash2")', ['DELETE', 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"']], [['"hash2"']]]]),
-        ('DELETE FROM foobars WHERE KEYS IN ("hash1", "range1"), ("hash2", "range2")', ['DELETE', 'FROM', 'foobars', 'WHERE', 'KEYS', 'IN', [[['"hash1"'], ['"range1"']], [['"hash2"'], ['"range2"']]]]),
-    ],
-    'update': [
-        ('UPDATE foobars SET foo = 0, bar += 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '+=', ['3']]]]),
-        ('UPDATE foobars SET foo << 0, bar >> ("a", "b")', ['UPDATE', 'foobars', 'SET', [['foo', '<<', ['0']], ['bar', '>>', [['"a"'], ['"b"']]]]]),
-        ('UPDATE foobars SET foo = 0 WHERE KEYS IN ("a"), ("b")', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', 'KEYS', 'IN', [[['"a"']], [['"b"']]]]),
-        ('UPDATE foobars SET foo = 0 WHERE foo = 3', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'WHERE', [['foo', '=', ['3']]]]),
-        ('UPDATE foobars SET foo = 0, bar = NULL', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']], ['bar', '=', ['NULL']]]]),
-        ('UPDATE foobars SET foo = 0 RETURNS ALL OLD', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['0']]], 'RETURNS', ['ALL', 'OLD']]),
-        ('UPDATE foobars SET foo = `foo + bar`', ['UPDATE', 'foobars', 'SET', [['foo', '=', ['`foo + bar`']]]]),
-        ('UPDATE foobars SET foo *= 0', 'error'),
-        ('UPDATE foobars SET foo = 0 RETURNS garbage', 'error'),
-    ],
     'create': [
         ('CREATE TABLE foobars (foo string hash key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
         ('CREATE TABLE foobars (foo string hash key, bar NUMBER)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER']]]),
-        ('CREATE TABLE foobars (foo string hash key, THROUGHPUT (1, 1))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], 'THROUGHPUT', [['1'], ['1']]]),
+        ('CREATE TABLE foobars (foo string hash key, THROUGHPUT (1, 1))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], ['1'], ['1']]),
         ('CREATE TABLE IF NOT EXISTS foobars (foo string hash key)', ['CREATE', 'TABLE', ['IF', 'NOT', 'EXISTS'], 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]]]),
         ('CREATE TABLE foobars (foo string hash key, bar number range key)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']], ['bar', 'NUMBER', ['RANGE', 'KEY']]]]),
         ('CREATE TABLE foobars foo binary hash key', 'error'),
@@ -116,13 +33,13 @@ TEST_CASES = {
         ('CREATE foobars (foo binary index(idxname))', 'error'),
     ],
     'create_global': [
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo', 'bar']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo) GLOBAL INDEX ("g2idx", bar, foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo'], [['INDEX'], ['"g2idx"'], 'bar', 'foo']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo', 'bar', ['THROUGHPUT', [['2'], ['4']]]]]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], 'foo', ['THROUGHPUT', [['2'], ['4']]]]]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL KEYS INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['KEYS', 'INDEX'], ['"gindex"'], 'foo']]]),
-        ('CREATE TABLE foobars (foo string hash key) GLOBAL INCLUDE INDEX ("g2idx", bar, foo, ["baz"])', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INCLUDE', 'INDEX'], ['"g2idx"'], 'bar', 'foo', [['"baz"']]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], ['foo']]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], ['foo'], ['bar']]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo) GLOBAL INDEX ("g2idx", bar, foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], ['foo']], [['INDEX'], ['"g2idx"'], ['bar'], ['foo']]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], ['foo'], ['bar'], [['2'], ['4']]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, THROUGHPUT (2, 4))', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INDEX'], ['"gindex"'], ['foo'], [['2'], ['4']]]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL KEYS INDEX ("gindex", foo)', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['KEYS', 'INDEX'], ['"gindex"'], ['foo']]]]),
+        ('CREATE TABLE foobars (foo string hash key) GLOBAL INCLUDE INDEX ("g2idx", bar, foo, ["baz"])', ['CREATE', 'TABLE', 'foobars', [['foo', 'STRING', ['HASH', 'KEY']]], [[['INCLUDE', 'INDEX'], ['"g2idx"'], ['bar'], ['foo'], [['"baz"']]]]]),
         ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex")', 'error'),
         ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar, baz)', 'error'),
         ('CREATE TABLE foobars (foo string hash key) GLOBAL INDEX ("gindex", foo, bar),', 'error'),
@@ -130,7 +47,8 @@ TEST_CASES = {
     'insert': [
         ('INSERT INTO foobars (foo, bar) VALUES (1, 2)', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['1'], ['2']]]]),
         ('INSERT INTO foobars (foo, bar) VALUES (1, 2), (3, 4)', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['1'], ['2']], [['3'], ['4']]]]),
-        ('INSERT INTO foobars (foo, bar) VALUES (b"binary", ("set", "of", "values"))', ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['b"binary"'], [['"set"'], ['"of"'], ['"values"']]]]]),
+        ('INSERT INTO foobars (foo, bar) VALUES (b"binary", ("set", "of", "values"))',
+         ['INSERT', 'INTO', 'foobars', ['foo', 'bar'], 'VALUES', [[['b"binary"'], [['"set"'], ['"of"'], ['"values"']]]]]),
         ('INSERT foobars (foo, bar) VALUES (1, 2)', 'error'),
         ('INSERT INTO foobars foo, bar VALUES (1, 2)', 'error'),
         ('INSERT INTO foobars (foo, bar) VALUES', 'error'),
@@ -144,9 +62,11 @@ TEST_CASES = {
         ('DROP TABLE foobars garbage', 'error'),
     ],
     'alter': [
-        ('ALTER TABLE foobars SET THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'THROUGHPUT', [['3'], ['4']]]),
-        ('ALTER TABLE foobars SET THROUGHPUT (0, *)', ['ALTER', 'TABLE', 'foobars', 'SET', 'THROUGHPUT', [['0'], '*']]),
-        ('ALTER TABLE foobars SET INDEX foo THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'SET', 'INDEX', 'foo', 'THROUGHPUT', [['3'], ['4']]]),
+        ('ALTER TABLE foobars SET THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', ['3'], ['4']]),
+        ('ALTER TABLE foobars SET THROUGHPUT (0, *)', ['ALTER', 'TABLE', 'foobars', ['0'], '*']),
+        ('ALTER TABLE foobars SET INDEX foo THROUGHPUT (3, 4)', ['ALTER', 'TABLE', 'foobars', 'foo', ['3'], ['4']]),
+        ('ALTER TABLE foobars DROP INDEX foo', ['ALTER', 'TABLE', 'foobars', 'foo']),
+        ('ALTER TABLE foobars CREATE GLOBAL INDEX ("gindex", foo string, bar number, TP (2, 3))', ['ALTER', 'TABLE', 'foobars', [['INDEX'], ['"gindex"'], ['foo', 'STRING'], ['bar', 'NUMBER'], [['2'], ['3']]]]),
         ('ALTER TABLE foobars SET foo = bar', 'error'),
         ('ALTER TABLE foobars SET THROUGHPUT 1, 1', 'error'),
     ],
@@ -159,36 +79,6 @@ TEST_CASES = {
         ('DUMP SCHEMA;DUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
         ('DUMP SCHEMA;\nDUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
         ('DUMP SCHEMA\n;\nDUMP SCHEMA', [['DUMP', 'SCHEMA'], ['DUMP', 'SCHEMA']]),
-    ],
-    'where': [
-        ('WHERE foo = 1 AND bar > 1', ['WHERE', [['foo', '=', ['1']], ['bar', '>', ['1']]]]),
-        ('WHERE foo >= 1 AND bar < 1', ['WHERE', [['foo', '>=', ['1']], ['bar', '<', ['1']]]]),
-        ('WHERE foo <= 1', ['WHERE', [['foo', '<=', ['1']]]]),
-        ('WHERE foo BEGINS WITH "flap"', ['WHERE', [['foo', 'BEGINS WITH', ['"flap"']]]]),
-        ('WHERE foo BETWEEN (1, 5)', ['WHERE', [['foo', 'BETWEEN', [['1'], ['5']]]]]),
-        ('WHERE foo != 1', 'error'),
-        ('WHERE foo BETWEEN 1', 'error'),
-        ('WHERE foo BETWEEN (1, 2, 3)', 'error'),
-    ],
-    'select_where': [
-        ('WHERE foo = 1 AND bar > 1', ['WHERE', [['foo', '=', ['1']], ['bar', '>', ['1']]]]),
-        ('WHERE KEYS IN (1)', ['WHERE', 'KEYS', 'IN', [[['1']]]]),
-        ('WHERE KEYS IN (1, 2), (3, 4)', ['WHERE', 'KEYS', 'IN', [[['1'], ['2']], [['3'], ['4']]]]),
-        ('WHERE KEYS IN (1, 2, 3)', 'error'),
-    ],
-    'filter': [
-        ('FILTER foo = 1 AND bar > 1', ['FILTER', [['foo', '=', ['1']], 'AND', ['bar', '>', ['1']]]]),
-        ('FILTER foo >= 1 AND bar < 1', ['FILTER', [['foo', '>=', ['1']], 'AND', ['bar', '<', ['1']]]]),
-        ('FILTER foo <= 1 AND bar != 1', ['FILTER', [['foo', '<=', ['1']], 'AND', ['bar', '!=', ['1']]]]),
-        ('FILTER foo IS NULL OR bar IS NOT NULL', ['FILTER', [['foo', 'IS', 'NULL'], 'OR', ['bar', 'IS', 'NOT NULL']]]),
-        ('FILTER foo BEGINS WITH "flap"', ['FILTER', [['foo', 'BEGINS WITH', ['"flap"']]]]),
-        ('FILTER foo CONTAINS 1', ['FILTER', [['foo', 'CONTAINS', ['1']]]]),
-        ('FILTER foo NOT CONTAINS 1', ['FILTER', [['foo', 'NOT CONTAINS', ['1']]]]),
-        ('FILTER foo IN (1, 2)', ['FILTER', [['foo', 'IN', [['1'], ['2']]]]]),
-        ('FILTER foo BETWEEN (1, 5)', ['FILTER', [['foo', 'BETWEEN', [['1'], ['5']]]]]),
-        ('FILTER foo BETWEEN 1', 'error'),
-        ('FILTER foo BETWEEN (1, 2, 3)', 'error'),
-        ('FILTER foo IN "hi"', 'error'),
     ],
     'variables': [
         ('"a"', [['"a"']]),
@@ -238,58 +128,6 @@ class TestParser(TestCase):
                 six.print_("Got     : %s" % parse_result.asList())
                 raise
 
-    def test_select(self):
-        """ Run tests for SELECT statements """
-        self._run_tests('select')
-
-    def test_select_in(self):
-        """ SELECT syntax for fetching items by primary key """
-        self._run_tests('select_in')
-
-    def test_select_using(self):
-        """ SELECT tests that specify an index """
-        self._run_tests('select_using')
-
-    def test_select_limit(self):
-        """ SELECT tests with the LIMIT clause """
-        self._run_tests('select_limit')
-
-    def test_select_attrs(self):
-        """ SELECT may fetch only specific attributes """
-        self._run_tests('select_attrs')
-
-    def test_select_filter(self):
-        """ SELECT tests with the FILTER clause """
-        self._run_tests('select_filter')
-
-    def test_scan(self):
-        """ Run tests for SCAN statements """
-        self._run_tests('scan')
-
-    def test_count(self):
-        """ Run tests for COUNT statements """
-        self._run_tests('count')
-
-    def test_count_using(self):
-        """ COUNT tests that specify an index """
-        self._run_tests('count_using')
-
-    def test_count_filter(self):
-        """ COUNT tests that specify an index """
-        self._run_tests('count_filter')
-
-    def test_delete(self):
-        """ Run tests for DELETE statements """
-        self._run_tests('delete')
-
-    def test_delete_in(self):
-        """ DELETE syntax for fetching items by primary key """
-        self._run_tests('delete_in')
-
-    def test_update(self):
-        """ Run tests for UPDATE statements """
-        self._run_tests('update')
-
     def test_create(self):
         """ Run tests for CREATE statements """
         self._run_tests('create')
@@ -322,18 +160,114 @@ class TestParser(TestCase):
         """ Run tests for multiple-line statements """
         self._run_tests('multiple', parser)
 
-    def test_where(self):
-        """ Run tests for the where clause """
-        self._run_tests('where', where)
-
-    def test_select_where(self):
-        """ Run tests for the where clause on select statements """
-        self._run_tests('select_where', select_where)
-
-    def test_filter(self):
-        """ Run tests for the filter clause """
-        self._run_tests('filter', filter_)
-
     def test_variables(self):
         """ Run tests for parsing variables """
         self._run_tests('variables', value)
+
+CONSTRAINTS = [
+    ('WHERE bar = 1',
+     'bar = 1'),
+    ('WHERE foo != 1 or bar > 0',
+     '(foo <> 1 OR bar > 0)'),
+    ('WHERE foo < 1 and (bar >= 0 or baz < "str" or qux = 1)',
+     "(foo < 1 AND (bar >= 0 OR baz < 'str' OR qux = 1))"),
+    ('WHERE foo < 1 and ((bar > 0 or baz < 2) or qux > 4)',
+     "(foo < 1 AND ((bar > 0 OR baz < 2) OR qux > 4))"),
+    ('WHERE NOT foo > 3',
+     'NOT foo > 3'),
+    ('WHERE size(foo) < 3',
+     "size(foo) < 3"),
+    ('WHERE begins_with(foo, "bar")',
+     "begins_with(foo, 'bar')"),
+    ('WHERE attribute_exists(foo)',
+     "attribute_exists(foo)"),
+    ('WHERE attribute_not_exists(foo)',
+     "attribute_not_exists(foo)"),
+    ('WHERE attribute_type(foo, N)',
+     "attribute_type(foo, 'N')"),
+    ('WHERE contains(foo, "test")',
+     "contains(foo, 'test')"),
+    ('WHERE foo between 1 and 5',
+     "foo BETWEEN 1 AND 5"),
+    ('WHERE foo in (1, 5, 7)',
+     "foo IN (1, 5, 7)"),
+]
+
+UPDATES = [
+    ('set foo = 1',
+     "SET foo = 1"),
+    ('set foo = foo + 1',
+     "SET foo = foo + 1"),
+    ('set foo = 1 + foo',
+     "SET foo = 1 + foo"),
+    ('set foo = foo + foo',
+     "SET foo = foo + foo"),
+    ('set foo = 1 + 2',
+     "SET foo = 1 + 2"),
+    ('set foo = foo - 2',
+     "SET foo = foo - 2"),
+    ('set foo = foo - 2, bar = 3, baz = qux + 4',
+     "SET foo = foo - 2, bar = 3, baz = qux + 4"),
+    ('SET foo[2] = 4',
+     "SET foo[2] = 4"),
+    ('SET foo.bar = 4',
+     "SET foo.bar = 4"),
+    ('SET foo = if_not_exists(foo, 2)',
+     "SET foo = if_not_exists(foo, 2)"),
+    ('SET foo = list_append(foo, 2)',
+     "SET foo = list_append(foo, 2)"),
+    ('SET foo = list_append(2, foo)',
+     "SET foo = list_append(2, foo)"),
+    ('REMOVE foo',
+     "REMOVE foo"),
+    ('REMOVE foo, bar',
+     "REMOVE foo, bar"),
+    ('REMOVE foo[0]',
+     "REMOVE foo[0]"),
+    ('REMOVE foo.bar',
+     "REMOVE foo.bar"),
+    ('ADD foo 1',
+     "ADD foo 1"),
+    ('ADD foo 1, bar "a"',
+     "ADD foo 1, bar 'a'"),
+    ('DELETE foo 1',
+     "DELETE foo 1"),
+    ('DELETE foo 1, bar 2',
+     "DELETE foo 1, bar 2"),
+]
+
+
+class TestExpressions(TestCase):
+    """ Tests for expression parsing and building """
+
+    def _run_test(self, expression, expected, grammar, key, factory):
+        """ Parse an expression, build it, and compare """
+        try:
+            parse_result = grammar.parseString(expression)
+            const = factory(parse_result[key])
+            self.assertEqual(str(const), expected)
+        except AssertionError:
+            six.print_("Expression: %s" % expression)
+            six.print_("Expected  : %s" % expected)
+            six.print_("Got       : %s" % const)
+            raise
+        except ParseException as e:
+            six.print_(expression)
+            six.print_(' ' * e.loc + '^')
+            raise
+        except Exception:
+            six.print_("Expression: %s" % expression)
+            six.print_("Parsed    : %s" % parse_result.asList())
+            raise
+
+    def test_constraints(self):
+        """ Test parsing constraint expressions (WHERE ...) """
+        for (expression, expected) in CONSTRAINTS:
+            self._run_test(expression, expected, where, 'where',
+                           ConstraintExpression.from_where)
+
+    def test_updates(self):
+        """ Test parsing update expressions (SET ...) """
+        for (expression, expected) in UPDATES:
+            self._run_test(expression, expected, update_expr, 'update',
+                           UpdateExpression.from_update)

@@ -12,8 +12,8 @@ import six
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
-from .help import (ALTER, COUNT, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
-                   SELECT, UPDATE)
+from .help import (ALTER, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
+                   SELECT, UPDATE, OPTIONS)
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
 
@@ -23,15 +23,17 @@ try:
 except ImportError:  # pragma: no cover
     from ordereddict import OrderedDict  # pylint: disable=F0401
 
+# From http://docs.aws.amazon.com/general/latest/gr/rande.html#ddb_region
 REGIONS = [
-    'ap-northeast-1',
+    'us-east-1',
+    'us-west-2',
+    'us-west-1',
+    'eu-west-1',
+    'eu-central-1',
     'ap-southeast-1',
     'ap-southeast-2',
-    'eu-west-1',
+    'ap-northeast-1',
     'sa-east-1',
-    'us-east-1',
-    'us-west-1',
-    'us-west-2',
 ]
 
 
@@ -63,7 +65,27 @@ DISPLAYS = {
     'stdout': stdout_display,
     'less': less_display,
 }
-RDISPLAYS = dict(((v, k) for k, v in six.iteritems(DISPLAYS)))
+FORMATTERS = {
+    'smart': SmartFormat,
+    'expanded': ExpandedFormat,
+    'column': ColumnFormat,
+}
+DEFAULT_CONFIG = {
+    'width': 100,
+    'pagesize': 100,
+    'display': get_default_display(),
+    'format': 'smart',
+    'allow_select_scan': False,
+}
+
+
+def get_enum_key(key, choices):
+    """ Get an enum by prefix or equality """
+    if key in choices:
+        return key
+    keys = [k for k in choices if k.startswith(key)]
+    if len(keys) == 1:
+        return keys[0]
 
 
 class DQLClient(cmd.Cmd):
@@ -84,7 +106,6 @@ class DQLClient(cmd.Cmd):
     formatter = None
     display = None
     session = None
-    _coding = False
     _conf_dir = None
     _local_endpoint = None
 
@@ -109,16 +130,12 @@ class DQLClient(cmd.Cmd):
         self.engine.connect(region, session=self.session, host=host, port=port,
                             is_secure=(host is None))
 
-        conf = self.load_config()
-        display_name = conf.get('display')
-        if display_name is not None:
-            self.display = DISPLAYS[display_name]
-        else:
-            self.display = get_default_display()
-        self.formatter = SmartFormat(pagesize=conf.get('pagesize', 100),
-                                     width=conf.get('width', 80))
-        for line in conf.get('autorun', []):
-            six.exec_(line, self.engine.scope)
+        self.conf = self.load_config()
+        for key, value in six.iteritems(DEFAULT_CONFIG):
+            self.conf.setdefault(key, value)
+        self.display = DISPLAYS[self.conf['display']]
+        self.formatter = SmartFormat(pagesize=self.conf['pagesize'],
+                                     width=self.conf['width'])
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -143,17 +160,14 @@ class DQLClient(cmd.Cmd):
 
     def update_prompt(self):
         """ Update the prompt """
-        if self._coding:
-            self.prompt = '>>> '
+        prefix = ''
+        if self._local_endpoint is not None:
+            prefix += "(%s:%d) " % self._local_endpoint
+        prefix += self.engine.region
+        if self.engine.partial:
+            self.prompt = len(prefix) * ' ' + '> '
         else:
-            prefix = ''
-            if self._local_endpoint is not None:
-                prefix += "(%s:%d) " % self._local_endpoint
-            prefix += self.engine.region
-            if self.engine.partial:
-                self.prompt = len(prefix) * ' ' + '> '
-            else:
-                self.prompt = prefix + '> '
+            self.prompt = prefix + '> '
 
     def do_shell(self, arglist):
         """ Run a shell command """
@@ -162,15 +176,13 @@ class DQLClient(cmd.Cmd):
                                 stderr=subprocess.STDOUT)
         six.print_(proc.communicate()[0])
 
-    def save_config_value(self, key, value):
-        """ Save your configuration settings to a file """
+    def save_config(self):
+        """ Save the conf file """
         if not os.path.exists(self._conf_dir):
             os.makedirs(self._conf_dir)
         conf_file = os.path.join(self._conf_dir, 'dql.json')
-        conf = self.load_config()
-        conf[key] = value
         with open(conf_file, 'w') as ofile:
-            json.dump(conf, ofile, indent=2)
+            json.dump(self.conf, ofile, indent=2)
 
     def load_config(self):
         """ Load your configuration settings from a file """
@@ -181,59 +193,124 @@ class DQLClient(cmd.Cmd):
             return json.load(ifile)
 
     @repl_command
-    def do_width(self, width=None):
-        """ Get or set the width of the formatted output """
-        if width is not None:
-            self.formatter.width = int(width)
-            self.save_config_value('width', int(width))
-        six.print_(self.formatter.width)
-        six.print_(self.formatter.width * '-')
+    def do_opt(self, *args, **kwargs):
+        """ Get and set options """
+        args = list(args)
+        if not args:
+            largest = 0
+            for key in self.conf:
+                largest = max(largest, len(key))
+            for key, value in six.iteritems(self.conf):
+                six.print_("%s : %s" % (key.rjust(largest), value))
+            return
+        option = args.pop(0)
+        if not args and not kwargs:
+            method = getattr(self, "getopt_" + option, None)
+            if method is None:
+                self.getopt_default(option)
+            else:
+                method()
+        else:
+            method = getattr(self, "opt_" + option, None)
+            if method is None:
+                six.print_("Unrecognized option %r" % option)
+            else:
+                method(*args, **kwargs)
+                self.save_config()
 
-    @repl_command
-    def do_pagesize(self, pagesize=None):
+    def help_opt(self):
+        """ Print the help text for options """
+        six.print_(OPTIONS)
+
+    def getopt_default(self, option):
+        """ Default method to get an option """
+        if option not in self.conf:
+            six.print_("Unrecognized option %r" % option)
+            return
+        six.print_("%s: %s" % (option, self.conf[option]))
+
+    def complete_opt(self, text, line, begidx, endidx):
+        """ Autocomplete for options """
+        tokens = line.split()
+        if len(tokens) == 1:
+            if text:
+                return
+            else:
+                option = ''
+        else:
+            option = tokens[1]
+        if len(tokens) == 1 or (len(tokens) == 2 and text):
+            return [name[4:] + ' ' for name in dir(self)
+                    if name.startswith('opt_' + text)]
+        method = getattr(self, 'complete_opt_' + option, None)
+        if method is not None:
+            return method(text, line, begidx, endidx)
+
+    def opt_width(self, width):
+        """ Set value for width option """
+        self.conf['width'] = width = int(width)
+        self.formatter.width = width
+
+    def opt_pagesize(self, pagesize):
         """ Get or set the page size of the query output """
-        if pagesize is None:
-            six.print_(self.formatter.pagesize)
-        else:
-            self.formatter.pagesize = int(pagesize)
-            self.save_config_value('pagesize', int(pagesize))
+        self.conf['pagesize'] = pagesize = int(pagesize)
+        self.formatter.pagesize = pagesize
 
-    @repl_command
-    def do_display(self, display=None):
-        """ Get or set the type of display to use when printing results """
-        if display is None:
-            for key, val in six.iteritems(DISPLAYS):
-                if val == self.display:
-                    six.print_('* %s' % key)
-                else:
-                    six.print_('  %s' % key)
-        else:
-            self.display = DISPLAYS[display]
-            self.save_config_value('display', display)
+    def _print_enum_opt(self, option, choices):
+        """ Helper for enum options """
+        for key in choices:
+            if key == self.conf[option]:
+                six.print_('* %s' % key)
+            else:
+                six.print_('  %s' % key)
 
-    def complete_display(self, text, *_):
-        """ Autocomplete for display """
+    def opt_display(self, display):
+        """ Set value for display option """
+        key = get_enum_key(display, DISPLAYS)
+        if key is not None:
+            self.conf['display'] = key
+            self.display = DISPLAYS[key]
+            six.print_("Set display %r" % key)
+        else:
+            six.print_("Unknown display %r" % display)
+
+    def getopt_display(self):
+        """ Get value for display option """
+        self._print_enum_opt('display', DISPLAYS)
+
+    def complete_opt_display(self, text, *_):
+        """ Autocomplete for display option """
         return [t + ' ' for t in DISPLAYS if t.startswith(text)]
 
-    @repl_command
-    def do_x(self, smart='false'):
-        """
-        Toggle expanded display format
-
-        You can set smart formatting with 'x smart'
-        """
-        if smart.lower() in ('smart', 'true'):
-            self.formatter = SmartFormat(width=self.formatter.width,
-                                         pagesize=self.formatter.pagesize)
-            six.print_("Smart format enabled")
-        elif isinstance(self.formatter, ExpandedFormat):
-            self.formatter = ColumnFormat(width=self.formatter.width,
-                                          pagesize=self.formatter.pagesize)
-            six.print_("Expanded format disabled")
+    def opt_format(self, format):
+        """ Set value for format option """
+        key = get_enum_key(format, FORMATTERS)
+        if key is not None:
+            self.conf['format'] = key
+            self.formatter = FORMATTERS[key](width=self.conf['width'],
+                                             pagesize=self.conf['pagesize'])
+            six.print_("Set format %r" % key)
         else:
-            self.formatter = ExpandedFormat(width=self.formatter.width,
-                                            pagesize=self.formatter.pagesize)
-            six.print_("Expanded format enabled")
+            six.print_("Unknown format %r" % format)
+
+    def getopt_format(self):
+        """ Get value for format option """
+        self._print_enum_opt('format', FORMATTERS)
+
+    def complete_opt_format(self, text, *_):
+        """ Autocomplete for format option """
+        return [t + ' ' for t in FORMATTERS if t.startswith(text)]
+
+    def opt_allow_select_scan(self, allow):
+        """ Set option allow_select_scan """
+        allow = allow.lower() in ('true', 't', 'yes', 'y')
+        self.conf['allow_select_scan'] = allow
+        self.engine.allow_select_scan = allow
+
+    def complete_opt_allow_select_scan(self, text, *_):
+        """ Autocomplete for allow_select_scan option """
+        return [t for t in ('true', 'false', 'yes', 'no')
+                if t.startswith(text.lower())]
 
     @repl_command
     def do_file(self, filename):
@@ -262,16 +339,6 @@ class DQLClient(cmd.Cmd):
             curpath = os.path.dirname(curpath)
         return [addslash(f) for f in os.listdir(curpath)
                 if f.startswith(text) and isdql(curpath, f)]
-
-    @repl_command
-    def do_code(self):
-        """ Switch to executing python code """
-        self._coding = True
-
-    @repl_command
-    def do_endcode(self):
-        """ Stop executing python code """
-        self._coding = False
 
     @repl_command
     def do_ls(self, table=None):
@@ -342,10 +409,21 @@ class DQLClient(cmd.Cmd):
         return [t + ' ' for t in REGIONS if t.startswith(text)]
 
     def default(self, command):
-        if self._coding:
-            six.exec_(command, self.engine.scope)
-        else:
-            self._run_cmd(command)
+        self._run_cmd(command)
+
+    def completedefault(self, text, line, *_):
+        """ Autocomplete table names in queries """
+        tokens = line.split()
+        try:
+            before = tokens[-2]
+            complete = before.lower() in ('from', 'update', 'table', 'into')
+            if tokens[0].lower() == 'dump':
+                complete = True
+            if complete:
+                return [t + ' ' for t in self.engine.cached_descriptions if
+                        t.startswith(text)]
+        except KeyError:
+            pass
 
     def _run_cmd(self, command):
         """ Run a DQL command """
@@ -367,11 +445,7 @@ class DQLClient(cmd.Cmd):
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
         """Exit"""
-        if self._coding:
-            six.print_()
-            return self.onecmd('endcode')
-        else:
-            return self.onecmd('exit')
+        return self.onecmd('exit')
 
     @repl_command
     def do_exit(self):
@@ -390,10 +464,6 @@ class DQLClient(cmd.Cmd):
     def help_alter(self):
         """ Print the help text for ALTER """
         six.print_(ALTER)
-
-    def help_count(self):
-        """ Print the help text for COUNT """
-        six.print_(COUNT)
 
     def help_create(self):
         """ Print the help text for CREATE """

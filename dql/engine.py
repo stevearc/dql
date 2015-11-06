@@ -1,35 +1,51 @@
 """ Execution engine """
 import time
 
+import botocore
 import logging
-import six
 from botocore.exceptions import ClientError
-from dateutil.parser import parse
-from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
-                     GlobalIndex, DynamoDBError, ItemUpdate, Binary,
-                     Throughput)
+                     GlobalIndex, DynamoDBError, Throughput, CheckFailed,
+                     IndexUpdate)
 from pyparsing import ParseException
 
+from .constants import RESERVED_WORDS
+from .expressions import ConstraintExpression, UpdateExpression, Visitor
 from .grammar import parser, line_parser
-from .models import TableMeta
+from .models import TableMeta, Count
+from .util import resolve
 
 
 LOG = logging.getLogger(__name__)
 
 
-OPS = {
-    '=': 'eq',
-    '!=': 'ne',
-    '>': 'gt',
-    '>=': 'gte',
-    '<': 'lt',
-    '<=': 'lte',
-    'BEGINS WITH': 'beginswith',
-    'IN': 'in',
-    'CONTAINS': 'contains',
-    'NOT CONTAINS': 'ncontains',
-}
+def add_query_kwargs(kwargs, visitor, constraints, index):
+    """ Construct KeyConditionExpression and FilterExpression """
+    (query_const, filter_const) = constraints.remove_index(index)
+    kwargs['key_condition_expr'] = query_const.build(visitor)
+    if filter_const:
+        kwargs['filter'] = filter_const.build(visitor)
+    if index.name != 'TABLE':
+        kwargs['index'] = index.name
+
+
+def iter_insert_items(tree):
+    """ Iterate over the items to insert from an INSERT statement """
+    if tree.list_values:
+        keys = tree.attrs
+        for values in tree.list_values:
+            if len(keys) != len(values):
+                raise SyntaxError("Values '%s' do not match attributes "
+                                  "'%s'" % (values, keys))
+            yield dict(zip(keys, map(resolve, values)))
+    elif tree.map_values:
+        for item in tree.map_values:
+            data = {}
+            for (key, val) in item:
+                data[key] = resolve(val)
+            yield data
+    else:
+        raise SyntaxError("No insert data found")
 
 
 class Engine(object):
@@ -40,23 +56,7 @@ class Engine(object):
     Parameters
     ----------
     connection : :class:`~dynamo3.DynamoDBConnection`, optional
-        If not present, you will need to call :meth:`.Engine.connect_to_region`
-
-    Attributes
-    ----------
-    scope : dict
-        Lookup scope for variables
-
-    Notes
-    -----
-    One of the advanced features of the engine is the ability to set variables
-    which can later be referenced in queries. Whenever a STRING or NUMBER is
-    expected in a query, you may alternatively supply a variable name. That
-    name will be looked up in the engine's ``scope``. This allows you to do
-    things like::
-
-        engine.scope['myfoo'] = 'abc'
-        engine.execute("SELECT * FROM foobars WHERE foo = myfoo")
+        If not present, you will need to call :meth:`.Engine.connect`
 
     """
 
@@ -64,31 +64,15 @@ class Engine(object):
         self._connection = connection
         self.cached_descriptions = {}
         self._cloudwatch_connection = None
-        self.scope = {}
+        self.allow_select_scan = False
+        self.reserved_words = RESERVED_WORDS
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
         self.connection = DynamoDBConnection.connect(*args, **kwargs)
         self._session = kwargs.get('session')
-
-    def connect_to_region(self, region, *args, **kwargs):
-        """
-        Connect the engine to an AWS region.
-
-        Deprecated in favor of :meth:`~.connect`
-
-        """
-        self.connection = DynamoDBConnection.connect_to_region(region, *args,
-                                                               **kwargs)
-
-    def connect_to_host(self, *args, **kwargs):
-        """
-        Connect the engine to a specific host.
-
-        Deprecated in favor of :meth:`~.connect`
-
-        """
-        self.connection = DynamoDBConnection.connect_to_host(*args, **kwargs)
+        if self._session is None:
+            self._session = botocore.session.get_session()
 
     @property
     def connection(self):
@@ -168,7 +152,9 @@ class Engine(object):
     def describe(self, tablename, refresh=False, metrics=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self.cached_descriptions:
-            desc = self.connection.call('describe_table', TableName=tablename)
+            desc = self.connection.describe_table(tablename)
+            if desc is None:
+                return None
             table = TableMeta.from_description(desc)
             self.cached_descriptions[tablename] = table
             if metrics:
@@ -204,11 +190,9 @@ class Engine(object):
     def _run(self, tree):
         """ Run a query from a parse tree """
         if tree.action == 'SELECT':
-            return self._select(tree)
+            return self._select(tree, self.allow_select_scan)
         elif tree.action == 'SCAN':
             return self._scan(tree)
-        elif tree.action == 'COUNT':
-            return self._count(tree)
         elif tree.action == 'DELETE':
             return self._delete(tree)
         elif tree.action == 'UPDATE':
@@ -226,271 +210,187 @@ class Engine(object):
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
-    def resolve(self, val, scope=None):
-        """ Resolve a value into a string or number """
-        if scope is None:
-            scope = self.scope
-
-        name = val.getName()
-        if name == 'python':
-            if val.python[0].lower() == 'm':
-                code = val.python[2:-1]
-                func_def = 'def __dql_func():'
-                lines = [4 * ' ' + line for line in code.splitlines()]
-                lines.insert(0, func_def)
-                expr_func = '\n'.join(lines)
-                LOG.debug("Exec and run:\n%s", expr_func)
-                six.exec_(expr_func, scope)
-                return scope['__dql_func']()
-            else:
-                code = val.python[1:-1]
-                return eval(code, scope)
-        elif name == 'number':
-            try:
-                return int(val.number)
-            except ValueError:
-                return Decimal(val.number)
-        elif name == 'str':
-            return val.str[1:-1]
-        elif name == 'null':
-            return None
-        elif name == 'binary':
-            return Binary(val.binary[2:-1])
-        elif name == 'set':
-            if val.set == '()':
-                return set()
-            return set([self.resolve(v) for v in val.set])
-        elif name == 'bool':
-            return val.bool == 'TRUE'
-        elif name == 'list':
-            return [self.resolve(v, scope) for v in val.list]
-        elif name == 'dict':
-            dict_val = {}
-            for k, v in val.dict:
-                dict_val[self.resolve(k, scope)] = self.resolve(v, scope)
-            return dict_val
-        else:
-            raise SyntaxError("Unable to resolve value '%s'" % val)
-
-    def _where_kwargs(self, desc, clause, index=True):
-        """ Generate dynamo3 kwargs from a where clause """
+    def _build_query(self, table, tree, visitor):
+        """ Build a scan/query from a statement """
         kwargs = {}
-        all_keys = set()
-        if not index:
-            for conjunction in clause[3::2]:
-                if conjunction != clause[1]:
-                    raise SyntaxError(
-                        "Cannot mix AND and OR inside FILTER clause")
-            clause = clause[0::2]
-        for key, op, val in clause:
-            if key in all_keys:
-                raise SyntaxError(
-                    "Cannot use a field more than once in a FILTER clause")
-            all_keys.add(key)
-            if op == 'BETWEEN':
-                kwargs[key + '__between'] = (self.resolve(val[0]),
-                                             self.resolve(val[1]))
-            elif op == 'IS':
-                if val == 'NULL':
-                    kwargs[key + '__null'] = True
-                elif val == 'NOT NULL':
-                    kwargs[key + '__null'] = False
+        index = None
+        if tree.using:
+            index_name = kwargs['index'] = tree.using[1]
+            index = table.get_index(index_name)
+        if tree.where:
+            constraints = ConstraintExpression.from_where(tree.where)
+            possible_hash = constraints.possible_hash_fields()
+            possible_range = constraints.possible_range_fields()
+            if index is None:
+                # See if we can find an index to query on
+                indexes = table.get_matching_indexes(possible_hash,
+                                                     possible_range)
+                if len(indexes) == 0:
+                    action = 'scan'
+                    kwargs['filter'] = constraints.build(visitor)
+                    kwargs['expr_values'] = visitor.expression_values
+                    if visitor.attribute_names:
+                        kwargs['alias'] = visitor.attribute_names
+                elif len(indexes) == 1:
+                    action = 'query'
+                    add_query_kwargs(kwargs, visitor, constraints, indexes[0])
                 else:
-                    raise SyntaxError("Well this is odd: %s" % val)
+                    names = ', '.join([index.name for index in indexes])
+                    raise SyntaxError("No index specified with USING <index>, "
+                                      "but multiple possibilities for query: "
+                                      "%s" % names)
             else:
-                kwargs[key + '__' + OPS[op]] = self.resolve(val)
-        if index:
-            if desc.hash_key.name in all_keys:
-                for key in all_keys:
-                    field = desc.attrs[key]
-                    if field.key_type == 'INDEX':
-                        kwargs['index'] = field.index_name
-                        break
-            else:
-                # Must be using a global index
-                for index in six.itervalues(desc.global_indexes):
-                    if index.hash_key.name in all_keys:
-                        kwargs['index'] = index.name
-                        break
-        return kwargs
+                if index.hash_key in possible_hash:
+                    action = 'query'
+                    add_query_kwargs(kwargs, visitor, constraints, index)
+                else:
+                    action = 'scan'
+                    if not index.scannable:
+                        raise SyntaxError("Cannot scan local index %r" %
+                                          index_name)
+                    kwargs['filter'] = constraints.build(visitor)
+                    kwargs['expr_values'] = visitor.expression_values
+                    if visitor.attribute_names:
+                        kwargs['alias'] = visitor.attribute_names
+        else:
+            action = 'scan'
+        return [action, kwargs]
 
     def _iter_where_in(self, tree):
-        """ Iterate over the WHERE KEYS IN and generate primary keys """
+        """ Iterate over the KEYS IN and generate primary keys """
         desc = self.describe(tree.table)
-        for keypair in tree.where:
-            yield desc.primary_key(*map(self.resolve, keypair))
+        for keypair in tree.keys_in:
+            yield desc.primary_key(*map(resolve, keypair))
 
-    def _select(self, tree):
+    def _select(self, tree, allow_select_scan):
         """ Run a SELECT statement """
         tablename = tree.table
         desc = self.describe(tablename)
         kwargs = {}
         if tree.consistent:
             kwargs['consistent'] = True
-        if tree.attrs.asList() != ['*']:
-            kwargs['attributes'] = tree.attrs.asList()
+
+        visitor = Visitor(self.reserved_words)
+        attr_list = tree.attrs.asList()
+        if attr_list == ['COUNT(*)']:
+            kwargs['select'] = 'COUNT'
+        elif attr_list != ['*']:
+            kwargs['attributes'] = map(visitor.get_field, tree.attrs.asList())
 
         if tree.keys_in:
             if tree.limit:
-                raise SyntaxError("Cannot use LIMIT with WHERE KEYS IN")
+                raise SyntaxError("Cannot use LIMIT with KEYS IN")
             elif tree.using:
-                raise SyntaxError("Cannot use USING with WHERE KEYS IN")
-            elif tree.filter:
-                raise SyntaxError("Cannot use FILTER with WHERE KEYS IN")
+                raise SyntaxError("Cannot use USING with KEYS IN")
+            elif tree.order:
+                raise SyntaxError("Cannot use DESC/ASC with KEYS IN")
+            elif tree.where:
+                raise SyntaxError("Cannot use WHERE with KEYS IN")
             keys = list(self._iter_where_in(tree))
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
-        else:
-            kwargs.update(self._where_kwargs(desc, tree.where))
-            if tree.limit:
-                kwargs['limit'] = self.resolve(tree.limit[1])
-            if tree.using:
-                kwargs['index'] = self.resolve(tree.using[1])
-            if tree.filter:
-                kwargs['filter'] = self._where_kwargs(self.describe(tablename),
-                                                      tree.filter, index=False)
-                if len(tree.filter) > 1:
-                    kwargs['filter_or'] = tree.filter[1] == 'OR'
 
+        if tree.limit:
+            kwargs['limit'] = resolve(tree.limit[1])
+
+        (action, query_kwargs) = self._build_query(desc, tree, visitor)
+        if action == 'scan' and not allow_select_scan:
+            raise SyntaxError(
+                "No index found for query. Please use a SCAN query, or "
+                "set allow_select_scan=True\nopt allow_select_scan true")
+        if tree.order:
+            if action == 'scan':
+                raise SyntaxError("No index found for query, "
+                                  "cannot use ASC or DESC")
             kwargs['desc'] = tree.order == 'DESC'
 
-            return self.connection.query(tablename, **kwargs)
+        kwargs.update(query_kwargs)
+        if visitor.expression_values:
+            kwargs['expr_values'] = visitor.expression_values
+        if visitor.attribute_names:
+            kwargs['alias'] = visitor.attribute_names
+        method = getattr(self.connection, action + '2')
+        ret = method(tablename, **kwargs)
+        if kwargs.get('select') == 'COUNT':
+            return Count.from_response(ret)
+        return ret
 
     def _scan(self, tree):
         """ Run a SCAN statement """
-        tablename = tree.table
-        kwargs = self._where_kwargs(self.describe(tablename), tree.filter,
-                                    index=False)
-        if len(tree.filter) > 1:
-            kwargs['filter_or'] = tree.filter[1] == 'OR'
-        if tree.limit:
-            kwargs['limit'] = self.resolve(tree.limit[1])
+        return self._select(tree, True)
 
-        return self.connection.scan(tablename, **kwargs)
+    def _query_and_op(self, tree, table, method_name, method_kwargs):
+        """ Query the table and perform an operation on each item """
+        if tree.keys_in:
+            if tree.using:
+                raise SyntaxError("Cannot use USING with KEYS IN")
+            keys = self._iter_where_in(tree)
+        else:
+            visitor = Visitor(self.reserved_words)
+            (action, kwargs) = self._build_query(table, tree,
+                                                 visitor)
+            attrs = [visitor.get_field(table.hash_key.name)]
+            if table.range_key is not None:
+                attrs.append(visitor.get_field(table.range_key.name))
+            kwargs['attributes'] = attrs
+            if visitor.expression_values:
+                kwargs['expr_values'] = visitor.expression_values
+            if visitor.attribute_names:
+                kwargs['alias'] = visitor.attribute_names
 
-    def _count(self, tree):
-        """ Run a COUNT statement """
-        tablename = tree.table
-        desc = self.describe(tablename)
-        kwargs = self._where_kwargs(desc, tree.where)
-        if tree.using:
-            kwargs['index'] = self.resolve(tree.using[1])
-        if tree.consistent:
-            kwargs['consistent'] = True
-        if tree.filter:
-            kwargs['filter'] = self._where_kwargs(self.describe(tablename),
-                                                  tree.filter, index=False)
-            if len(tree.filter) > 1:
-                kwargs['filter_or'] = tree.filter[1] == 'OR'
+            method = getattr(self.connection, action + '2')
+            keys = method(table.name, **kwargs)
 
-        return self.connection.query(tablename, count=True, **kwargs)
+        count = 0
+        result = []
+        for key in keys:
+            method = getattr(self.connection, method_name)
+            try:
+                ret = method(table.name, key, **method_kwargs)
+            except CheckFailed:
+                continue
+            count += 1
+            if ret:
+                result.append(ret)
+        if result:
+            return result
+        else:
+            return count
 
     def _delete(self, tree):
         """ Run a DELETE statement """
         tablename = tree.table
+        table = self.describe(tablename)
         kwargs = {}
-        desc = self.describe(tablename)
-
-        # We can't do a delete by group, so we have to select first
-        if tree.keys_in:
-            if tree.using:
-                raise SyntaxError("Cannot use USING with WHERE KEYS IN")
-            results = list(self._iter_where_in(tree))
-        else:
-            kwargs.update(self._where_kwargs(desc, tree.where))
-            if tree.using:
-                attributes = [desc.hash_key.name]
-                if desc.range_key is not None:
-                    attributes.append(desc.range_key.name)
-                kwargs['attributes'] = attributes
-                kwargs['index'] = self.resolve(tree.using[1])
-            results = self.connection.query(tablename, **kwargs)
-
-        count = 0
-        with self.connection.batch_write(tablename) as batch:
-            for item in results:
-                # Pull out just the hash and range key from the item
-                pkey = {desc.hash_key.name: item[desc.hash_key.name]}
-                if desc.range_key is not None:
-                    pkey[desc.range_key.name] = item[desc.range_key.name]
-                count += 1
-                batch.delete(pkey)
-        return 'deleted %d items' % count
+        visitor = Visitor(self.reserved_words)
+        if tree.where:
+            constraints = ConstraintExpression.from_where(tree.where)
+            kwargs['condition'] = constraints.build(visitor)
+        kwargs['expr_values'] = visitor.expression_values
+        if visitor.attribute_names:
+            kwargs['alias'] = visitor.attribute_names
+        return self._query_and_op(tree, table, 'delete_item2', kwargs)
 
     def _update(self, tree):
         """ Run an UPDATE statement """
         tablename = tree.table
-        desc = self.describe(tablename)
-        result = []
+        table = self.describe(tablename)
+        kwargs = {}
 
         if tree.returns:
-            returns = '_'.join(tree.returns)
+            kwargs['returns'] = '_'.join(tree.returns)
         else:
-            returns = 'NONE'
+            kwargs['returns'] = 'NONE'
 
-        def get_updates(item=None):
-            """ Construct a list of values to update """
-            updates = []
-            scope = None
-            if item is not None:
-                scope = self.scope.copy()
-                scope['row'] = dict(item)
-                scope.update(item.items())
-            for field, op, val in tree.updates:
-                value = self.resolve(val, scope)
-                if value is None:
-                    if op != '=':
-                        raise SyntaxError(
-                            "Cannot increment/decrement by NULL!")
-                    action = ItemUpdate.DELETE
-                elif op == '=':
-                    action = ItemUpdate.PUT
-                elif op == '+=':
-                    action = ItemUpdate.ADD
-                elif op == '-=':
-                    action = ItemUpdate.ADD
-                    value = -value
-                elif op == '<<':
-                    action = ItemUpdate.ADD
-                    if not isinstance(value, set):
-                        value = set([value])
-                elif op == '>>':
-                    action = ItemUpdate.DELETE
-                    if not isinstance(value, set):
-                        value = set([value])
-                else:
-                    raise SyntaxError("Unknown operation %r" % op)
-                updates.append(ItemUpdate(action, field, value))
-            return updates
-
-        if tree.keys_in:
-            updates = get_updates()
-            for key in self._iter_where_in(tree):
-                ret = self.connection.update_item(tablename, key, updates,
-                                                  returns=returns)
-                if ret:
-                    result.append(ret)
-        elif tree.where:
-            kwargs = {}
-            for key, op, val in tree.where:
-                kwargs[key + '__' + OPS[op]] = self.resolve(val)
-            for item in self.connection.query(tablename, **kwargs):
-                key = desc.primary_key(item)
-                updates = get_updates(item)
-                ret = self.connection.update_item(tablename, key, updates,
-                                                  returns=returns)
-                if ret:
-                    result.append(ret)
-        else:
-            # We're updating THE WHOLE TABLE
-            for item in self.connection.scan(tablename):
-                key = desc.primary_key(item)
-                updates = get_updates(item)
-                ret = self.connection.update_item(tablename, key, updates,
-                                                  returns=returns)
-                if ret:
-                    result.append(ret)
-        if result:
-            return result
+        visitor = Visitor(self.reserved_words)
+        updates = UpdateExpression.from_update(tree.update)
+        kwargs['expression'] = updates.build(visitor)
+        if tree.where:
+            constraints = ConstraintExpression.from_where(tree.where)
+            kwargs['condition'] = constraints.build(visitor)
+        kwargs['expr_values'] = visitor.expression_values
+        if visitor.attribute_names:
+            kwargs['alias'] = visitor.attribute_names
+        return self._query_and_op(tree, table, 'update_item2', kwargs)
 
     def _create(self, tree):
         """ Run a SELECT statement """
@@ -521,9 +421,8 @@ class Engine(object):
                         factory = LocalIndex.keys
                     elif index_type[0] == 'INCLUDE':
                         factory = LocalIndex.include
-                        kwargs['includes'] = [self.resolve(i) for i in
-                                              index.include]
-                    index_name = self.resolve(index[1])
+                        kwargs['includes'] = map(resolve, index.include_vars)
+                    index_name = resolve(index[1])
                     field = DynamoKey(name, data_type=TYPES[type_])
                     idx = factory(index_name, field, **kwargs)
                     indexes.append(idx)
@@ -532,31 +431,11 @@ class Engine(object):
             attrs[field.name] = field
 
         for gindex in tree.global_indexes:
-            index_type, name, var1 = gindex[:3]
-            g_hash_key = attrs[var1]
-            g_range_key = None
-            kwargs = {}
-            for piece in gindex[3:]:
-                if isinstance(piece, six.string_types):
-                    g_range_key = attrs[piece]
-                else:
-                    kwargs['throughput'] = Throughput(*map(self.resolve,
-                                                           piece.throughput))
-
-            if index_type[0] in ('ALL', 'INDEX'):
-                factory = GlobalIndex.all
-            elif index_type[0] == 'KEYS':
-                factory = GlobalIndex.keys
-            elif index_type[0] == 'INCLUDE':
-                factory = GlobalIndex.include
-                kwargs['includes'] = [self.resolve(i) for i in gindex.include]
-            index = factory(self.resolve(name), g_hash_key, g_range_key,
-                            **kwargs)
-            global_indexes.append(index)
+            global_indexes.append(self._parse_global_index(gindex, attrs))
 
         throughput = None
         if tree.throughput:
-            throughput = Throughput(*map(self.resolve, tree.throughput))
+            throughput = Throughput(*map(resolve, tree.throughput))
 
         try:
             self.connection.create_table(
@@ -568,18 +447,60 @@ class Engine(object):
             raise
         return "Created table '%s'" % tablename
 
+    def _parse_global_index(self, clause, attrs):
+        """ Parse a global index clause and return a GlobalIndex """
+        index_type, name = clause[:2]
+        name = resolve(name)
+
+        def get_key(field, data_type=None):
+            """ Get or set the DynamoKey from the field name """
+            if field in attrs:
+                key = attrs[field]
+                if data_type is not None:
+                    if TYPES[data_type] != key.data_type:
+                        raise SyntaxError(
+                            "Key %r %s already declared with type %s" %
+                            field, data_type, key.data_type)
+            else:
+                if data_type is None:
+                    raise SyntaxError("Missing data type for %r" % field)
+                key = DynamoKey(field, data_type=TYPES[data_type])
+                attrs[field] = key
+            return key
+        g_hash_key = get_key(*clause.hash_key)
+        g_range_key = None
+        # For some reason I can't get the throughput section to have a name
+        # Use an index instead
+        tp_index = 3
+        if clause.range_key:
+            tp_index += 1
+            g_range_key = get_key(*clause.range_key)
+        if clause.include_vars:
+            tp_index += 1
+        kwargs = {}
+        if tp_index < len(clause):
+            throughput = clause[tp_index]
+            kwargs['throughput'] = Throughput(*map(resolve, throughput))
+        index_type = clause.index_type[0]
+        if index_type in ('ALL', 'INDEX'):
+            factory = GlobalIndex.all
+        elif index_type == 'KEYS':
+            factory = GlobalIndex.keys
+        elif index_type == 'INCLUDE':
+            factory = GlobalIndex.include
+            if not clause.include_vars:
+                raise SyntaxError("Include index %r missing include fields" %
+                                  name)
+            kwargs['includes'] = map(resolve, clause.include_vars)
+        return factory(name, g_hash_key, g_range_key, **kwargs)
+
     def _insert(self, tree):
         """ Run an INSERT statement """
         tablename = tree.table
-        keys = tree.attrs
         count = 0
         with self.connection.batch_write(tablename) as batch:
-            for values in tree.data:
-                if len(keys) != len(values):
-                    raise SyntaxError("Values '%s' do not match attributes "
-                                      "'%s'" % (values, keys))
-                data = dict(zip(keys, map(self.resolve, values)))
-                batch.put(data)
+            for item in iter_insert_items(tree):
+                batch.put(item)
                 count += 1
         return "Inserted %d items" % count
 
@@ -606,32 +527,48 @@ class Engine(object):
         else:
             self.connection.update_table(tablename, throughput)
 
-    def _alter(self, tree):
-        """ Run an ALTER statement """
-        tablename = tree.table
-
+    def _update_throughput(self, tablename, read, write, index=None, wait=True):
+        """ Update the throughput on a table or index """
         def get_desc():
             """ Get the table or global index description """
             desc = self.describe(tablename, refresh=True)
-            if tree.index:
-                return desc.global_indexes[tree.index]
+            if index is not None:
+                return desc.global_indexes[index]
             return desc
         desc = get_desc()
 
-        def num_or_star(value):
-            """ * maps to 0, all other values resolved """
-            return 0 if value == '*' else self.resolve(value)
-        read = num_or_star(tree.throughput[0])
-        write = num_or_star(tree.throughput[1])
+        num_or_star = lambda v: 0 if v == '*' else resolve(v)
+        read = num_or_star(read)
+        write = num_or_star(write)
         if read <= 0:
             read = desc.read_throughput
         if write <= 0:
             write = desc.write_throughput
-        self._set_throughput(tablename, read, write, tree.index)
+        self._set_throughput(tablename, read, write, index)
         desc = get_desc()
         while desc.status == 'UPDATING':  # pragma: no cover
             time.sleep(5)
             desc = get_desc()
+
+    def _alter(self, tree):
+        """ Run an ALTER statement """
+        if tree.throughput:
+            [read, write] = tree.throughput
+            index = None
+            if tree.index:
+                index = tree.index
+            self._update_throughput(tree.table, read, write, index)
+        elif tree.drop_index:
+            updates = [IndexUpdate.delete(tree.drop_index[0])]
+            self.connection.update_table(tree.table, index_updates=updates)
+        elif tree.create_index:
+            # GlobalIndex
+            attrs = {}
+            index = self._parse_global_index(tree.create_index, attrs)
+            updates = [IndexUpdate.create(index)]
+            self.connection.update_table(tree.table, index_updates=updates)
+        else:
+            raise SyntaxError("No alter command found")
         return 'success'
 
     def _dump(self, tree):

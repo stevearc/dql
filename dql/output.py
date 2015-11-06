@@ -159,7 +159,7 @@ class SmartFormat(ColumnFormat):
 
     def format(self, results, columns, ostream):
         col_width = int((self.width - 2) / len(columns))
-        if col_width < 10:
+        if col_width < 16:
             expanded = ExpandedFormat(self.width, self.pagesize)
             for result in results:
                 expanded.format(result, ostream)
@@ -170,9 +170,9 @@ class SmartFormat(ColumnFormat):
 def get_default_display():
     """ Get the default display function for this system """
     if find_executable('less'):
-        return less_display
+        return 'less'
     else:
-        return stdout_display
+        return 'stdout'
 
 
 class SmartBuffer(object):

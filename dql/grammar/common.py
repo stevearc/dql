@@ -2,7 +2,7 @@
 
 from pyparsing import (Word, Upcase, Optional, Combine, Group, alphas, nums,
                        alphanums, quotedString, Keyword, Suppress, Regex,
-                       delimitedList, Forward)
+                       delimitedList, Forward, oneOf)
 
 
 def upkey(name):
@@ -12,11 +12,12 @@ def upkey(name):
 # pylint: disable=C0103
 backtickString = Regex(r'`[^`]*`').setName("string enclosed in backticks")
 
-and_, from_, into, in_, table_key, null, where_ = \
-    map(upkey, ['and', 'from', 'into', 'in', 'table', 'null', 'where'])
-and_or = and_ | upkey('or')
+and_, or_, from_, into, in_, table_key, null, not_ = \
+    map(upkey, ['and', 'or', 'from', 'into', 'in', 'table', 'null', 'not'])
+and_or = and_ | or_
 
-var = Word(alphas, alphanums + '_-').setName('variable').setResultsName('var')
+var = Word(alphas, alphanums + '_-.[]').setName('variable')\
+    .setResultsName('var')
 expr = Combine(
     Optional('m') +
     backtickString).setName('python expression').setResultsName('python')
@@ -34,9 +35,10 @@ binary = Combine('b' + quotedString)
 
 value = Forward()
 json_value = Forward()
+string = quotedString.setResultsName('str')
 json_primitive = (null.setResultsName('null') |
                   num.setResultsName('number') |
-                  quotedString.setResultsName('str') |
+                  string |
                   boolean.setResultsName('bool'))
 set_primitive = (num.setResultsName('number') |
                  quotedString.setResultsName('str') |
@@ -58,3 +60,4 @@ value <<= Group(primitive | expr | set_ | _emptyset | list_ |
 # Wrap these in a group so they can be used independently
 primitive = Group(primitive | expr).setName('primitive')
 set_ = Group(set_ | _emptyset | expr).setName('set')
+types = Upcase(oneOf('s ss n ns b bs bool null l m', caseless=True))

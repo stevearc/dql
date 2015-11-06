@@ -1,5 +1,5 @@
 """ Tests for queries """
-from dynamo3 import DynamoDBError, Binary
+from dynamo3 import Binary
 from dql.models import TableField, IndexField, GlobalIndex
 
 from . import BaseSystemTest
@@ -8,6 +8,63 @@ from . import BaseSystemTest
 class TestQueries(BaseSystemTest):
 
     """ System tests for queries """
+
+    def test_drop(self):
+        """ DROP statement should drop a table """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
+        self.query("DROP TABLE foobar")
+        table = self.dynamo.describe_table('foobar')
+        self.assertIsNone(table)
+
+    def test_drop_if_exists(self):
+        """ DROP IF EXISTS shouldn't fail if no table """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
+        self.query("DROP TABLE foobar")
+        self.query("DROP TABLE IF EXISTS foobar")
+
+    def test_dump(self):
+        """ DUMP SCHEMA generates 'create' statements """
+        self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
+                   "KEY, ts NUMBER INDEX('ts-index'), "
+                   "baz STRING KEYS INDEX('baz-index'), "
+                   "bag NUMBER INCLUDE INDEX('bag-index', ['foo']), "
+                   "THROUGHPUT (2, 6)) "
+                   "GLOBAL INDEX ('myindex', bar, baz, TP (1, 2)) "
+                   "GLOBAL KEYS INDEX ('idx2', id) "
+                   "GLOBAL INCLUDE INDEX ('idx3', baz, ['foo', 'foobar'])")
+        original = self.engine.describe('test')
+        schema = self.query("DUMP SCHEMA")
+        self.query("DROP TABLE test")
+        self.query(schema)
+        new = self.engine.describe('test', True)
+        self.assertEquals(original, new)
+
+    def test_dump_tables(self):
+        """ DUMP SCHEMA generates 'create' statements for specific tables """
+        self.query("CREATE TABLE test (id STRING HASH KEY)")
+        self.query("CREATE TABLE test2 (id STRING HASH KEY)")
+        schema = self.query("DUMP SCHEMA test2")
+        self.query("DROP TABLE test")
+        self.query("DROP TABLE test2")
+        self.query(schema)
+        self.engine.describe('test2', True)
+        ret = self.engine.describe('test', True)
+        self.assertIsNone(ret)
+
+    def test_multiple_statements(self):
+        """ Engine can execute multiple queries separated by ';' """
+        result = self.engine.execute("""
+            CREATE TABLE test (id STRING HASH KEY);
+            INSERT INTO test (id, foo) VALUES ('a', 1), ('b', 2);
+            SCAN * FROM test
+        """)
+        scan_result = list(result)
+        self.assertItemsEqual(scan_result, [{'id': 'a', 'foo': 1},
+                                            {'id': 'b', 'foo': 2}])
+
+
+class TestAlter(BaseSystemTest):
+    """ Tests for ALTER """
 
     def test_alter_throughput(self):
         """ Can alter throughput of a table """
@@ -47,136 +104,58 @@ class TestQueries(BaseSystemTest):
         self.assertEquals(index.read_throughput, 2)
         self.assertEquals(index.write_throughput, 2)
 
-    def test_drop(self):
-        """ DROP statement should drop a table """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
-        self.query("DROP TABLE foobar")
-        table = self.dynamo.describe_table('foobar')
-        self.assertIsNone(table)
+    def test_alter_drop(self):
+        """ ALTER can drop an index """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))")
+        self.query("ALTER TABLE foobar DROP INDEX foo_index")
+        desc = self.engine.describe('foobar', refresh=True)
+        if 'foo_index' in desc.global_indexes:
+            index = desc.global_indexes['foo_index']
+            self.assertEqual(index.status, 'DELETING')
+        else:
+            self.assertEquals(len(desc.global_indexes.keys()), 0)
 
-    def test_drop_if_exists(self):
-        """ DROP IF EXISTS shouldn't fail if no table """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
-        self.query("DROP TABLE foobar")
-        self.query("DROP TABLE IF EXISTS foobar")
+    def test_alter_create(self):
+        """ ALTER can create an index """
+        self.make_table()
+        self.query("ALTER TABLE foobar CREATE GLOBAL INDEX ('foo_index', "
+                   "baz string, TP (2, 3))")
+        desc = self.engine.describe('foobar', refresh=True)
+        self.assertTrue('foo_index' in desc.global_indexes)
+        index = desc.global_indexes['foo_index']
+        self.assertEqual(index.hash_key.name, 'baz')
+        self.assertIsNone(index.range_key)
+        self.assertEquals(index.read_throughput, 2)
+        self.assertEquals(index.write_throughput, 3)
 
+
+class TestInsert(BaseSystemTest):
+
+    """ Tests for INSERT """
     def test_insert(self):
-        """ INSERT statement should create items """
+        """ INSERT should create items """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        items = [dict(i) for i in self.dynamo.scan(table)]
+        items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
     def test_insert_binary(self):
-        """ INSERT statement can insert binary values """
+        """ INSERT can insert binary values """
         self.query("CREATE TABLE foobar (id BINARY HASH KEY)")
         self.query("INSERT INTO foobar (id) VALUES (b'a')")
         items = list(self.dynamo.scan('foobar'))
         self.assertEqual(items, [{'id': Binary(b'a')}])
 
-    def test_count(self):
-        """ COUNT statement counts items """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), "
-                   "('a', 2)")
-        count = self.query("COUNT foobar WHERE id = 'a' ")
-        self.assertEquals(count, 2)
-
-    def test_count_smart_index(self):
-        """ COUNT statement auto-selects correct index name """
-        self.make_table(index='ts')
-        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
-                   "('a', 2, 200)")
-        count = self.query("COUNT foobar WHERE id = 'a' and ts < 150")
-        self.assertEquals(count, 1)
-
-    def test_count_filter(self):
-        """ COUNT can use conditional filter on results """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, foo, bar) VALUES ('a', 1, 1), ('a', 2, 2)")
-        count = self.query("COUNT foobar WHERE id = 'a' FILTER foo = 1")
-        self.assertEqual(count, 1)
-
-    def test_delete(self):
-        """ DELETE statement removes items """
-        table = self.make_table(index='ts')
-        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        self.query("DELETE FROM foobar WHERE id = 'a' and bar = 1")
+    def test_insert_keywords(self):
+        """ INSERT can specify data in keyword=arg form """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=1), (id='b', baz=4)")
         items = list(self.dynamo.scan(table))
-        self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
-
-    def test_delete_in(self):
-        """ DELETE Can specify KEYS IN """
-        table = self.make_table(index='ts')
-        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        self.query("DELETE FROM foobar WHERE KEYS IN ('a', 1)")
-        items = list(self.dynamo.scan(table))
-        self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
-
-    def test_delete_smart_index(self):
-        """ DELETE statement auto-selects correct index name """
-        table = self.make_table(index='ts')
-        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
-                   "('a', 2, 200)")
-        self.query("DELETE FROM foobar WHERE id = 'a' "
-                   "and ts > 150")
-        results = list(self.dynamo.scan(table))
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
-
-    def test_delete_using(self):
-        """ DELETE statement can specify an index """
-        table = self.make_table(index='ts')
-        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 0), "
-                   "('a', 2, 5)")
-        self.query("DELETE FROM foobar WHERE id = 'a' and ts < 8 "
-                   "USING 'ts-index'")
-        items = list(self.dynamo.scan(table))
-        self.assertEqual(len(items), 0)
-
-    def test_dump(self):
-        """ DUMP SCHEMA generates 'create' statements """
-        self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
-                   "KEY, ts NUMBER INDEX('ts-index'), "
-                   "baz STRING KEYS INDEX('baz-index'), "
-                   "bag NUMBER INCLUDE INDEX('bag-index', ['foo']), "
-                   "THROUGHPUT (2, 6)) "
-                   "GLOBAL INDEX ('myindex', bar, baz, THROUGHPUT (1, 2)) "
-                   "GLOBAL KEYS INDEX ('idx2', id) "
-                   "GLOBAL INCLUDE INDEX ('idx3', baz, ['foo', 'foobar'])")
-        original = self.engine.describe('test')
-        schema = self.query("DUMP SCHEMA")
-        self.query("DROP TABLE test")
-        self.query(schema)
-        new = self.engine.describe('test', True)
-        self.assertEquals(original, new)
-
-    def test_dump_tables(self):
-        """ DUMP SCHEMA generates 'create' statements for specific tables """
-        self.query("CREATE TABLE test (id STRING HASH KEY)")
-        self.query("CREATE TABLE test2 (id STRING HASH KEY)")
-        schema = self.query("DUMP SCHEMA test2")
-        self.query("DROP TABLE test")
-        self.query("DROP TABLE test2")
-        self.query(schema)
-        self.engine.describe('test2', True)
-        try:
-            self.engine.describe('test', True)
-        except DynamoDBError as e:
-            self.assertEquals(e.status_code, 400)
-        else:
-            assert False, "The test table should not exist"
-
-    def test_multiple_statements(self):
-        """ Engine can execute multiple queries separated by ';' """
-        result = self.engine.execute("""
-            CREATE TABLE test (id STRING HASH KEY);
-            INSERT INTO test (id, foo) VALUES ('a', 1), ('b', 2);
-            SCAN test
-        """)
-        scan_result = list(result)
-        self.assertItemsEqual(scan_result, [{'id': 'a', 'foo': 1},
-                                            {'id': 'b', 'foo': 2}])
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
+                                      {'id': 'b', 'baz': 4}])
 
 
 class TestSelect(BaseSystemTest):
@@ -184,15 +163,23 @@ class TestSelect(BaseSystemTest):
     """ Tests for SELECT """
 
     def test_hash_key(self):
-        """ SELECT statement filters by hash key """
+        """ SELECT filters by hash key """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a'")
         results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
 
+    def test_consistent(self):
+        """ SELECT can force consistent read """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a')")
+        results = self.query("SELECT CONSISTENT * FROM foobar WHERE id = 'a'")
+        results = list(results)
+        self.assertItemsEqual(results, [{'id': 'a'}])
+
     def test_hash_range(self):
-        """ SELECT statement filters by hash and range keys """
+        """ SELECT filters by hash and range keys """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' and bar = 1")
@@ -203,8 +190,8 @@ class TestSelect(BaseSystemTest):
         """ SELECT statement can fetch items directly """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        results = self.query("SELECT * FROM foobar WHERE "
-                             "KEYS IN ('a', 1), ('b', 2)")
+        results = self.query("SELECT * FROM foobar KEYS IN "
+                             "('a', 1), ('b', 2)")
         results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
                                         {'id': 'b', 'bar': 2}])
@@ -220,17 +207,17 @@ class TestSelect(BaseSystemTest):
         self.assertEquals(results, rev_results)
 
     def test_hash_index(self):
-        """ SELECT statement filters by indexes """
+        """ SELECT filters by indexes """
         self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' "
-                             "and ts < 150 USING 'ts-index'")
+                             "and ts < 150 USING ts-index")
         results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
     def test_smart_index(self):
-        """ SELECT statement auto-selects correct index name """
+        """ SELECT auto-selects correct index name """
         self.make_table(index='ts')
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
@@ -240,7 +227,7 @@ class TestSelect(BaseSystemTest):
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
 
     def test_smart_global_index(self):
-        """ SELECT statement auto-selects correct global index name """
+        """ SELECT auto-selects correct global index name """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING "
                    "RANGE KEY, bar NUMBER INDEX('bar-index'), baz STRING) "
                    "GLOBAL INDEX ('gindex', baz)")
@@ -251,15 +238,15 @@ class TestSelect(BaseSystemTest):
                                          'bar': 1, 'baz': 'a'}])
 
     def test_limit(self):
-        """ SELECT statement should be able to specify limit """
-        self.make_table(index='ts')
+        """ SELECT can specify limit """
+        self.make_table()
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' LIMIT 1")
         self.assertEquals(len(list(results)), 1)
 
     def test_attrs(self):
-        """ SELECT statement can fetch only certain attrs """
+        """ SELECT can fetch only certain attrs """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar, order) VALUES "
                    "('a', 1, 'first'), ('a', 2, 'second')")
@@ -275,7 +262,7 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES "
                    "(1, 'abc'), (1, 'def')")
         results = self.query("SELECT * FROM foobar "
-                             "WHERE id = 1 AND bar BEGINS WITH 'a'")
+                             "WHERE id = 1 AND begins_with(bar, 'a')")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 1, 'bar': 'abc'}])
 
@@ -285,7 +272,7 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES "
                    "('a', 5), ('a', 10)")
         results = self.query("SELECT * FROM foobar "
-                             "WHERE id = 'a' AND bar BETWEEN (1, 8)")
+                             "WHERE id = 'a' AND bar BETWEEN 1 AND 8")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
 
@@ -295,7 +282,7 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES "
                    "('a', 1, 1), ('a', 2, 2)")
         results = self.query("SELECT * FROM foobar "
-                             "WHERE id = 'a' FILTER baz = 1")
+                             "WHERE id = 'a' AND baz = 1")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'baz': 1}])
 
@@ -305,7 +292,7 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, foo, bar, baz) VALUES "
                    "('a', 1, 1, 1), ('a', 2, 2, 1)")
         results = self.query("SELECT * FROM foobar "
-                             "WHERE id = 'a' FILTER baz = 1 AND foo = 1")
+                             "WHERE id = 'a' AND baz = 1 AND foo = 1")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1, 'baz': 1}])
 
@@ -315,137 +302,183 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, foo, bar, baz) VALUES "
                    "('a', 1, 1, 1), ('a', 2, 2, 2)")
         results = self.query("SELECT * FROM foobar "
-                             "WHERE id = 'a' FILTER baz = 1 OR foo = 2")
+                             "WHERE id = 'a' AND (baz = 1 OR foo = 2)")
         results = [dict(r) for r in results]
         self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1, 'baz': 1},
                                         {'id': 'a', 'foo': 2, 'bar': 2, 'baz': 2}])
 
-    def test_filter_same_key(self):
-        """ Cannot filter twice on the same key """
+    def test_count(self):
+        """ SELECT can items """
         self.make_table()
-        with self.assertRaises(SyntaxError):
-            self.query("SELECT * FROM foobar "
-                       "WHERE id = 'a' FILTER foo = 1 OR foo = 2")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), "
+                   "('a', 2)")
+        count = self.query("SELECT count(*) FROM foobar WHERE id = 'a'")
+        self.assertEquals(count, 2)
+        self.assertEquals(count.scanned_count, 2)
+
+    def test_count_smart_index(self):
+        """ SELECT count(*) auto-selects correct index name """
+        self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200)")
+        count = self.query("SELECT count(*) FROM foobar "
+                           "WHERE id = 'a' and ts < 150")
+        self.assertEquals(count, 1)
+        self.assertEquals(count.scanned_count, 1)
+
+    def test_count_filter(self):
+        """ SELECT count(*) can use conditional filter on results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 1, 1), ('a', 2, 2)")
+        count = self.query("SELECT count(*) FROM foobar "
+                           "WHERE id = 'a' AND foo = 1")
+        self.assertEqual(count, 1)
+        self.assertEqual(count.scanned_count, 2)
 
 
-class TestScan(BaseSystemTest):
+class TestSelectScan(BaseSystemTest):
 
-    """ Tests for SCAN """
+    """ Tests for SELECT that involve doing a table scan """
+    def setUp(self):
+        super(TestSelectScan, self).setUp()
+        self.engine.allow_select_scan = True
 
-    def test(self):
-        """ SCAN statement gets all results in a table """
+    def _run(self, query, expected):
+        """ Test the query both with SELECT and SCAN """
+        for cmd in ['SELECT', 'SCAN']:
+            results = self.query(cmd + ' ' + query)
+            results = list(results)
+            if isinstance(expected, int):
+                self.assertEqual(len(results), expected)
+            else:
+                self.assertItemsEqual(results, expected)
+
+    def test_scan(self):
+        """ SELECT scan gets all results in a table """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        results = self.query("SCAN foobar")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1},
-                                        {'id': 'b', 'bar': 2}])
+        self._run("* FROM foobar",
+                  [{'id': 'a', 'bar': 1}, {'id': 'b', 'bar': 2}])
 
     def test_filter(self):
-        """ SCAN statement can filter results """
+        """ SELECT scan can filter results """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        results = self.query("SCAN foobar FILTER id = 'a'")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1}])
+        self._run("* FROM foobar WHERE bar = 2",
+                  [{'id': 'b', 'bar': 2}])
 
     def test_limit(self):
-        """ SCAN statement can filter results """
+        """ SELECT scan can limit results """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
-        results = self.query("SCAN foobar LIMIT 1")
-        self.assertEquals(len(list(results)), 1)
+        self._run("* FROM foobar LIMIT 1", 1)
 
     def test_begins_with(self):
-        """ SCAN can filter attrs that begin with a string """
+        """ SELECT scan can filter attrs that begin with a string """
         self.query("CREATE TABLE foobar (id NUMBER HASH KEY, "
                    "bar STRING RANGE KEY)")
         self.query("INSERT INTO foobar (id, bar) VALUES "
                    "(1, 'abc'), (1, 'def')")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 1 AND bar BEGINS WITH 'a'")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 1, 'bar': 'abc'}])
+        self._run("* FROM foobar WHERE begins_with(bar, 'a')",
+                  [{'id': 1, 'bar': 'abc'}])
 
     def test_between(self):
-        """ SCAN can filter attrs that are between values"""
+        """ SELECT scan can filter attrs that are between values"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES "
                    "('a', 5), ('a', 10)")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 'a' AND bar BETWEEN (1, 8)")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
+        self._run("* FROM foobar WHERE bar BETWEEN 1 AND 8",
+                  [{'id': 'a', 'bar': 5}])
 
     def test_null(self):
-        """ SCAN can filter if an attr is null """
+        """ SELECT scan can filter if an attr is null """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 'a' AND baz IS NULL")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
+        self._run("* FROM foobar WHERE attribute_not_exists(baz)",
+                  [{'id': 'a', 'bar': 5}])
 
     def test_not_null(self):
-        """ SCAN can filter if an attr is not null """
+        """ SELECT scan can filter if an attr is not null """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 'a' AND baz IS NOT NULL")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'baz': 1}])
+        self._run("* FROM foobar WHERE attribute_exists(baz)",
+                  [{'id': 'a', 'bar': 1, 'baz': 1}])
 
     def test_in(self):
-        """ SCAN can filter if an attr is in a set """
+        """ SELECT scan can filter if an attr is in a set """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5), ('a', 2)")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 'a' AND bar IN (1, 3, 5)")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 5}])
+        self._run("* FROM foobar WHERE bar IN (1, 3, 5)",
+                  [{'id': 'a', 'bar': 5}])
 
     def test_contains(self):
-        """ SCAN can filter if a set contains an item """
+        """ SELECT scan can filter if a set contains an item """
         self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES "
                    "('a', 5, (1, 2, 3)), ('a', 1, (4, 5, 6))")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 'a' AND baz CONTAINS 2")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 5,
-                                         'baz': set([1, 2, 3])}])
-
-    def test_not_contains(self):
-        """ SCAN can filter if a set contains an item """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES "
-                   "('a', 5, (1, 2, 3)), ('a', 1, (4, 5, 6))")
-        results = self.query("SCAN foobar "
-                             "FILTER id = 'a' AND baz NOT CONTAINS 5")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'bar': 5,
-                                         'baz': set([1, 2, 3])}])
+        self._run("* FROM foobar WHERE contains(baz, 2)",
+                  [{'id': 'a', 'bar': 5, 'baz': set([1, 2, 3])}])
 
     def test_filter_and(self):
-        """ SCAN can use multi-conditional filter on results """
+        """ SELECT scan can use multi-conditional filter """
         self.make_table()
         self.query("INSERT INTO foobar (id, foo, bar) VALUES ('a', 1, 1), ('b', 1, 2)")
-        results = self.query("SCAN foobar FILTER foo = 1 AND bar = 1")
-        results = list(results)
-        self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1}])
+        self._run("* FROM foobar WHERE foo = 1 AND bar = 1",
+                  [{'id': 'a', 'foo': 1, 'bar': 1}])
 
     def test_filter_or(self):
-        """ SCAN can use multi-conditional OR filter on results """
+        """ SELECT scan can use multi-conditional OR filter """
         self.make_table()
         self.query("INSERT INTO foobar (id, foo, bar) VALUES "
                    "('a', 1, 1), ('b', 2, 2)")
-        results = self.query("SCAN foobar "
-                             "FILTER foo = 1 OR bar = 2")
-        results = [dict(r) for r in results]
-        self.assertItemsEqual(results, [{'id': 'a', 'foo': 1, 'bar': 1},
-                                        {'id': 'b', 'foo': 2, 'bar': 2}])
+        self._run("* FROM foobar WHERE foo = 1 OR bar = 2",
+                  [{'id': 'a', 'foo': 1, 'bar': 1},
+                   {'id': 'b', 'foo': 2, 'bar': 2}])
+
+    def test_filter_nested(self):
+        """ SELECT scan can use nested conditional filters """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 1, 1), ('b', 1, 2), ('c', 1, 3)")
+        self._run("* FROM foobar WHERE foo = 1 AND NOT (bar = 2 OR bar = 3)",
+                  [{'id': 'a', 'foo': 1, 'bar': 1}])
+
+    def test_scan_global(self):
+        """ SELECT scan can scan a global index """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
+                   "GLOBAL KEYS INDEX ('gindex', foo)")
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 'a', 1)")
+        # Will be missing 'bar' because it's not projected onto gindex
+        self._run("* FROM foobar USING gindex", [{'id': 'a', 'foo': 'a'}])
+
+    def test_scan_global_with_constraints(self):
+        """ SELECT scan can scan a global index and filter """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
+                   "GLOBAL KEYS INDEX ('gindex', foo)")
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 'a', 1), ('b', 'b', 2)")
+        self._run("* FROM foobar WHERE id = 'a' USING gindex",
+                  [{'id': 'a', 'foo': 'a'}])
+
+    def test_filter_list(self):
+        """ SELECT scan can filter based on elements in a list """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1, 2]), ('b', [2, 3])")
+        self.engine.reserved_words = None
+        self._run("* FROM foobar WHERE bar[0] = 2",
+                  [{'id': 'b', 'bar': [2, 3]}])
+
+    def test_filter_map(self):
+        """ SELECT scan can filter based on values in a map """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', {'b': 1}), ('b', {'b': 2})")
+        self.engine.reserved_words = None
+        self._run("* FROM foobar WHERE bar.b = 2",
+                  [{'id': 'b', 'bar': {'b': 2}}])
 
 
 class TestCreate(BaseSystemTest):
@@ -516,8 +549,21 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         range_key = TableField('id', 'STRING', 'RANGE')
-        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, range_key, 1, 2, 0,
-                             0)
+        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, range_key, 1, 2, 0)
+        self.assertEquals(desc.global_indexes, {
+            'myindex': gindex,
+        })
+
+    def test_create_global_index_types(self):
+        """ Global indexes can specify the attribute types """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY) "
+            "GLOBAL INDEX ('myindex', foo number, baz string, THROUGHPUT (1, 2))"
+        )
+        desc = self.engine.describe('foobar')
+        hash_key = TableField('foo', 'NUMBER', 'HASH')
+        range_key = TableField('baz', 'STRING', 'RANGE')
+        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, range_key, 1, 2, 0)
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })
@@ -530,7 +576,7 @@ class TestCreate(BaseSystemTest):
         )
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
-        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, None, 1, 2, 0, 0)
+        gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, None, 1, 2, 0)
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })
@@ -543,8 +589,7 @@ class TestCreate(BaseSystemTest):
         )
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
-        gindex = GlobalIndex('myindex', 'KEYS', 'ACTIVE', hash_key, None, 1, 2,
-                             0, 0)
+        gindex = GlobalIndex('myindex', 'KEYS', 'ACTIVE', hash_key, None, 1, 2, 0)
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })
@@ -557,7 +602,7 @@ class TestCreate(BaseSystemTest):
         )
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
-        gindex = GlobalIndex('myindex', 'INCLUDE', 'ACTIVE', hash_key, None, 1, 2, 0, 0, ['bar', 'baz'])
+        gindex = GlobalIndex('myindex', 'INCLUDE', 'ACTIVE', hash_key, None, 1, 2, 0, ['bar', 'baz'])
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })
@@ -587,24 +632,50 @@ class TestUpdate(BaseSystemTest):
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
                                       {'id': 'b', 'bar': 2, 'baz': 2}])
 
+    def test_update_count(self):
+        """ UPDATE returns number of records updated """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        count = self.query("UPDATE foobar SET baz = 3 WHERE id = 'a'")
+        self.assertEqual(count, 1)
+
     def test_update_where_in(self):
-        """ UPDATE sets attributes for a set of primary keys """
+        """ UPDATE can update items by their primary keys """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
-        self.query(
-            "UPDATE foobar SET baz = 3 WHERE KEYS IN ('a', 1), ('b', 2)")
+        self.query("UPDATE foobar SET baz = 3 KEYS IN ('a', 1), ('b', 2)")
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 3},
                                       {'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_update_in_condition(self):
+        """ UPDATE can alert items using KEYS IN and WHERE """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("UPDATE foobar SET bar = 3 KEYS IN ('a', 1), ('b', 2) "
+                   "WHERE bar < 2")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 3},
+                                      {'id': 'b', 'bar': 2}])
+
+    def test_update_keys_count(self):
+        """ UPDATE returns number of records updated with KEYS IN """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
+                   "('b', 2, 2)")
+        ret = self.query("UPDATE foobar SET baz = 3 KEYS IN ('a', 1), "
+                         "('b', 2)")
+        self.assertEqual(ret, 2)
 
     def test_update_increment(self):
         """ UPDATE can increment attributes """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
-        self.query("UPDATE foobar SET baz += 2")
-        self.query("UPDATE foobar SET baz -= 1")
+        self.query("UPDATE foobar ADD baz 2")
+        self.query("UPDATE foobar ADD baz -1")
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
                                       {'id': 'b', 'bar': 2, 'baz': 3}])
@@ -613,28 +684,28 @@ class TestUpdate(BaseSystemTest):
         """ UPDATE can add elements to set """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, ())")
-        self.query("UPDATE foobar SET baz << 2")
-        self.query("UPDATE foobar SET baz << (1, 3)")
+        self.query("UPDATE foobar ADD baz (1)")
+        self.query("UPDATE foobar ADD baz (2, 3)")
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1,
                                        'baz': set([1, 2, 3])}])
 
-    def test_update_remove(self):
-        """ UPDATE can remove elements from set """
+    def test_update_delete(self):
+        """ UPDATE can delete elements from set """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES "
                    "('a', 1, (1, 2, 3, 4))")
-        self.query("UPDATE foobar SET baz >> 2")
-        self.query("UPDATE foobar SET baz >> (1, 3)")
+        self.query("UPDATE foobar DELETE baz (2)")
+        self.query("UPDATE foobar DELETE baz (1, 3)")
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': set([4])}])
 
-    def test_update_delete(self):
-        """ UPDATE can delete attributes """
+    def test_update_remove(self):
+        """ UPDATE can remove attributes """
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
-        self.query("UPDATE foobar SET baz = NULL")
+        self.query("UPDATE foobar REMOVE baz")
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
@@ -644,33 +715,106 @@ class TestUpdate(BaseSystemTest):
         self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
                    "('b', 2, 2)")
-        result = self.query("UPDATE foobar SET baz = NULL RETURNS ALL NEW ")
+        result = self.query("UPDATE foobar REMOVE baz RETURNS ALL NEW ")
         items = list(result)
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
 
-    def test_update_expression(self):
-        """ UPDATE python expressions can reference item attributes """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 10), "
-                   "('b', 2, 20)")
-        self.query("UPDATE foobar SET baz = `bar + 1`")
-        result = self.query('SCAN foobar')
-        items = list(result)
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 2},
-                                      {'id': 'b', 'bar': 2, 'baz': 3}])
-
-    def test_update_expression_defaults(self):
-        """ UPDATE python expressions can reference row directly """
-        self.make_table()
-        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), "
-                   "('b', 2, null)")
-        code = '\n'.join((
-            "if row.get('baz') is not None:",
-            "    return baz + 5"
-        ))
-        self.query("UPDATE foobar SET baz = m`%s`" % code)
-        result = self.query('SCAN foobar')
-        items = list(result)
-        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'baz': 6},
+    def test_update_soft(self):
+        """ UPDATE can set a field if it doesn't exist """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', NULL)")
+        self.query("UPDATE foobar SET bar = if_not_exists(bar, 2)")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'bar': 2}])
+
+    def test_update_append(self):
+        """ UPDATE can append to a list """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1])")
+        self.query("UPDATE foobar SET bar = list_append(bar, [2])")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': [1, 2]}])
+
+    def test_update_prepend(self):
+        """ UPDATE can prepend to a list """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1])")
+        self.query("UPDATE foobar SET bar = list_append([2], bar)")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': [2, 1]}])
+
+    def test_update_condition(self):
+        """ UPDATE can conditionally update """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("UPDATE foobar SET bar = 3 WHERE bar < 2")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 3},
+                                      {'id': 'b', 'bar': 2}])
+
+    def test_update_index(self):
+        """ UPDATE can query an index for the items to update """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100)")
+        self.query("UPDATE foobar SET ts = 3 WHERE id = 'a' USING ts-index")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'ts': 3}])
+
+
+class TestDelete(BaseSystemTest):
+
+    """ Tests for DELETE """
+
+    def test_delete(self):
+        """ DELETE removes items """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("DELETE FROM foobar")
+        items = list(self.dynamo.scan(table))
+        self.assertEqual(len(items), 0)
+
+    def test_delete_where(self):
+        """ DELETE can update conditionally """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("DELETE FROM foobar WHERE id = 'a' and bar = 1")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
+
+    def test_delete_in(self):
+        """ DELETE can specify KEYS IN """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("DELETE FROM foobar KEYS IN ('a', 1)")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
+
+    def test_delete_in_filter(self):
+        """ DELETE can specify KEYS IN with WHERE """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("DELETE FROM foobar KEYS IN 'a', 'b' WHERE bar = 1")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'b', 'bar': 2}])
+
+    def test_delete_smart_index(self):
+        """ DELETE statement auto-selects correct index name """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200)")
+        self.query("DELETE FROM foobar WHERE id = 'a' "
+                   "and ts > 150")
+        results = list(self.dynamo.scan(table))
+        self.assertItemsEqual(results, [{'id': 'a', 'bar': 1, 'ts': 100}])
+
+    def test_delete_using(self):
+        """ DELETE statement can specify an index """
+        table = self.make_table(index='ts')
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 0), "
+                   "('a', 2, 5)")
+        self.query("DELETE FROM foobar WHERE id = 'a' and ts < 8 "
+                   "USING ts-index")
+        items = list(self.dynamo.scan(table))
+        self.assertEqual(len(items), 0)

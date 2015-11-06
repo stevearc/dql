@@ -61,5 +61,8 @@ class TestCli(unittest.TestCase):
         """ There is a help command for every DQL query type """
         from dql import help
         for name in dir(help):
+            # Options is not a query type
+            if name == 'OPTIONS':
+                continue
             if not name.startswith('_'):
                 self.assert_prints('help %s' % name.lower(), getattr(help, name))

@@ -6,8 +6,10 @@ Synopsis
 .. code-block:: sql
 
     INSERT INTO tablename
-        attributes
-        VALUES values
+        attributes VALUES values
+    INSERT INTO tablename
+        items
+
 
 Examples
 --------
@@ -15,6 +17,8 @@ Examples
 
     INSERT INTO foobars (id) VALUES (1);
     INSERT INTO foobars (id, bar) VALUES (1, 'hi'), (2, 'yo');
+    INSERT INTO foobars (id='foo', bar=10);
+    INSERT INTO foobars (id='foo'), (id='bar', baz=(1, 2, 3));
 
 Description
 -----------
@@ -33,13 +37,8 @@ Parameters
     var]...)* and must contain the same number of items as the **attributes**
     parameter.
 
-Data Types
-----------
-Below are examples of how to represent the different dynamo data types in DQL
+**items**
+    Comma-separated key-value pairs to insert.
 
-**NUMBER**: ``123``
-**STRING**: ``'abc'`` or ``"abc"``
-**BINARY**: ``b'abc'`` or ``b"abc"``
-**NUMBER SET**: ``(1, 2, 3)``
-**STRING SET**: ``('a', 'b', 'c')``
-**BINARY SET**: ``(b'a', b'b', b'c')``
+See :ref:`data_types` to find out how to represent the different data types of
+DynamoDB.

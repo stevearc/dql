@@ -22,12 +22,12 @@ Deletes a table and all its items.
 
 .. warning::
 
-    This is not reversible! Use with extreme caution!
+    This action cannot be undone! Treat the same way you treat ``rm -rf``
 
 Parameters
 ----------
 **IF EXISTS**
-    If present, do not through an exception if the table does not exist.
+    If present, do not raise an exception if the table does not exist.
 
 **tablename**
     The name of the table
