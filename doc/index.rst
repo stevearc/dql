@@ -12,8 +12,9 @@ User Guide
     :glob:
 
     topics/getting_started
-    topics/advanced_usage
     topics/queries/index
+    topics/data_types
+    topics/options
     topics/develop
 
     changes

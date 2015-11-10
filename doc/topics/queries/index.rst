@@ -8,7 +8,6 @@ Queries
     :glob:
 
     alter
-    count
     create
     delete
     drop

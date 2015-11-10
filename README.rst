@@ -1,7 +1,6 @@
 DQL
 ===
-:Dev Build: |build|_ |coverage|_
-:0.4 Branch: |build-0.4|_ |coverage-0.4|_
+:Build: |build|_ |coverage|_
 :Documentation: http://dql.readthedocs.org/
 :Downloads: http://pypi.python.org/pypi/dql
 :Source: https://github.com/mathcamp/dql
@@ -10,11 +9,6 @@ DQL
 .. _build: https://travis-ci.org/mathcamp/dql
 .. |coverage| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
 .. _coverage: https://coveralls.io/r/mathcamp/dql?branch=master
-
-.. |build-0.4| image:: https://travis-ci.org/mathcamp/dql.png?branch=0.4
-.. _build-0.4: https://travis-ci.org/mathcamp/dql
-.. |coverage-0.4| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=0.4
-.. _coverage-0.4: https://coveralls.io/r/mathcamp/dql?branch=0.4
 
 A simple, SQL-ish language for DynamoDB
 
@@ -28,14 +22,14 @@ Here are some basic DQL examples to get you going:
 
 Start the REPL::
 
-    $ dql -a <access key> -s <secret key>
+    $ dql
     us-west-1>
 
 Creating a table::
 
     us-west-1> CREATE TABLE forum_threads (name STRING HASH KEY,
-             >                             subject STRING RANGE KEY)
-             >                             THROUGHPUT (4, 2);
+             >                             subject STRING RANGE KEY,
+             >                             THROUGHPUT (4, 2));
 
 Inserting data::
 
@@ -46,13 +40,13 @@ Inserting data::
 
 Queries::
 
-    us-west-1> SCAN forum_threads;
-    us-west-1> COUNT forum_threads WHERE name = 'Self Defense';
+    us-west-1> SCAN * FROM forum_threads;
+    us-west-1> SELECT count(*) FROM forum_threads WHERE name = 'Self Defense';
     us-west-1> SELECT * FROM forum_threads WHERE name = 'Self Defense';
 
 Mutations::
 
-    us-west-1> UPDATE forum_threads SET views += 1 WHERE
+    us-west-1> UPDATE forum_threads ADD views 1 WHERE
              > name = 'Self Defense' AND subject = 'Defense from Banana';
     us-west-1> DELETE FROM forum_threads WHERE name = 'Cheese Shop';
 

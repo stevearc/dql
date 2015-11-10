@@ -6,8 +6,10 @@ Synopsis
 .. code-block:: sql
 
     UPDATE tablename
-        SET values
+        update_expression
+        [ KEYS IN primary_keys ]
         [ WHERE expression ]
+        [ USING index ]
         [ RETURNS (NONE | ( ALL | UPDATED) (NEW | OLD)) ]
 
 Examples
@@ -15,40 +17,22 @@ Examples
 .. code-block:: sql
 
     UPDATE foobars SET foo = 'a';
-    UPDATE foobars SET foo = 'a', bar += 4 WHERE id = 1 AND foo = 'b';
-    UPDATE foobars SET foo = 'a', bar += 4 RETURNS ALL NEW;
-    UPDATE foobars SET myset << (5, 6, 7), mytags << 'new tag' WHERE KEYS IN ('a', 'b');
-    UPDATE foobars SET foo = `bar + 1`;
+    UPDATE foobars SET foo = 'a', bar = bar + 4 WHERE id = 1 AND foo = 'b';
+    UPDATE foobars SET foo = if_not_exists(foo, 'a') RETURNS ALL NEW;
+    UPDATE foobars SET foo = list_append(foo, 'a') WHERE size(foo) < 3;
+    UPDATE foobars ADD foo 1, bar 4;
+    UPDATE foobars ADD fooset (1, 2);
+    UPDATE foobars REMOVE old_attribute;
+    UPDATE foobars DELETE fooset (1, 2);
 
 Description
 -----------
-Update the attributes on items in your table.
+Update items in a table
 
 Parameters
 ----------
 **tablename**
     The name of the table
-
-**values**
-    Comma-separated list of attribute assignments. The supported operators are
-    ``=``, ``+=``, ``-=``, ``<<``, and ``>>``. The 'shovel' operators (``<<`` &
-    ``>>``) are used to atomically add/remove items to/from a set. Likewise,
-    the ``+=`` and ``-=`` perform atomic inc/decrement and may only be used on
-    NUMBER types.
-
-**expression**
-    Only return elements that match this expression. The supported operators
-    are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. The only conjunction
-    allowed is ``AND``.
-
-    There is another form available that looks like ``KEYS IN (pkey) [,
-    (pkey)]...`` The *pkey* is a single value if the table only has a hash
-    key, or two comma-separated values if there is also a range key.
-
-    When using the first form, DQL does a table query to find matching items
-    and then performs the updates. The second form performs the updates with no
-    reads necessary. If no expression is specified, DQL will perform a
-    full-table scan.
 
 **RETURNS**
     Return the items that were operated on. Default is RETURNS NONE. See the
@@ -56,23 +40,18 @@ Parameters
     <http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html>`_
     for more detail.
 
-Notes
------
-When using python expressions to set values, you may reference attributes on
-the table row:
+Update expression
+-----------------
+All update syntax is pulled directly from the AWS docs:
 
-.. code-block:: sql
+http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.Modifying.html
 
-    UPDATE foobars SET foo = `bar + 1`
+In general, you may use any syntax mentioned in the docs, but you don't need to
+worry about reserved words or passing in data as variables like ``:var1``. DQL
+will handle that for you.
 
-If you aren't sure if the attribute will exist or not, you can reference the
-row dict directly:
-
-.. code-block:: sql
-
-    us-west-1> UPDATE foobars SET foo = `row.get('bar', 0) + 1`
-
-.. warning::
-
-    This syntax will not work if you are using the ``KEYS IN`` form of the
-    query, as that performs the update without doing any table reads.
+WHERE and KEYS IN
+-----------------
+Both of these expressions are the same as in :ref:`select`. Note that using
+``KEYS IN`` is more efficient because DQL can perform the writes without doing a
+query first.
