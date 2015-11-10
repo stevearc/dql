@@ -110,7 +110,7 @@ class DQLClient(cmd.Cmd):
     _local_endpoint = None
 
     def initialize(self, region='us-west-1', host=None, port=8000,
-                   access_key=None, secret_key=None, config_dir=None):
+                   config_dir=None, session=None):
         """ Set up the repl for execution. """
         # Tab-complete names with a '-' in them
         import readline
@@ -121,9 +121,7 @@ class DQLClient(cmd.Cmd):
 
         self._conf_dir = (config_dir or
                           os.path.join(os.environ.get('HOME', '.'), '.config'))
-        self.session = botocore.session.get_session()
-        if access_key:
-            self.session.set_credentials(access_key, secret_key)
+        self.session = session or botocore.session.get_session()
         self.engine = FragmentEngine()
         if host is not None:
             self._local_endpoint = (host, port)
@@ -428,10 +426,9 @@ class DQLClient(cmd.Cmd):
     def _run_cmd(self, command):
         """ Run a DQL command """
         results = self.engine.execute(command)
-        printable_types = six.string_types + six.integer_types + (float,)
         if results is None:
             pass
-        elif isinstance(results, printable_types):
+        elif isinstance(results, six.string_types):
             six.print_(results)
         else:
             has_more = True

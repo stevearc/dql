@@ -4,14 +4,9 @@ Install DQL with pip::
 
     pip install dql
 
-Since DQL uses :mod:`botocore` under the hood, the authentication mechanism is the
-same. You may either set the ``AWS_ACCESS_KEY_ID`` and
-``AWS_SECRET_ACCESS_KEY`` environment variables, or pass them in on the command
-line:
-
-.. code-block:: bash
-
-    $ dql -a <access key> -s <secret key>
+Since DQL uses :mod:`botocore` under the hood, the authentication mechanism is
+the same. You can use the ``$HOME/.aws/credentials`` file or set the environment
+variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``.
 
 DQL uses ``us-west-1`` as the default region. You can change this by setting
 the ``AWS_REGION`` variable or passing it in on the command line:

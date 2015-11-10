@@ -1,6 +1,7 @@
 """ Execution engine """
 import time
 
+import six
 import botocore
 import logging
 from botocore.exceptions import ClientError
@@ -46,6 +47,42 @@ def iter_insert_items(tree):
             yield data
     else:
         raise SyntaxError("No insert data found")
+
+
+def plural(value, append='s'):
+    """ Helper function for pluralizing text """
+    return '' if value == 1 else append
+
+
+def pretty_format(statement, result):
+    """ Format the return value of a query for humans """
+    if result is None:
+        return 'Success'
+    if statement.action in ('SELECT', 'SCAN'):
+        if isinstance(result, Count):
+            if result == result.scanned_count:
+                return "%d" % result
+            else:
+                return "%d (scanned count: %d)" % (result,
+                                                   result.scanned_count)
+    elif statement.action == 'UPDATE':
+        if isinstance(result, six.integer_types):
+            return "Updated %d item%s" % (result, plural(result))
+    elif statement.action == 'DELETE':
+        return "Deleted %d item%s" % (result, plural(result))
+    elif statement.action == 'CREATE':
+        if result:
+            return "Created table %r" % statement.table
+        else:
+            return "Table %r already exists" % statement.table
+    elif statement.action == 'INSERT':
+        return "Inserted %d item%s" % (result, plural(result))
+    elif statement.action == 'DROP':
+        if result:
+            return "Dropped table %r" % statement.table
+        else:
+            return "Table %r does not exist" % statement.table
+    return result
 
 
 class Engine(object):
@@ -172,7 +209,7 @@ class Engine(object):
 
         return self.cached_descriptions[tablename]
 
-    def execute(self, commands):
+    def execute(self, commands, pformat=False):
         """
         Parse and run a DQL string
 
@@ -180,11 +217,15 @@ class Engine(object):
         ----------
         commands : str
             The DQL command string
+        pformat : bool
+            Pretty-format the return value. (e.g. 4 -> 'Updated 4 items')
 
         """
         tree = parser.parseString(commands)
         for statement in tree:
             result = self._run(statement)
+        if pformat:
+            return pretty_format(tree[-1], result)
         return result
 
     def _run(self, tree):
@@ -443,9 +484,9 @@ class Engine(object):
                 global_indexes=global_indexes, throughput=throughput)
         except DynamoDBError as e:
             if e.kwargs['Code'] == 'ResourceInUseException' or tree.not_exists:
-                return "Table '%s' already exists" % tablename
+                return False
             raise
-        return "Created table '%s'" % tablename
+        return True
 
     def _parse_global_index(self, clause, attrs):
         """ Parse a global index clause and return a GlobalIndex """
@@ -502,7 +543,7 @@ class Engine(object):
             for item in iter_insert_items(tree):
                 batch.put(item)
                 count += 1
-        return "Inserted %d items" % count
+        return count
 
     def _drop(self, tree):
         """ Run a DROP statement """
@@ -511,9 +552,9 @@ class Engine(object):
             self.connection.delete_table(tablename)
         except DynamoDBError as e:
             if e.kwargs['Code'] == 'ResourceNotFoundException' and tree.exists:
-                return "Table '%s' does not exist" % tablename
+                return False
             raise
-        return "Dropped table '%s'" % tablename
+        return True
 
     def _set_throughput(self, tablename, read, write, index_name=None):
         """ Set the read/write throughput on a table or global index """
@@ -571,7 +612,6 @@ class Engine(object):
             self.connection.update_table(tree.table, index_updates=updates)
         else:
             raise SyntaxError("No alter command found")
-        return 'success'
 
     def _dump(self, tree):
         """ Run a DUMP statement """
@@ -607,7 +647,7 @@ class FragmentEngine(Engine):
         """ Clear any query fragments from the engine """
         self.fragments = ''
 
-    def execute(self, fragment):
+    def execute(self, fragment, pformat=True):
         """
         Run or aggregate a query fragment
 
@@ -624,7 +664,8 @@ class FragmentEngine(Engine):
         else:
             self.last_query = self.fragments.strip()
             self.fragments = ''
-            return super(FragmentEngine, self).execute(self.last_query)
+            return super(FragmentEngine, self).execute(self.last_query,
+                                                       pformat)
         return None
 
     def pformat_exc(self, exc):

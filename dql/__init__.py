@@ -6,7 +6,7 @@ import argparse
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 
 
 def main():
@@ -21,15 +21,12 @@ def main():
                        "(default %(default)s)")
     parse.add_argument('-p', '--port', default=8000, type=int,
                        help="Port to connect to "
-                       "(default %(default)s)")
-    parse.add_argument('-a', '--access-key', help="Your AWS access key id")
-    parse.add_argument('-s', '--secret-key', help="Your AWS secret access key")
+                       "(default %(default)d)")
 
     args = parse.parse_args()
 
     cli = DQLClient()
-    cli.initialize(region=args.region, host=args.host, port=args.port,
-                   access_key=args.access_key, secret_key=args.secret_key)
+    cli.initialize(region=args.region, host=args.host, port=args.port)
 
     if args.command:
         cli.onecmd(args.command)
