@@ -426,10 +426,9 @@ class DQLClient(cmd.Cmd):
     def _run_cmd(self, command):
         """ Run a DQL command """
         results = self.engine.execute(command)
-        printable_types = six.string_types + six.integer_types + (float,)
         if results is None:
             pass
-        elif isinstance(results, printable_types):
+        elif isinstance(results, six.string_types):
             six.print_(results)
         else:
             has_more = True
