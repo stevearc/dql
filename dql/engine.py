@@ -537,7 +537,9 @@ class Engine(object):
             return desc
         desc = get_desc()
 
-        num_or_star = lambda v: 0 if v == '*' else resolve(v)
+        def num_or_star(value):
+            """ Convert * to 0, otherwise resolve a number """
+            return 0 if value == '*' else resolve(value)
         read = num_or_star(read)
         write = num_or_star(write)
         if read <= 0:
