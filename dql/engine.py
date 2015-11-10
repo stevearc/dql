@@ -1,6 +1,7 @@
 """ Execution engine """
 import time
 
+import six
 import botocore
 import logging
 from botocore.exceptions import ClientError
@@ -13,7 +14,7 @@ from .constants import RESERVED_WORDS
 from .expressions import ConstraintExpression, UpdateExpression, Visitor
 from .grammar import parser, line_parser
 from .models import TableMeta, Count
-from .util import resolve, pretty_format
+from .util import resolve
 
 
 LOG = logging.getLogger(__name__)
@@ -46,6 +47,42 @@ def iter_insert_items(tree):
             yield data
     else:
         raise SyntaxError("No insert data found")
+
+
+def plural(value, append='s'):
+    """ Helper function for pluralizing text """
+    return '' if value == 1 else append
+
+
+def pretty_format(statement, result):
+    """ Format the return value of a query for humans """
+    if result is None:
+        return 'Success'
+    if statement.action in ('SELECT', 'SCAN'):
+        if isinstance(result, Count):
+            if result == result.scanned_count:
+                return "%d" % result
+            else:
+                return "%d (scanned count: %d)" % (result,
+                                                   result.scanned_count)
+    elif statement.action == 'UPDATE':
+        if isinstance(result, six.integer_types):
+            return "Updated %d item%s" % (result, plural(result))
+    elif statement.action == 'DELETE':
+        return "Deleted %d item%s" % (result, plural(result))
+    elif statement.action == 'CREATE':
+        if result:
+            return "Created table %r" % statement.table
+        else:
+            return "Table %r already exists" % statement.table
+    elif statement.action == 'INSERT':
+        return "Inserted %d item%s" % (result, plural(result))
+    elif statement.action == 'DROP':
+        if result:
+            return "Dropped table %r" % statement.table
+        else:
+            return "Table %r does not exist" % statement.table
+    return result
 
 
 class Engine(object):

@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.1
+-----
+* Pretty-format non-item query return values (such as count)
+* Disable passing AWS credentials on the command line
+
 0.5.0
 -----
 * **Breakage**: New syntax for SELECT, SCAN, UPDATE, DELETE
