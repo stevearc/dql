@@ -275,7 +275,7 @@ class Engine(object):
         if attr_list == ['COUNT(*)']:
             kwargs['select'] = 'COUNT'
         elif attr_list != ['*']:
-            kwargs['attributes'] = map(visitor.get_field, tree.attrs.asList())
+            kwargs['attributes'] = [visitor.get_field(a) for a in tree.attrs.asList()]
 
         if tree.keys_in:
             if tree.limit:
@@ -421,7 +421,7 @@ class Engine(object):
                         factory = LocalIndex.keys
                     elif index_type[0] == 'INCLUDE':
                         factory = LocalIndex.include
-                        kwargs['includes'] = map(resolve, index.include_vars)
+                        kwargs['includes'] = [resolve(v) for v in index.include_vars]
                     index_name = resolve(index[1])
                     field = DynamoKey(name, data_type=TYPES[type_])
                     idx = factory(index_name, field, **kwargs)
@@ -491,7 +491,7 @@ class Engine(object):
             if not clause.include_vars:
                 raise SyntaxError("Include index %r missing include fields" %
                                   name)
-            kwargs['includes'] = map(resolve, clause.include_vars)
+            kwargs['includes'] = [resolve(v) for v in clause.include_vars]
         return factory(name, g_hash_key, g_range_key, **kwargs)
 
     def _insert(self, tree):
