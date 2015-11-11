@@ -150,18 +150,19 @@ class Engine(object):
     def _get_metric(self, metric, tablename, index_name=None):
         """ Fetch a read/write capacity metric """
         end = time.time()
-        begin = end - 20 * 60  # 20 minute window
+        begin = end - 3 * 60  # 3 minute window
         dimensions = [{'Name': 'TableName', 'Value': tablename}]
         if index_name is not None:
             dimensions.append({'Name': 'GlobalSecondaryIndexName',
                                'Value': index_name})
+        period = 60
         data = self.cloudwatch_connection.get_metric_statistics(
-            Period=60,
+            Period=period,
             StartTime=begin,
             EndTime=end,
             MetricName=metric,
             Namespace='AWS/DynamoDB',
-            Statistics=['Average'],
+            Statistics=['Sum'],
             Dimensions=dimensions,
         )
         points = data['Datapoints']
@@ -169,7 +170,7 @@ class Engine(object):
             return 0
         else:
             points.sort(key=lambda r: r['Timestamp'])
-            return points[-1]['Average']
+            return float(points[-1]['Sum']) / period
 
     def get_capacity(self, tablename, index_name=None):
         """ Get the consumed read/write capacity """

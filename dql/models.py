@@ -8,6 +8,14 @@ from dynamo3 import TYPES_REV
 from dynamo3.fields import snake_to_camel
 
 
+def format_throughput(available, used=None):
+    """ Format the read/write throughput for display """
+    if used is None:
+        return str(available)
+    percent = float(used) / available
+    return '{0:.0f}/{1:.0f} ({2:.0%})'.format(used, available, percent)
+
+
 class Count(int):
 
     """ Wrapper for response to query with Select=COUNT """
@@ -235,22 +243,29 @@ class GlobalIndex(object):
                  self.range_key, self.read_throughput, self.write_throughput,
                  self.includes))
 
-    def pformat(self):
+    def pformat(self, consumed_capacity=None):
         """ Pretty format for insertion into table pformat """
-        parts = ['GLOBAL', self.index_type, 'INDEX', self.status, self.name]
-        keys = "(%s" % self.hash_key.name
-        if self.range_key is not None:
-            keys += ", %s" % self.range_key.name
-        if self.includes is not None:
-            keys += ', [%s]' % ', '.join(("'%s'" % i for i in self.includes))
-        keys += ')'
-        parts.append(keys)
+        consumed_capacity = consumed_capacity or {}
+        lines = []
+        parts = ['GLOBAL', self.index_type, 'INDEX', self.name]
         if self.status != 'ACTIVE':
-            parts.append('[' + self.status + ']')
-        parts.extend(['THROUGHPUT', "(%d, %d)" % (self.read_throughput,
-                                                  self.write_throughput)])
+            parts.insert(0, "[%s]" % self.status)
+        lines.append(' '.join(parts))
+        lines.append('  items: {0:,} ({1:,} bytes)'.format(self.item_count,
+                                                           self.size))
+        read = 'Read: ' + format_throughput(self.read_throughput,
+                                            consumed_capacity.get('read'))
+        write = 'Write: ' + format_throughput(self.write_throughput,
+                                              consumed_capacity.get('write'))
+        lines.append('  ' + read + '  ' + write)
+        lines.append('  ' + self.hash_key.schema)
+        if self.range_key is not None:
+            lines.append('  ' + self.range_key.schema)
 
-        return ' '.join(parts)
+        if self.includes is not None:
+            keys = '[%s]' % ', '.join(("'%s'" % i for i in self.includes))
+            lines.append("  Projection: %s" % keys)
+        return '\n'.join(lines)
 
     @property
     def schema(self):
@@ -511,39 +526,27 @@ class TableMeta(object):
         lines.append(("%s (%s)" % (self.name, self.status)).center(50, '-'))
         lines.append('items: {0:,} ({1:,} bytes)'.format(self.item_count,
                                                          self.size))
-        lines.append('read/write avail: %d/%d' % (self.read_throughput,
-                                                  self.write_throughput))
-        cap = self.consumed_capacity.get('__table__')
-        if cap is not None:
-            read_percent = cap['read'] / self.read_throughput
-            write_percent = (cap['write'] / self.write_throughput)
-            lines.append('read/write usage: {0:.0f}/{1:.0f} ({2:.0%}/{3:.0%})'
-                         .format(cap['read'], cap['write'], read_percent,
-                                 write_percent))
-        lines.append('decreases today: %d' % self.decreases_today)
+        cap = self.consumed_capacity.get('__table__', {})
+        read = 'Read: ' + format_throughput(self.read_throughput,
+                                            cap.get('read'))
+        write = 'Write: ' + format_throughput(self.write_throughput,
+                                              cap.get('write'))
+        lines.append(read + '  ' + write)
+        if self.decreases_today > 0:
+            lines.append('decreases today: %d' % self.decreases_today)
 
-        for index_name, gindex in six.iteritems(self.global_indexes):
-            lines.append(gindex.pformat())
-            cap = self.consumed_capacity.get(index_name)
-            if cap is not None:
-                read_percent = cap['read'] / gindex.read_throughput
-                write_percent = (cap['write'] / gindex.write_throughput)
-                lines.append('  r/w usage: {0:.0f}/{1:.0f} ({2:.0%}/{3:.0%})'
-                             .format(cap['read'], cap['write'], read_percent,
-                                     write_percent))
-
-        if self.hash_key is not None:
+        if self.range_key is None:
             lines.append(str(self.hash_key))
-        if self.range_key is not None:
-            lines.append(str(self.range_key))
+        else:
+            lines.append("%s, %s" % (self.hash_key, self.range_key))
 
         for field in six.itervalues(self.attrs):
             if field.key_type == 'INDEX':
                 lines.append(str(field))
 
-        for field in six.itervalues(self.attrs):
-            if field.key_type is None:
-                lines.append(str(field))
+        for index_name, gindex in six.iteritems(self.global_indexes):
+            cap = self.consumed_capacity.get(index_name)
+            lines.append(gindex.pformat(cap))
 
         return '\n'.join(lines)
 
