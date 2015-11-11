@@ -89,6 +89,18 @@ DUMP = """
     DUMP SCHEMA foobars, widgets;
 """
 
+EXPLAIN = """
+    Print out the DynamoDB queries that will be executed for a command
+
+    EXPLAIN query
+
+    Examples
+    --------
+    EXPLAIN SELECT * FROM foobars WHERE id = 'a';
+    EXPLAIN INSERT INTO foobars (id, name) VALUES (1, 'dsa');
+    EXPLAIN DELETE FROM foobars KEYS IN ('foo', 'bar'), ('baz', 'qux');
+"""
+
 INSERT = """
     Insert data into a table
 

@@ -12,6 +12,7 @@ Queries
     delete
     drop
     dump
+    explain
     insert
     scan
     select

@@ -8,12 +8,12 @@ from botocore.exceptions import ClientError
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
                      IndexUpdate)
+from dynamo3.constants import RESERVED_WORDS
 from pyparsing import ParseException
 
-from .constants import RESERVED_WORDS
 from .expressions import ConstraintExpression, UpdateExpression, Visitor
 from .grammar import parser, line_parser
-from .models import TableMeta, Count
+from .models import TableMeta, Count, Explanation
 from .util import resolve
 
 
@@ -82,6 +82,8 @@ def pretty_format(statement, result):
             return "Dropped table %r" % statement.table
         else:
             return "Table %r does not exist" % statement.table
+    elif statement.action == 'EXPLAIN':
+        return '\n'.join([str(r) for r in result])
     return result
 
 
@@ -228,26 +230,28 @@ class Engine(object):
             return pretty_format(tree[-1], result)
         return result
 
-    def _run(self, tree):
+    def _run(self, tree, explain=False):
         """ Run a query from a parse tree """
         if tree.action == 'SELECT':
-            return self._select(tree, self.allow_select_scan)
+            return self._select(tree, explain, self.allow_select_scan)
         elif tree.action == 'SCAN':
-            return self._scan(tree)
+            return self._scan(tree, explain)
         elif tree.action == 'DELETE':
-            return self._delete(tree)
+            return self._delete(tree, explain)
         elif tree.action == 'UPDATE':
-            return self._update(tree)
+            return self._update(tree, explain)
         elif tree.action == 'CREATE':
-            return self._create(tree)
+            return self._create(tree, explain)
         elif tree.action == 'INSERT':
-            return self._insert(tree)
+            return self._insert(tree, explain)
         elif tree.action == 'DROP':
-            return self._drop(tree)
+            return self._drop(tree, explain)
         elif tree.action == 'ALTER':
-            return self._alter(tree)
+            return self._alter(tree, explain)
         elif tree.action == 'DUMP':
             return self._dump(tree)
+        elif tree.action == 'EXPLAIN':
+            return self._run(tree[1], True)
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
@@ -303,11 +307,13 @@ class Engine(object):
         for keypair in tree.keys_in:
             yield desc.primary_key(*map(resolve, keypair))
 
-    def _select(self, tree, allow_select_scan):
+    def _select(self, tree, explain, allow_select_scan):
         """ Run a SELECT statement """
         tablename = tree.table
         desc = self.describe(tablename)
-        kwargs = {}
+        kwargs = {
+            'dry_run': explain,
+        }
         if tree.consistent:
             kwargs['consistent'] = True
 
@@ -328,7 +334,10 @@ class Engine(object):
             elif tree.where:
                 raise SyntaxError("Cannot use WHERE with KEYS IN")
             keys = list(self._iter_where_in(tree))
-            return self.connection.batch_get(tablename, keys=keys, **kwargs)
+            ret = self.connection.batch_get(tablename, keys=keys, **kwargs)
+            if explain:
+                return [Explanation.from_response(ret)]
+            return ret
 
         if tree.limit:
             kwargs['limit'] = resolve(tree.limit[1])
@@ -351,20 +360,24 @@ class Engine(object):
             kwargs['alias'] = visitor.attribute_names
         method = getattr(self.connection, action + '2')
         ret = method(tablename, **kwargs)
+        if explain:
+            return [Explanation.from_response(ret)]
         if kwargs.get('select') == 'COUNT':
             return Count.from_response(ret)
         return ret
 
-    def _scan(self, tree):
+    def _scan(self, tree, explain):
         """ Run a SCAN statement """
-        return self._select(tree, True)
+        return self._select(tree, explain, True)
 
-    def _query_and_op(self, tree, table, method_name, method_kwargs):
+    def _query_and_op(self, tree, table, method_name, method_kwargs, explain):
         """ Query the table and perform an operation on each item """
+        result = []
         if tree.keys_in:
             if tree.using:
                 raise SyntaxError("Cannot use USING with KEYS IN")
-            keys = self._iter_where_in(tree)
+            if not explain:
+                keys = self._iter_where_in(tree)
         else:
             visitor = Visitor(self.reserved_words)
             (action, kwargs) = self._build_query(table, tree,
@@ -379,12 +392,17 @@ class Engine(object):
                 kwargs['alias'] = visitor.attribute_names
 
             method = getattr(self.connection, action + '2')
-            keys = method(table.name, **kwargs)
+            if explain:
+                result.append(Explanation.from_response(method(table.name, dry_run=True, **kwargs)))
+            else:
+                keys = method(table.name, **kwargs)
 
+        method = getattr(self.connection, method_name)
+        if explain:
+            result.append(Explanation.from_response(method(table.name, {}, dry_run=True, **method_kwargs)))
+            return result
         count = 0
-        result = []
         for key in keys:
-            method = getattr(self.connection, method_name)
             try:
                 ret = method(table.name, key, **method_kwargs)
             except CheckFailed:
@@ -397,7 +415,7 @@ class Engine(object):
         else:
             return count
 
-    def _delete(self, tree):
+    def _delete(self, tree, explain):
         """ Run a DELETE statement """
         tablename = tree.table
         table = self.describe(tablename)
@@ -409,9 +427,9 @@ class Engine(object):
         kwargs['expr_values'] = visitor.expression_values
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
-        return self._query_and_op(tree, table, 'delete_item2', kwargs)
+        return self._query_and_op(tree, table, 'delete_item2', kwargs, explain)
 
-    def _update(self, tree):
+    def _update(self, tree, explain):
         """ Run an UPDATE statement """
         tablename = tree.table
         table = self.describe(tablename)
@@ -431,9 +449,9 @@ class Engine(object):
         kwargs['expr_values'] = visitor.expression_values
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
-        return self._query_and_op(tree, table, 'update_item2', kwargs)
+        return self._query_and_op(tree, table, 'update_item2', kwargs, explain)
 
-    def _create(self, tree):
+    def _create(self, tree, explain):
         """ Run a SELECT statement """
         tablename = tree.table
         attrs = []
@@ -479,9 +497,11 @@ class Engine(object):
             throughput = Throughput(*map(resolve, tree.throughput))
 
         try:
-            self.connection.create_table(
+            ret = self.connection.create_table(
                 tablename, hash_key, range_key, indexes=indexes,
-                global_indexes=global_indexes, throughput=throughput)
+                global_indexes=global_indexes, throughput=throughput, dry_run=explain)
+            if explain:
+                return [Explanation.from_response(ret)]
         except DynamoDBError as e:
             if e.kwargs['Code'] == 'ResourceInUseException' or tree.not_exists:
                 return False
@@ -535,18 +555,22 @@ class Engine(object):
             kwargs['includes'] = [resolve(v) for v in clause.include_vars]
         return factory(name, g_hash_key, g_range_key, **kwargs)
 
-    def _insert(self, tree):
+    def _insert(self, tree, explain):
         """ Run an INSERT statement """
         tablename = tree.table
         count = 0
-        with self.connection.batch_write(tablename) as batch:
+        with self.connection.batch_write(tablename, dry_run=explain) as batch:
             for item in iter_insert_items(tree):
                 batch.put(item)
                 count += 1
+        if explain:
+            return [Explanation.from_response(c) for c in batch.calls]
         return count
 
-    def _drop(self, tree):
+    def _drop(self, tree, explain):
         """ Run a DROP statement """
+        if explain:
+            return [Explanation('DeleteTable')]
         tablename = tree.table
         try:
             self.connection.delete_table(tablename)
@@ -556,19 +580,7 @@ class Engine(object):
             raise
         return True
 
-    def _set_throughput(self, tablename, read, write, index_name=None):
-        """ Set the read/write throughput on a table or global index """
-
-        throughput = Throughput(read, write)
-        if index_name:
-            self.connection.update_table(tablename,
-                                         global_indexes={
-                                             index_name: throughput,
-                                         })
-        else:
-            self.connection.update_table(tablename, throughput)
-
-    def _update_throughput(self, tablename, read, write, index=None, wait=True):
+    def _update_throughput(self, tablename, read, write, index, explain):
         """ Update the throughput on a table or index """
         def get_desc():
             """ Get the table or global index description """
@@ -587,31 +599,47 @@ class Engine(object):
             read = desc.read_throughput
         if write <= 0:
             write = desc.write_throughput
-        self._set_throughput(tablename, read, write, index)
+
+        throughput = Throughput(read, write)
+        kwargs = {
+            'dry_run': explain,
+        }
+        if index:
+            kwargs['global_indexes'] = {
+                index: throughput,
+            }
+        else:
+            kwargs['throughput'] = throughput
+        ret = self.connection.update_table(tablename, **kwargs)
+        if explain:
+            return ret
+
         desc = get_desc()
         while desc.status == 'UPDATING':  # pragma: no cover
             time.sleep(5)
             desc = get_desc()
 
-    def _alter(self, tree):
+    def _alter(self, tree, explain):
         """ Run an ALTER statement """
         if tree.throughput:
             [read, write] = tree.throughput
             index = None
             if tree.index:
                 index = tree.index
-            self._update_throughput(tree.table, read, write, index)
+            ret = self._update_throughput(tree.table, read, write, index, explain)
         elif tree.drop_index:
             updates = [IndexUpdate.delete(tree.drop_index[0])]
-            self.connection.update_table(tree.table, index_updates=updates)
+            ret = self.connection.update_table(tree.table, index_updates=updates, dry_run=explain)
         elif tree.create_index:
             # GlobalIndex
             attrs = {}
             index = self._parse_global_index(tree.create_index, attrs)
             updates = [IndexUpdate.create(index)]
-            self.connection.update_table(tree.table, index_updates=updates)
+            ret = self.connection.update_table(tree.table, index_updates=updates, dry_run=explain)
         else:
             raise SyntaxError("No alter command found")
+        if explain:
+            return [Explanation.from_response(ret)]
 
     def _dump(self, tree):
         """ Run a DUMP statement """

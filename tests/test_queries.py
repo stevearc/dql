@@ -22,6 +22,13 @@ class TestQueries(BaseSystemTest):
         self.query("DROP TABLE foobar")
         self.query("DROP TABLE IF EXISTS foobar")
 
+    def test_explain_drop(self):
+        """ EXPLAIN DROP """
+        ret = self.query("EXPLAIN DROP TABLE foobar")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'DeleteTable')
+        self.assertEqual(ret[0].kwargs, {})
+
     def test_dump(self):
         """ DUMP SCHEMA generates 'create' statements """
         self.query("CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
@@ -130,6 +137,20 @@ class TestAlter(BaseSystemTest):
         self.assertEquals(index.read_throughput, 2)
         self.assertEquals(index.write_throughput, 3)
 
+    def test_explain_throughput(self):
+        """ EXPLAIN ALTER """
+        ret = self.query("EXPLAIN ALTER TABLE foobar SET THROUGHPUT (2, 2)")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'UpdateTable')
+        self.assertTrue('ProvisionedThroughput' in ret[0].kwargs)
+
+    def test_explain_create_index(self):
+        """ EXPLAIN ALTER create index """
+        ret = self.query("EXPLAIN ALTER TABLE foobar CREATE GLOBAL INDEX('foo_index', baz STRING)")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'UpdateTable')
+        self.assertTrue('GlobalSecondaryIndexUpdates' in ret[0].kwargs)
+
 
 class TestInsert(BaseSystemTest):
 
@@ -156,6 +177,12 @@ class TestInsert(BaseSystemTest):
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'baz': 4}])
+
+    def test_explain(self):
+        """ EXPLAIN INSERT """
+        ret = self.query("EXPLAIN INSERT INTO foobar (id) VALUES ('a')")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'BatchWriteItem')
 
 
 class TestSelect(BaseSystemTest):
@@ -336,6 +363,20 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(count, 1)
         self.assertEqual(count.scanned_count, 2)
 
+    def test_explain_select(self):
+        """ EXPLAIN SELECT """
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN SELECT * FROM foobar WHERE id = 'a'")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'Query')
+
+    def test_explain_select_keys_in(self):
+        """ EXPLAIN SELECT KEYS IN"""
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN SELECT * FROM foobar KEYS IN 'a', 'b'")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'BatchGetItem')
+
 
 class TestSelectScan(BaseSystemTest):
 
@@ -480,6 +521,13 @@ class TestSelectScan(BaseSystemTest):
         self._run("* FROM foobar WHERE bar.b = 2",
                   [{'id': 'b', 'bar': {'b': 2}}])
 
+    def test_explain_scan(self):
+        """ EXPLAIN SELECT """
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN SELECT * FROM foobar WHERE bar = 'a'")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'Scan')
+
 
 class TestCreate(BaseSystemTest):
 
@@ -606,6 +654,12 @@ class TestCreate(BaseSystemTest):
         self.assertEquals(desc.global_indexes, {
             'myindex': gindex,
         })
+
+    def test_create_explain(self):
+        """ EXPLAIN CREATE """
+        ret = self.query("EXPLAIN CREATE TABLE foobar (id STRING HASH KEY)")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'CreateTable')
 
 
 class TestUpdate(BaseSystemTest):
@@ -762,6 +816,31 @@ class TestUpdate(BaseSystemTest):
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1, 'ts': 3}])
 
+    def test_explain_update(self):
+        """ EXPLAIN UPDATE """
+        self.make_table()
+        ret = self.query("EXPLAIN UPDATE foobar SET baz = 1 WHERE id = 'a'")
+        self.assertEqual(len(ret), 2)
+        query, update = ret
+        self.assertEqual(query.command, 'Query')
+        self.assertEqual(update.command, 'UpdateItem')
+
+    def test_explain_update_get(self):
+        """ EXPLAIN UPDATE batch get item """
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN UPDATE foobar SET baz = 1 KEYS IN 'a', 'b'")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'UpdateItem')
+
+    def test_explain_update_scan(self):
+        """ EXPLAIN UPDATE scan """
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN UPDATE foobar SET baz = 1 where bar='a'")
+        self.assertEqual(len(ret), 2)
+        scan, update = ret
+        self.assertEqual(scan.command, 'Scan')
+        self.assertEqual(update.command, 'UpdateItem')
+
 
 class TestDelete(BaseSystemTest):
 
@@ -818,3 +897,28 @@ class TestDelete(BaseSystemTest):
                    "USING ts-index")
         items = list(self.dynamo.scan(table))
         self.assertEqual(len(items), 0)
+
+    def test_explain_delete_query(self):
+        """ EXPLAIN DELETE query """
+        self.make_table()
+        ret = self.query("EXPLAIN DELETE FROM foobar WHERE id = 'a'")
+        self.assertEqual(len(ret), 2)
+        query, update = ret
+        self.assertEqual(query.command, 'Query')
+        self.assertEqual(update.command, 'DeleteItem')
+
+    def test_explain_delete_get(self):
+        """ EXPLAIN DELETE batch get item """
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN DELETE FROM foobar KEYS IN 'a', 'b'")
+        self.assertEqual(len(ret), 1)
+        self.assertEqual(ret[0].command, 'DeleteItem')
+
+    def test_explain_delete_scan(self):
+        """ EXPLAIN DELETE scan """
+        self.make_table(range_key=None)
+        ret = self.query("EXPLAIN DELETE FROM foobar")
+        self.assertEqual(len(ret), 2)
+        scan, update = ret
+        self.assertEqual(scan.command, 'Scan')
+        self.assertEqual(update.command, 'DeleteItem')

@@ -13,7 +13,7 @@ from pyparsing import ParseException
 
 from .engine import FragmentEngine
 from .help import (ALTER, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
-                   SELECT, UPDATE, OPTIONS)
+                   SELECT, UPDATE, OPTIONS, EXPLAIN)
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
 
@@ -477,6 +477,10 @@ class DQLClient(cmd.Cmd):
     def help_dump(self):
         """ Print the help text for DUMP """
         six.print_(DUMP)
+
+    def help_explain(self):
+        """ Print the help text for EXPLAIN """
+        six.print_(EXPLAIN)
 
     def help_insert(self):
         """ Print the help text for INSERT """

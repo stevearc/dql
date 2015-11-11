@@ -200,17 +200,16 @@ def create_dump():
 
 def create_parser():
     """ Create the language parser """
-    dql = (create_select() |
-           create_scan() |
-           create_delete() |
-           create_update() |
-           create_create() |
-           create_insert() |
-           create_drop() |
-           create_alter() |
-           create_dump()
-           )
-
+    core = (create_select() |
+            create_scan() |
+            create_delete() |
+            create_update() |
+            create_create() |
+            create_insert() |
+            create_drop() |
+            create_alter() |
+            create_dump())
+    dql = (upkey('explain').setResultsName('action') + Group(core) | core)
     dql.ignore('--' + restOfLine)
 
     return dql
