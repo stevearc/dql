@@ -1,23 +1,29 @@
 """ Execution engine """
 import time
 
-import six
 import botocore
 import logging
+import six
 from botocore.exceptions import ClientError
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
                      IndexUpdate)
+from dynamo3.constants import RESERVED_WORDS
+from pprint import pformat
 from pyparsing import ParseException
 
-from .constants import RESERVED_WORDS
 from .expressions import ConstraintExpression, UpdateExpression, Visitor
 from .grammar import parser, line_parser
-from .models import TableMeta, Count
+from .models import TableMeta
 from .util import resolve
 
 
 LOG = logging.getLogger(__name__)
+
+
+class ExplainSignal(Exception):
+    """ Thrown to stop a query when we're doing an EXPLAIN """
+    pass
 
 
 def add_query_kwargs(kwargs, visitor, constraints, index):
@@ -54,37 +60,6 @@ def plural(value, append='s'):
     return '' if value == 1 else append
 
 
-def pretty_format(statement, result):
-    """ Format the return value of a query for humans """
-    if result is None:
-        return 'Success'
-    if statement.action in ('SELECT', 'SCAN'):
-        if isinstance(result, Count):
-            if result == result.scanned_count:
-                return "%d" % result
-            else:
-                return "%d (scanned count: %d)" % (result,
-                                                   result.scanned_count)
-    elif statement.action == 'UPDATE':
-        if isinstance(result, six.integer_types):
-            return "Updated %d item%s" % (result, plural(result))
-    elif statement.action == 'DELETE':
-        return "Deleted %d item%s" % (result, plural(result))
-    elif statement.action == 'CREATE':
-        if result:
-            return "Created table %r" % statement.table
-        else:
-            return "Table %r already exists" % statement.table
-    elif statement.action == 'INSERT':
-        return "Inserted %d item%s" % (result, plural(result))
-    elif statement.action == 'DROP':
-        if result:
-            return "Dropped table %r" % statement.table
-        else:
-            return "Table %r does not exist" % statement.table
-    return result
-
-
 class Engine(object):
 
     """
@@ -98,11 +73,17 @@ class Engine(object):
     """
 
     def __init__(self, connection=None):
-        self._connection = connection
+        self._connection = None
+        self.connection = connection
         self.cached_descriptions = {}
         self._cloudwatch_connection = None
         self.allow_select_scan = False
         self.reserved_words = RESERVED_WORDS
+        self._session = None
+        self.consumed_capacities = []
+        self._call_list = []
+        self._explaining = False
+        self._analyzing = False
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
@@ -112,18 +93,22 @@ class Engine(object):
             self._session = botocore.session.get_session()
 
     @property
-    def connection(self):
-        """ Get the dynamo connection """
-        return self._connection
-
-    @property
     def region(self):
         """ Get the connected dynamo region or host """
         return self._connection.region
 
+    @property
+    def connection(self):
+        """ Get the dynamo connection """
+        return self._connection
+
     @connection.setter
     def connection(self, connection):
         """ Change the dynamo connection """
+        if connection is not None:
+            connection.subscribe('capacity', self._on_capacity_data)
+        if self._connection is not None:
+            connection.unsubscribe('capacity', self._on_capacity_data)
         self._connection = connection
         self._cloudwatch_connection = None
         self.cached_descriptions = {}
@@ -137,6 +122,46 @@ class Engine(object):
             self._cloudwatch_connection = conn
         return self._cloudwatch_connection
 
+    def _format_explain(self):
+        """ Format the results of an EXPLAIN """
+        lines = []
+        for (command, kwargs) in self._call_list:
+            lines.append(command + ' ' + pformat(kwargs))
+        return '\n'.join(lines)
+
+    def _pretty_format(self, statement, result):
+        """ Format the return value of a query for humans """
+        if result is None:
+            return 'Success'
+        ret = result
+        if statement.action in ('SELECT', 'SCAN'):
+            if isinstance(result, six.integer_types):
+                if result == result.scanned_count:
+                    ret = "%d" % result
+                else:
+                    ret = "%d (scanned count: %d)" % (result,
+                                                      result.scanned_count)
+        elif statement.action == 'UPDATE':
+            if isinstance(result, six.integer_types):
+                ret = "Updated %d item%s" % (result, plural(result))
+        elif statement.action == 'DELETE':
+            ret = "Deleted %d item%s" % (result, plural(result))
+        elif statement.action == 'CREATE':
+            if result:
+                ret = "Created table %r" % statement.table
+            else:
+                ret = "Table %r already exists" % statement.table
+        elif statement.action == 'INSERT':
+            ret = "Inserted %d item%s" % (result, plural(result))
+        elif statement.action == 'DROP':
+            if result:
+                ret = "Dropped table %r" % statement.table
+            else:
+                ret = "Table %r does not exist" % statement.table
+        elif statement.action == 'ANALYZE':
+            ret = self._pretty_format(statement[1], result)
+        return ret
+
     def describe_all(self):
         """ Describe all tables in the connected region """
         tables = self.connection.list_tables()
@@ -148,18 +173,19 @@ class Engine(object):
     def _get_metric(self, metric, tablename, index_name=None):
         """ Fetch a read/write capacity metric """
         end = time.time()
-        begin = end - 20 * 60  # 20 minute window
+        begin = end - 3 * 60  # 3 minute window
         dimensions = [{'Name': 'TableName', 'Value': tablename}]
         if index_name is not None:
             dimensions.append({'Name': 'GlobalSecondaryIndexName',
                                'Value': index_name})
+        period = 60
         data = self.cloudwatch_connection.get_metric_statistics(
-            Period=60,
+            Period=period,
             StartTime=begin,
             EndTime=end,
             MetricName=metric,
             Namespace='AWS/DynamoDB',
-            Statistics=['Average'],
+            Statistics=['Sum'],
             Dimensions=dimensions,
         )
         points = data['Datapoints']
@@ -167,7 +193,7 @@ class Engine(object):
             return 0
         else:
             points.sort(key=lambda r: r['Timestamp'])
-            return points[-1]['Average']
+            return float(points[-1]['Sum']) / period
 
     def get_capacity(self, tablename, index_name=None):
         """ Get the consumed read/write capacity """
@@ -209,7 +235,7 @@ class Engine(object):
 
         return self.cached_descriptions[tablename]
 
-    def execute(self, commands, pformat=False):
+    def execute(self, commands, pretty_format=False):
         """
         Parse and run a DQL string
 
@@ -217,15 +243,21 @@ class Engine(object):
         ----------
         commands : str
             The DQL command string
-        pformat : bool
+        pretty_format : bool
             Pretty-format the return value. (e.g. 4 -> 'Updated 4 items')
 
         """
         tree = parser.parseString(commands)
+        self.consumed_capacities = []
+        self._analyzing = False
+        self.connection.default_return_capacity = False
         for statement in tree:
-            result = self._run(statement)
-        if pformat:
-            return pretty_format(tree[-1], result)
+            try:
+                result = self._run(statement)
+            except ExplainSignal:
+                return self._format_explain()
+        if pretty_format:
+            return self._pretty_format(tree[-1], result)
         return result
 
     def _run(self, tree):
@@ -248,8 +280,43 @@ class Engine(object):
             return self._alter(tree)
         elif tree.action == 'DUMP':
             return self._dump(tree)
+        elif tree.action == 'EXPLAIN':
+            return self._explain(tree)
+        elif tree.action == 'ANALYZE':
+            self._analyzing = True
+            self.connection.default_return_capacity = True
+            return self._run(tree[1])
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
+
+    def _on_capacity_data(self, conn, command, kwargs, response, capacity):
+        """ Log the received consumed capacity data """
+        if self._analyzing:
+            self.consumed_capacities.append((command, capacity))
+
+    def _explain(self, tree):
+        """ Set up the engine to do a dry run of a query """
+        self._explaining = True
+        self._call_list = []
+        old_call = self.connection.call
+
+        def fake_call(command, **kwargs):
+            """ Replacement for connection.call that logs args """
+            if command == 'describe_table':
+                return old_call(command, **kwargs)
+            self._call_list.append((command, kwargs))
+            raise ExplainSignal
+
+        self.connection.call = fake_call
+        try:
+            ret = self._run(tree[1])
+            try:
+                list(ret)
+            except TypeError:
+                pass
+        finally:
+            self.connection.call = old_call
+            self._explaining = False
 
     def _build_query(self, table, tree, visitor):
         """ Build a scan/query from a statement """
@@ -350,10 +417,7 @@ class Engine(object):
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
         method = getattr(self.connection, action + '2')
-        ret = method(tablename, **kwargs)
-        if kwargs.get('select') == 'COUNT':
-            return Count.from_response(ret)
-        return ret
+        return method(tablename, **kwargs)
 
     def _scan(self, tree):
         """ Run a SCAN statement """
@@ -361,6 +425,7 @@ class Engine(object):
 
     def _query_and_op(self, tree, table, method_name, method_kwargs):
         """ Query the table and perform an operation on each item """
+        result = []
         if tree.keys_in:
             if tree.using:
                 raise SyntaxError("Cannot use USING with KEYS IN")
@@ -380,11 +445,15 @@ class Engine(object):
 
             method = getattr(self.connection, action + '2')
             keys = method(table.name, **kwargs)
+            if self._explaining:
+                try:
+                    list(keys)
+                except ExplainSignal:
+                    keys = [{}]
 
+        method = getattr(self.connection, method_name + '2')
         count = 0
-        result = []
         for key in keys:
-            method = getattr(self.connection, method_name)
             try:
                 ret = method(table.name, key, **method_kwargs)
             except CheckFailed:
@@ -409,7 +478,7 @@ class Engine(object):
         kwargs['expr_values'] = visitor.expression_values
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
-        return self._query_and_op(tree, table, 'delete_item2', kwargs)
+        return self._query_and_op(tree, table, 'delete_item', kwargs)
 
     def _update(self, tree):
         """ Run an UPDATE statement """
@@ -431,7 +500,7 @@ class Engine(object):
         kwargs['expr_values'] = visitor.expression_values
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
-        return self._query_and_op(tree, table, 'update_item2', kwargs)
+        return self._query_and_op(tree, table, 'update_item', kwargs)
 
     def _create(self, tree):
         """ Run a SELECT statement """
@@ -479,7 +548,7 @@ class Engine(object):
             throughput = Throughput(*map(resolve, tree.throughput))
 
         try:
-            self.connection.create_table(
+            ret = self.connection.create_table(
                 tablename, hash_key, range_key, indexes=indexes,
                 global_indexes=global_indexes, throughput=throughput)
         except DynamoDBError as e:
@@ -539,7 +608,9 @@ class Engine(object):
         """ Run an INSERT statement """
         tablename = tree.table
         count = 0
-        with self.connection.batch_write(tablename) as batch:
+        kwargs = {}
+        batch = self.connection.batch_write(tablename, **kwargs)
+        with batch:
             for item in iter_insert_items(tree):
                 batch.put(item)
                 count += 1
@@ -548,27 +619,16 @@ class Engine(object):
     def _drop(self, tree):
         """ Run a DROP statement """
         tablename = tree.table
+        kwargs = {}
         try:
-            self.connection.delete_table(tablename)
+            ret = self.connection.delete_table(tablename, **kwargs)
         except DynamoDBError as e:
             if e.kwargs['Code'] == 'ResourceNotFoundException' and tree.exists:
                 return False
             raise
         return True
 
-    def _set_throughput(self, tablename, read, write, index_name=None):
-        """ Set the read/write throughput on a table or global index """
-
-        throughput = Throughput(read, write)
-        if index_name:
-            self.connection.update_table(tablename,
-                                         global_indexes={
-                                             index_name: throughput,
-                                         })
-        else:
-            self.connection.update_table(tablename, throughput)
-
-    def _update_throughput(self, tablename, read, write, index=None, wait=True):
+    def _update_throughput(self, tablename, read, write, index):
         """ Update the throughput on a table or index """
         def get_desc():
             """ Get the table or global index description """
@@ -587,7 +647,16 @@ class Engine(object):
             read = desc.read_throughput
         if write <= 0:
             write = desc.write_throughput
-        self._set_throughput(tablename, read, write, index)
+
+        throughput = Throughput(read, write)
+        kwargs = {}
+        if index:
+            kwargs['global_indexes'] = {
+                index: throughput,
+            }
+        else:
+            kwargs['throughput'] = throughput
+        self.connection.update_table(tablename, **kwargs)
         desc = get_desc()
         while desc.status == 'UPDATING':  # pragma: no cover
             time.sleep(5)
@@ -603,13 +672,15 @@ class Engine(object):
             self._update_throughput(tree.table, read, write, index)
         elif tree.drop_index:
             updates = [IndexUpdate.delete(tree.drop_index[0])]
-            self.connection.update_table(tree.table, index_updates=updates)
+            self.connection.update_table(tree.table,
+                                         index_updates=updates)
         elif tree.create_index:
             # GlobalIndex
             attrs = {}
             index = self._parse_global_index(tree.create_index, attrs)
             updates = [IndexUpdate.create(index)]
-            self.connection.update_table(tree.table, index_updates=updates)
+            self.connection.update_table(tree.table,
+                                         index_updates=updates)
         else:
             raise SyntaxError("No alter command found")
 
@@ -647,7 +718,7 @@ class FragmentEngine(Engine):
         """ Clear any query fragments from the engine """
         self.fragments = ''
 
-    def execute(self, fragment, pformat=True):
+    def execute(self, fragment, pretty_format=True):
         """
         Run or aggregate a query fragment
 
@@ -665,7 +736,7 @@ class FragmentEngine(Engine):
             self.last_query = self.fragments.strip()
             self.fragments = ''
             return super(FragmentEngine, self).execute(self.last_query,
-                                                       pformat)
+                                                       pretty_format)
         return None
 
     def pformat_exc(self, exc):

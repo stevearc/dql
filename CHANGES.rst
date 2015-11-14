@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.2
+-----
+* EXPLAIN <query> will print out the DynamoDB calls that will be made when you run the query
+* ANALYZE <query> will run the query and print out consumed capacity information
+
 0.5.1
 -----
 * Pretty-format non-item query return values (such as count)

@@ -8,10 +8,12 @@ Queries
     :glob:
 
     alter
+    analyze
     create
     delete
     drop
     dump
+    explain
     insert
     scan
     select

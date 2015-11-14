@@ -12,8 +12,8 @@ import six
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
-from .help import (ALTER, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
-                   SELECT, UPDATE, OPTIONS)
+from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
+                   SELECT, UPDATE, OPTIONS, EXPLAIN)
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
 
@@ -35,6 +35,11 @@ REGIONS = [
     'ap-northeast-1',
     'sa-east-1',
 ]
+
+
+def indent(string, prefix='  '):
+    """ Indent a paragraph of text """
+    return '\n'.join([prefix + line for line in string.split('\n')])
 
 
 def repl_command(fxn):
@@ -438,6 +443,16 @@ class DQLClient(cmd.Cmd):
                 if has_more:
                     raw_input("Press return for next %d results:" %
                               self.formatter.pagesize)
+        print_count = 0
+        total = None
+        for (command, capacity) in self.engine.consumed_capacities:
+            total += capacity
+            six.print_(command)
+            six.print_(indent(str(capacity)))
+            print_count += 1
+        if print_count > 1:
+            six.print_('TOTAL')
+            six.print_(indent(str(total)))
 
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
@@ -462,6 +477,10 @@ class DQLClient(cmd.Cmd):
         """ Print the help text for ALTER """
         six.print_(ALTER)
 
+    def help_analyze(self):
+        """ Print the help text for ALTER """
+        six.print_(ANALYZE)
+
     def help_create(self):
         """ Print the help text for CREATE """
         six.print_(CREATE)
@@ -477,6 +496,10 @@ class DQLClient(cmd.Cmd):
     def help_dump(self):
         """ Print the help text for DUMP """
         six.print_(DUMP)
+
+    def help_explain(self):
+        """ Print the help text for EXPLAIN """
+        six.print_(EXPLAIN)
 
     def help_insert(self):
         """ Print the help text for INSERT """

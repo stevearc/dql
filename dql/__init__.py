@@ -6,7 +6,7 @@ import argparse
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 
 def main():
@@ -29,6 +29,9 @@ def main():
     cli.initialize(region=args.region, host=args.host, port=args.port)
 
     if args.command:
-        cli.onecmd(args.command)
+        command = args.command.strip()
+        if not command.endswith(';'):
+            command += ';'
+        cli.onecmd(command)
     else:
         cli.start()
