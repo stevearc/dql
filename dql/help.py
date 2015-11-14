@@ -143,6 +143,7 @@ SELECT = """
         [ KEYS IN primary_keys | WHERE expression ]
         [ USING index ]
         [ LIMIT limit ]
+        [ ORDER BY field ]
         [ ASC | DESC ]
 
     Examples

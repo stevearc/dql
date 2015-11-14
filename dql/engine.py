@@ -340,8 +340,9 @@ class Engine(object):
                     if visitor.attribute_names:
                         kwargs['alias'] = visitor.attribute_names
                 elif len(indexes) == 1:
+                    index = indexes[0]
                     action = 'query'
-                    add_query_kwargs(kwargs, visitor, constraints, indexes[0])
+                    add_query_kwargs(kwargs, visitor, constraints, index)
                 else:
                     names = ', '.join([index.name for index in indexes])
                     raise SyntaxError("No index specified with USING <index>, "
@@ -362,7 +363,7 @@ class Engine(object):
                         kwargs['alias'] = visitor.attribute_names
         else:
             action = 'scan'
-        return [action, kwargs]
+        return [action, kwargs, index]
 
     def _iter_where_in(self, tree):
         """ Iterate over the KEYS IN and generate primary keys """
@@ -400,16 +401,23 @@ class Engine(object):
         if tree.limit:
             kwargs['limit'] = resolve(tree.limit[1])
 
-        (action, query_kwargs) = self._build_query(desc, tree, visitor)
+        (action, query_kwargs, index) = self._build_query(desc, tree, visitor)
         if action == 'scan' and not allow_select_scan:
             raise SyntaxError(
                 "No index found for query. Please use a SCAN query, or "
                 "set allow_select_scan=True\nopt allow_select_scan true")
+        order_by = None
+        if tree.order_by:
+            order_by = tree.order_by[0]
+        reverse = tree.order == 'DESC'
         if tree.order:
-            if action == 'scan':
+            if action == 'scan' and not tree.order_by:
                 raise SyntaxError("No index found for query, "
-                                  "cannot use ASC or DESC")
-            kwargs['desc'] = tree.order == 'DESC'
+                                  "cannot use ASC or DESC without "
+                                  "ORDER BY <field>")
+            if action == 'query':
+                if order_by is None or order_by == index.range_key:
+                    kwargs['desc'] = reverse
 
         kwargs.update(query_kwargs)
         if visitor.expression_values:
@@ -417,7 +425,13 @@ class Engine(object):
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
         method = getattr(self.connection, action + '2')
-        return method(tablename, **kwargs)
+        result = method(tablename, **kwargs)
+        if order_by is not None:
+            if index is None or order_by != index.range_key:
+                result = list(result)
+                result.sort(key=lambda x: x.get(order_by), reverse=reverse)
+
+        return result
 
     def _scan(self, tree):
         """ Run a SCAN statement """
@@ -432,8 +446,7 @@ class Engine(object):
             keys = self._iter_where_in(tree)
         else:
             visitor = Visitor(self.reserved_words)
-            (action, kwargs) = self._build_query(table, tree,
-                                                 visitor)
+            (action, kwargs, _) = self._build_query(table, tree, visitor)
             attrs = [visitor.get_field(table.hash_key.name)]
             if table.range_key is not None:
                 attrs.append(visitor.get_field(table.range_key.name))

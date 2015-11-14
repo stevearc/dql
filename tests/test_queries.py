@@ -385,6 +385,40 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(len(ret), 1)
         self.assertEqual(ret[0][0], 'batch_get_item')
 
+    def test_order_by_index(self):
+        """ SELECT data ORDER BY range key """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES "
+                   "('a', 1), ('a', 3), ('a', 2)")
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY bar")
+        ret = list(ret)
+        expected = [
+            {'id': 'a', 'bar': 1},
+            {'id': 'a', 'bar': 2},
+            {'id': 'a', 'bar': 3}
+        ]
+        self.assertEqual(ret, expected)
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY bar DESC")
+        ret = list(ret)
+        expected.reverse()
+        self.assertEqual(ret, expected)
+
+    def test_order_by(self):
+        """ SELECT data ORDER BY non-range key """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES "
+                   "('a', 1, 20), ('a', 2, 30), ('a', 3, 10)")
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY baz")
+        expected = [
+            {'id': 'a', 'bar': 3, 'baz': 10},
+            {'id': 'a', 'bar': 1, 'baz': 20},
+            {'id': 'a', 'bar': 2, 'baz': 30},
+        ]
+        self.assertEqual(ret, expected)
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY baz DESC")
+        expected.reverse()
+        self.assertEqual(ret, expected)
+
 
 class TestSelectScan(BaseSystemTest):
 

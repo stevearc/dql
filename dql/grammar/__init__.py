@@ -25,12 +25,15 @@ def _query(cmd):
                   (Optional(Suppress('(')) + delimitedList(var) +
                    Optional(Suppress(')'))))\
         .setResultsName('attrs')
+    order_by = (Suppress(upkey('order') + upkey('by')) + var)\
+        .setResultsName('order_by')
     ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
 
     return (action + Optional(consist) + attrs + from_ + table +
             Optional(keys_in | where) +
             Optional(using) +
             Optional(limit) +
+            Optional(order_by) +
             Optional(ordering))
 
 
