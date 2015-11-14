@@ -144,7 +144,6 @@ class TestAlter(BaseSystemTest):
         """ EXPLAIN ALTER """
         self.query("EXPLAIN ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         ret = self.engine._call_list
-        print ret
         self.assertEqual(len(ret), 1)
         self.assertEqual(ret[0][0], 'update_table')
         self.assertTrue('ProvisionedThroughput' in ret[0][1])
