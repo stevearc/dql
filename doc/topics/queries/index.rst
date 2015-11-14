@@ -8,6 +8,7 @@ Queries
     :glob:
 
     alter
+    analyze
     create
     delete
     drop

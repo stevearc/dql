@@ -2,7 +2,6 @@
 from __future__ import unicode_literals
 
 import six
-from pprint import pformat
 from decimal import Decimal
 from dynamo3 import TYPES_REV
 from dynamo3.fields import snake_to_camel
@@ -14,27 +13,6 @@ def format_throughput(available, used=None):
         return str(available)
     percent = float(used) / available
     return '{0:.0f}/{1:.0f} ({2:.0%})'.format(used, available, percent)
-
-
-class Count(int):
-
-    """ Wrapper for response to query with Select=COUNT """
-
-    def __new__(cls, count, response=None):
-        ret = super(Count, cls).__new__(cls, count)
-        ret.response = response or {}
-        return ret
-
-    @classmethod
-    def from_response(cls, response):
-        """ Factory method """
-        return cls(response['Count'], response)
-
-    def __getattr__(self, name):
-        camel_name = snake_to_camel(name)
-        if camel_name in self.response:
-            return self.response[camel_name]
-        return super(Count, self).__getattribute__(name)
 
 
 @six.python_2_unicode_compatible
@@ -549,33 +527,3 @@ class TableMeta(object):
             lines.append(gindex.pformat(cap))
 
         return '\n'.join(lines)
-
-
-@six.python_2_unicode_compatible
-class Explanation(object):
-    """ Wrapper object that stores the info for a call to DynamoDB """
-
-    def __init__(self, command, kwargs=None):
-        self.command = command
-        self.kwargs = kwargs or {}
-
-    @classmethod
-    def from_response(cls, response):
-        """ Construct an Explanation from a dry_run response """
-        return cls(response[0], response[1])
-
-    def __hash__(self):
-        return hash(self.command) + hash(self.kwargs)
-
-    def __eq__(self, other):
-        return (self.command == getattr(other, 'command', None) and
-                self.kwargs == getattr(other, 'kwargs', None))
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __str__(self):
-        if self.kwargs:
-            return self.command + ' ' + pformat(self.kwargs)
-        else:
-            return self.command

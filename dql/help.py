@@ -20,6 +20,18 @@ ALTER = """
     ALTER TABLE foobars CREATE GLOBAL INDEX ('ts-index', ts NUMBER, THROUGHPUT (5, 5));
 """
 
+ANALYZE = """
+    Run a query and print out the consumed capacity
+
+    ANALYZE query
+
+    Examples
+    --------
+    ANALYZE SELECT * FROM foobars WHERE id = 'a';
+    ANALYZE INSERT INTO foobars (id, name) VALUES (1, 'dsa');
+    ANALYZE DELETE FROM foobars KEYS IN ('foo', 'bar'), ('baz', 'qux');
+"""
+
 CREATE = """
     Create a new table
 

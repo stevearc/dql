@@ -200,18 +200,24 @@ def create_dump():
 
 def create_parser():
     """ Create the language parser """
-    core = (create_select() |
-            create_scan() |
-            create_delete() |
-            create_update() |
-            create_create() |
-            create_insert() |
-            create_drop() |
-            create_alter() |
-            create_dump())
-    dql = (upkey('explain').setResultsName('action') + Group(core) | core)
+    select = create_select()
+    scan = create_scan()
+    delete = create_delete()
+    update = create_update()
+    insert = create_insert()
+    create = create_create()
+    drop = create_drop()
+    alter = create_alter()
+    dump = create_dump()
+    base = (select | scan | delete | update | insert |
+            create | drop | alter | dump)
+    explain = (upkey('explain').setResultsName('action') +
+               Group(select | scan | delete | update |
+                     insert | create | drop | alter))
+    analyze = (upkey('analyze').setResultsName('action') +
+               Group(select | scan | delete | update | insert))
+    dql = (explain | analyze | base)
     dql.ignore('--' + restOfLine)
-
     return dql
 
 # pylint: disable=C0103

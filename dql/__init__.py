@@ -29,6 +29,9 @@ def main():
     cli.initialize(region=args.region, host=args.host, port=args.port)
 
     if args.command:
-        cli.onecmd(args.command)
+        command = args.command.strip()
+        if not command.endswith(';'):
+            command += ';'
+        cli.onecmd(command)
     else:
         cli.start()
