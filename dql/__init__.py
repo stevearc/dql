@@ -31,7 +31,7 @@ def main():
     if args.command:
         command = args.command.strip()
         if not command.endswith(';'):
-            command += ';'
+            command += ' ;'
         cli.onecmd(command)
     else:
         cli.start()
