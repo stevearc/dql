@@ -1,7 +1,7 @@
 """ DQL language parser """
 from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        Suppress, ZeroOrMore, oneOf, StringEnd, CharsNotIn,
-                       quotedString, OneOrMore, Regex, Word)
+                       quotedString, OneOrMore, Regex, Word, printables)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
                      set_, primitive)
@@ -28,13 +28,16 @@ def _query(cmd):
     order_by = (Suppress(upkey('order') + upkey('by')) + var)\
         .setResultsName('order_by')
     ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
+    save = (Suppress(upkey('save')) + Word(printables))\
+        .setResultsName('save_file')
 
     return (action + Optional(consist) + attrs + from_ + table +
             Optional(keys_in | where) +
             Optional(using) +
             Optional(limit) +
             Optional(order_by) +
-            Optional(ordering))
+            Optional(ordering) +
+            Optional(save))
 
 
 def create_select():

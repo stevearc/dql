@@ -16,12 +16,13 @@ Synopsis
         [ LIMIT limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
+        [ SAVE file.json ]
 
 Examples
 --------
 .. code-block:: sql
 
-    SELECT * FROM foobars;
+    SELECT * FROM foobars SAVE out.json;
     SELECT * FROM foobars WHERE foo = 'bar';
     SELECT count(*) FROM foobars WHERE foo = 'bar';
     SELECT * FROM foobars KEYS IN 'id1', 'id2';
@@ -69,6 +70,10 @@ Parameters
 
 **ASC | DESC**
     Sort the results in ASCending (the default) or DESCending order.
+
+**SAVE**
+    Save the results to a file. By default the items will be JSON-encoded, but
+    if the filename ends with '.csv' they will be saved in CSV format instead.
 
 Where Clause
 ------------
