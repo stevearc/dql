@@ -138,7 +138,7 @@ class TestFragmentEngine(BaseSystemTest):
                 query +
                 '\n' +
                 '^\n' +
-                "Expected \";\" (at char 21), (line:4, col:1)")
+                "Expected {\";\" | StringEnd} (at char 21), (line:4, col:1)")
         else:
             assert False, "Engine should raise exception if parsing fails"
 
