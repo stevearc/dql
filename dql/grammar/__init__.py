@@ -25,12 +25,15 @@ def _query(cmd):
                   (Optional(Suppress('(')) + delimitedList(var) +
                    Optional(Suppress(')'))))\
         .setResultsName('attrs')
+    order_by = (Suppress(upkey('order') + upkey('by')) + var)\
+        .setResultsName('order_by')
     ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
 
     return (action + Optional(consist) + attrs + from_ + table +
             Optional(keys_in | where) +
             Optional(using) +
             Optional(limit) +
+            Optional(order_by) +
             Optional(ordering))
 
 
@@ -181,11 +184,11 @@ def create_alter():
         Optional(Suppress(upkey('index')) + var.setResultsName('index')) +
         create_throughput(prim_or_star))
 
-    drop_index = (Suppress(upkey('drop') + upkey('index')) + var)\
+    drop_index = (Suppress(upkey('drop') + upkey('index')) + var + Optional(if_exists))\
         .setResultsName('drop_index')
     global_index = _global_index()
     create_index = (Suppress(upkey('create')) +
-                    global_index.setResultsName('create_index'))
+                    global_index.setResultsName('create_index') + Optional(if_not_exists))
 
     return (alter + table_key + table +
             (set_throughput | drop_index | create_index))

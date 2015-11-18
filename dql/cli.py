@@ -1,19 +1,21 @@
 """ Interative DQL client """
+import os
+from fnmatch import fnmatch
+
+import botocore
 import cmd
 import functools
 import json
-import os
 import shlex
+import six
 import subprocess
 import traceback
-
-import botocore
-import six
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
 from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE, OPTIONS, EXPLAIN)
+from .monitor import Monitor
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      get_default_display, less_display, stdout_display)
 
@@ -314,6 +316,25 @@ class DQLClient(cmd.Cmd):
         """ Autocomplete for allow_select_scan option """
         return [t for t in ('true', 'false', 'yes', 'no')
                 if t.startswith(text.lower())]
+
+    @repl_command
+    def do_watch(self, *args):
+        """ Watch Dynamo tables consumed capacity """
+        tables = set()
+        if not self.engine.cached_descriptions:
+            self.engine.describe_all()
+        all_tables = list(self.engine.cached_descriptions)
+        for arg in args:
+            for table in all_tables:
+                if fnmatch(table, arg):
+                    tables.add(table)
+        mon = Monitor(self.engine, tables)
+        mon.start()
+
+    def complete_watch(self, text, *_):
+        """ Autocomplete for watch """
+        return [t + ' ' for t in self.engine.cached_descriptions if
+                t.startswith(text)]
 
     @repl_command
     def do_file(self, filename):

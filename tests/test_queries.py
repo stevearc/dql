@@ -156,6 +156,23 @@ class TestAlter(BaseSystemTest):
         self.assertEqual(ret[0][0], 'update_table')
         self.assertTrue('GlobalSecondaryIndexUpdates' in ret[0][1])
 
+    def test_alter_create_if_not_exists(self):
+        """ ALTER create index can fail silently """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))")
+        self.query("ALTER TABLE foobar CREATE GLOBAL INDEX "
+                   "('foo_index', baz string) IF NOT EXISTS")
+        desc = self.engine.describe('foobar', refresh=True)
+        self.assertTrue('foo_index' in desc.global_indexes)
+        index = desc.global_indexes['foo_index']
+        self.assertEqual(index.hash_key.name, 'foo')
+
+    def test_alter_drop_if_exists(self):
+        """ ALTER drop index can fail silently """
+        self.make_table()
+        self.query("ALTER TABLE foobar DROP INDEX foo_index IF EXISTS")
+
 
 class TestInsert(BaseSystemTest):
 
@@ -384,6 +401,49 @@ class TestSelect(BaseSystemTest):
         ret = self.engine._call_list
         self.assertEqual(len(ret), 1)
         self.assertEqual(ret[0][0], 'batch_get_item')
+
+    def test_order_by_index(self):
+        """ SELECT data ORDER BY range key """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES "
+                   "('a', 1), ('a', 3), ('a', 2)")
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY bar")
+        ret = list(ret)
+        expected = [
+            {'id': 'a', 'bar': 1},
+            {'id': 'a', 'bar': 2},
+            {'id': 'a', 'bar': 3}
+        ]
+        self.assertEqual(ret, expected)
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY bar DESC")
+        ret = list(ret)
+        expected.reverse()
+        self.assertEqual(ret, expected)
+
+    def test_order_by(self):
+        """ SELECT data ORDER BY non-range key """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES "
+                   "('a', 1, 20), ('a', 2, 30), ('a', 3, 10)")
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY baz")
+        expected = [
+            {'id': 'a', 'bar': 3, 'baz': 10},
+            {'id': 'a', 'bar': 1, 'baz': 20},
+            {'id': 'a', 'bar': 2, 'baz': 30},
+        ]
+        self.assertEqual(ret, expected)
+        ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY baz DESC")
+        expected.reverse()
+        self.assertEqual(ret, expected)
+
+    def test_select_non_projected(self):
+        """ SELECT can get attributes not projected onto an index """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
+                   "GLOBAL KEYS INDEX ('gindex', foo)")
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 'a', 1), ('b', 'b', 2)")
+        ret = self.query("SELECT bar FROM foobar WHERE foo = 'b' USING gindex")
+        self.assertEqual(list(ret), [{'bar': 2}])
 
 
 class TestSelectScan(BaseSystemTest):

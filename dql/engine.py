@@ -340,8 +340,9 @@ class Engine(object):
                     if visitor.attribute_names:
                         kwargs['alias'] = visitor.attribute_names
                 elif len(indexes) == 1:
+                    index = indexes[0]
                     action = 'query'
-                    add_query_kwargs(kwargs, visitor, constraints, indexes[0])
+                    add_query_kwargs(kwargs, visitor, constraints, index)
                 else:
                     names = ', '.join([index.name for index in indexes])
                     raise SyntaxError("No index specified with USING <index>, "
@@ -362,7 +363,7 @@ class Engine(object):
                         kwargs['alias'] = visitor.attribute_names
         else:
             action = 'scan'
-        return [action, kwargs]
+        return [action, kwargs, index]
 
     def _iter_where_in(self, tree):
         """ Iterate over the KEYS IN and generate primary keys """
@@ -380,10 +381,11 @@ class Engine(object):
 
         visitor = Visitor(self.reserved_words)
         attr_list = tree.attrs.asList()
+        attributes = None
         if attr_list == ['COUNT(*)']:
             kwargs['select'] = 'COUNT'
         elif attr_list != ['*']:
-            kwargs['attributes'] = [visitor.get_field(a) for a in tree.attrs.asList()]
+            attributes = tree.attrs.asList()
 
         if tree.keys_in:
             if tree.limit:
@@ -400,24 +402,83 @@ class Engine(object):
         if tree.limit:
             kwargs['limit'] = resolve(tree.limit[1])
 
-        (action, query_kwargs) = self._build_query(desc, tree, visitor)
+        (action, query_kwargs, index) = self._build_query(desc, tree, visitor)
         if action == 'scan' and not allow_select_scan:
             raise SyntaxError(
                 "No index found for query. Please use a SCAN query, or "
                 "set allow_select_scan=True\nopt allow_select_scan true")
+        order_by = None
+        if tree.order_by:
+            order_by = tree.order_by[0]
+        reverse = tree.order == 'DESC'
         if tree.order:
-            if action == 'scan':
+            if action == 'scan' and not tree.order_by:
                 raise SyntaxError("No index found for query, "
-                                  "cannot use ASC or DESC")
-            kwargs['desc'] = tree.order == 'DESC'
+                                  "cannot use ASC or DESC without "
+                                  "ORDER BY <field>")
+            if action == 'query':
+                if order_by is None or order_by == index.range_key:
+                    kwargs['desc'] = reverse
 
         kwargs.update(query_kwargs)
+
+        # This is a special case for when we're querying an index and selecting
+        # fields that aren't projected into the index.
+        # We will change the query to only fetch the primary keys, and then
+        # fill in the selected attributes after the fact.
+        fetch_attrs_after = False
+        if (attributes is not None and index is not None and
+                not index.projects_all_attributes(attributes)):
+            kwargs['attributes'] = [visitor.get_field(a) for a in
+                                    desc.primary_key_attributes]
+            fetch_attrs_after = True
+        elif attributes is not None:
+            kwargs['attributes'] = [visitor.get_field(a) for a in attributes]
         if visitor.expression_values:
             kwargs['expr_values'] = visitor.expression_values
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
+
         method = getattr(self.connection, action + '2')
-        return method(tablename, **kwargs)
+        result = method(tablename, **kwargs)
+        if order_by is not None:
+            if index is None or order_by != index.range_key:
+                result = list(result)
+                result.sort(key=lambda x: x.get(order_by), reverse=reverse)
+
+        # If the queried index didn't project the selected attributes, we need
+        # to do a BatchGetItem to fetch all the data.
+        if fetch_attrs_after:
+            if not isinstance(result, list):
+                result = list(result)
+            visitor = Visitor(self.reserved_words)
+            attrs = set(attributes)
+            # We always have to fetch the primary key attributes
+            attrs.update(desc.primary_key_attributes)
+            kwargs = {
+                'keys': [desc.primary_key(item) for item in result],
+                'attributes': [visitor.get_field(a) for a in attrs],
+            }
+            if visitor.attribute_names:
+                kwargs['alias'] = visitor.attribute_names
+            full_items = self.connection.batch_get(tablename, **kwargs)
+            # Make a map of primary key to the full-data items
+            item_map = {}
+            for item in full_items:
+                key = desc.primary_key_tuple(item)
+                item_map[key] = item
+            final_result = []
+            for item in result:
+                key = desc.primary_key_tuple(item)
+                # Create a new item dict because if we didn't select the
+                # primary key attributes we don't want them in the output.
+                new_item = {}
+                for attr in attributes:
+                    new_item[attr] = item_map[key][attr]
+                final_result.append(new_item)
+            result = final_result
+
+        return result
 
     def _scan(self, tree):
         """ Run a SCAN statement """
@@ -432,8 +493,7 @@ class Engine(object):
             keys = self._iter_where_in(tree)
         else:
             visitor = Visitor(self.reserved_words)
-            (action, kwargs) = self._build_query(table, tree,
-                                                 visitor)
+            (action, kwargs, _) = self._build_query(table, tree, visitor)
             attrs = [visitor.get_field(table.hash_key.name)]
             if table.range_key is not None:
                 attrs.append(visitor.get_field(table.range_key.name))
@@ -672,15 +732,29 @@ class Engine(object):
             self._update_throughput(tree.table, read, write, index)
         elif tree.drop_index:
             updates = [IndexUpdate.delete(tree.drop_index[0])]
-            self.connection.update_table(tree.table,
-                                         index_updates=updates)
+            try:
+                self.connection.update_table(tree.table,
+                                             index_updates=updates)
+            except DynamoDBError as e:
+                if tree.exists and e.kwargs['Code'] == 'ResourceNotFoundException':
+                    pass
+                else:
+                    raise
         elif tree.create_index:
             # GlobalIndex
             attrs = {}
             index = self._parse_global_index(tree.create_index, attrs)
             updates = [IndexUpdate.create(index)]
-            self.connection.update_table(tree.table,
-                                         index_updates=updates)
+            try:
+                self.connection.update_table(tree.table,
+                                             index_updates=updates)
+            except DynamoDBError as e:
+                if (tree.not_exists and
+                        e.kwargs['Code'] == 'ValidationException' and
+                        'already exists' in e.kwargs['Message']):
+                    pass
+                else:
+                    raise
         else:
             raise SyntaxError("No alter command found")
 

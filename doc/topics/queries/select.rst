@@ -14,6 +14,7 @@ Synopsis
         [ KEYS IN primary_keys | WHERE expression ]
         [ USING index ]
         [ LIMIT limit ]
+        [ ORDER BY field ]
         [ ASC | DESC ]
 
 Examples
@@ -55,6 +56,16 @@ Parameters
 
 **limit**
     Maximum number of results to return
+
+**ORDER BY**
+    Sort the results by a field.
+
+.. warning::
+
+    Using ORDER BY with LIMIT may produce unexpected results. If you use ORDER
+    BY on the range key of the index you are querying on, it will work as
+    expected. Otherwise, DQL will fetch the number of results specified by the
+    LIMIT and then sort them.
 
 **ASC | DESC**
     Sort the results in ASCending (the default) or DESCending order.
