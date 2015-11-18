@@ -381,10 +381,11 @@ class Engine(object):
 
         visitor = Visitor(self.reserved_words)
         attr_list = tree.attrs.asList()
+        attributes = None
         if attr_list == ['COUNT(*)']:
             kwargs['select'] = 'COUNT'
         elif attr_list != ['*']:
-            kwargs['attributes'] = [visitor.get_field(a) for a in tree.attrs.asList()]
+            attributes = tree.attrs.asList()
 
         if tree.keys_in:
             if tree.limit:
@@ -420,16 +421,62 @@ class Engine(object):
                     kwargs['desc'] = reverse
 
         kwargs.update(query_kwargs)
+
+        # This is a special case for when we're querying an index and selecting
+        # fields that aren't projected into the index.
+        # We will change the query to only fetch the primary keys, and then
+        # fill in the selected attributes after the fact.
+        fetch_attrs_after = False
+        if (attributes is not None and index is not None and
+                not index.projects_all_attributes(attributes)):
+            kwargs['attributes'] = [visitor.get_field(a) for a in
+                                    desc.primary_key_attributes]
+            fetch_attrs_after = True
+        elif attributes is not None:
+            kwargs['attributes'] = [visitor.get_field(a) for a in attributes]
         if visitor.expression_values:
             kwargs['expr_values'] = visitor.expression_values
         if visitor.attribute_names:
             kwargs['alias'] = visitor.attribute_names
+
         method = getattr(self.connection, action + '2')
         result = method(tablename, **kwargs)
         if order_by is not None:
             if index is None or order_by != index.range_key:
                 result = list(result)
                 result.sort(key=lambda x: x.get(order_by), reverse=reverse)
+
+        # If the queried index didn't project the selected attributes, we need
+        # to do a BatchGetItem to fetch all the data.
+        if fetch_attrs_after:
+            if not isinstance(result, list):
+                result = list(result)
+            visitor = Visitor(self.reserved_words)
+            attrs = set(attributes)
+            # We always have to fetch the primary key attributes
+            attrs.update(desc.primary_key_attributes)
+            kwargs = {
+                'keys': [desc.primary_key(item) for item in result],
+                'attributes': [visitor.get_field(a) for a in attrs],
+            }
+            if visitor.attribute_names:
+                kwargs['alias'] = visitor.attribute_names
+            full_items = self.connection.batch_get(tablename, **kwargs)
+            # Make a map of primary key to the full-data items
+            item_map = {}
+            for item in full_items:
+                key = desc.primary_key_tuple(item)
+                item_map[key] = item
+            final_result = []
+            for item in result:
+                key = desc.primary_key_tuple(item)
+                # Create a new item dict because if we didn't select the
+                # primary key attributes we don't want them in the output.
+                new_item = {}
+                for attr in attributes:
+                    new_item[attr] = item_map[key][attr]
+                final_result.append(new_item)
+            result = final_result
 
         return result
 

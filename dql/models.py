@@ -27,11 +27,21 @@ class QueryIndex(object):
 
     """
 
-    def __init__(self, name, is_global, hash_key, range_key):
+    def __init__(self, name, is_global, hash_key, range_key, attributes=None):
         self.name = name
         self.is_global = is_global
         self.hash_key = hash_key
         self.range_key = range_key
+        self.attributes = attributes
+
+    def projects_all_attributes(self, attrs):
+        """ Return True if the index projects all the attributes """
+        if self.attributes is None:
+            return True
+        for attr in attrs:
+            if attr not in self.attributes:
+                return False
+        return True
 
     @property
     def scannable(self):
@@ -41,17 +51,28 @@ class QueryIndex(object):
     @classmethod
     def from_table_index(cls, table, index):
         """ Factory method """
-        is_global = True
+        attributes = None
         if index.range_key is None:
             range_key = None
         else:
             range_key = index.range_key.name
         if hasattr(index, 'hash_key'):
+            is_global = True
             hash_key = index.hash_key.name
         else:
             hash_key = table.hash_key.name
             is_global = False
-        return cls(index.name, is_global, hash_key, range_key)
+        if index.projection_type in ('KEYS_ONLY', 'INCLUDE'):
+            attributes = set([table.hash_key.name])
+            if table.range_key is not None:
+                attributes.add(table.range_key.name)
+            if getattr(index, 'hash_key', None) is not None:
+                attributes.add(index.hash_key.name)
+            if index.range_key is not None:
+                attributes.add(index.range_key.name)
+            if index.include_fields is not None:
+                attributes.update(index.include_fields)
+        return cls(index.name, is_global, hash_key, range_key, attributes)
 
     def __repr__(self):
         return str(self)
@@ -409,6 +430,21 @@ class TableMeta(object):
     def __getattr__(self, name):
         return getattr(self._table, name)
 
+    @property
+    def primary_key_attributes(self):
+        """ Get the names of the primary key attributes as a tuple """
+        if self.range_key is None:
+            return (self.hash_key.name,)
+        else:
+            return (self.hash_key.name, self.range_key.name)
+
+    def primary_key_tuple(self, item):
+        """ Get the primary key tuple from an item """
+        if self.range_key is None:
+            return (item[self.hash_key.name],)
+        else:
+            return (item[self.hash_key.name], item[self.range_key.name])
+
     def primary_key(self, hkey, rkey=None):
         """
         Construct a primary key dictionary
@@ -417,16 +453,7 @@ class TableMeta(object):
         you may pass in an Item itself
 
         """
-        if isinstance(hkey, six.string_types):
-            pkey = {
-                self.hash_key.name: hkey
-            }
-            if self.range_key is not None:
-                if rkey is None:
-                    raise ValueError("Range key is missing!")
-                pkey[self.range_key.name] = rkey
-            return pkey
-        else:
+        if isinstance(hkey, dict):
             def decode(val):
                 """ Convert Decimals back to primitives """
                 if isinstance(val, Decimal):
@@ -437,6 +464,15 @@ class TableMeta(object):
             }
             if self.range_key is not None:
                 pkey[self.range_key.name] = decode(hkey[self.range_key.name])
+            return pkey
+        else:
+            pkey = {
+                self.hash_key.name: hkey
+            }
+            if self.range_key is not None:
+                if rkey is None:
+                    raise ValueError("Range key is missing!")
+                pkey[self.range_key.name] = rkey
             return pkey
 
     @property

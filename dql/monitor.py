@@ -68,6 +68,7 @@ class Monitor(object):
 
     def refresh(self):
         """ Redraw the display """
+        self.win.erase()
         height, width = self.win.getmaxyx()
         self.win.addstr(0, 0, datetime.now().strftime('%H:%M:%S'))
         y = 1

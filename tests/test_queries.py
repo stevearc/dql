@@ -419,6 +419,15 @@ class TestSelect(BaseSystemTest):
         expected.reverse()
         self.assertEqual(ret, expected)
 
+    def test_select_non_projected(self):
+        """ SELECT can get attributes not projected onto an index """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
+                   "GLOBAL KEYS INDEX ('gindex', foo)")
+        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
+                   "('a', 'a', 1), ('b', 'b', 2)")
+        ret = self.query("SELECT bar FROM foobar WHERE foo = 'b' USING gindex")
+        self.assertEqual(list(ret), [{'bar': 2}])
+
 
 class TestSelectScan(BaseSystemTest):
 
