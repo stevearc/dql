@@ -732,15 +732,28 @@ class Engine(object):
             self._update_throughput(tree.table, read, write, index)
         elif tree.drop_index:
             updates = [IndexUpdate.delete(tree.drop_index[0])]
-            self.connection.update_table(tree.table,
-                                         index_updates=updates)
+            try:
+                self.connection.update_table(tree.table,
+                                             index_updates=updates)
+            except DynamoDBError as e:
+                if tree.exists and e.kwargs['Code'] == 'ResourceNotFoundException':
+                    pass
+                else:
+                    raise
         elif tree.create_index:
             # GlobalIndex
             attrs = {}
             index = self._parse_global_index(tree.create_index, attrs)
             updates = [IndexUpdate.create(index)]
-            self.connection.update_table(tree.table,
-                                         index_updates=updates)
+            try:
+                self.connection.update_table(tree.table,
+                                             index_updates=updates)
+            except DynamoDBError as e:
+                if (tree.not_exists and e.kwargs['Code'] == 'ValidationException'
+                        and 'already exists' in e.kwargs['Message']):
+                    pass
+                else:
+                    raise
         else:
             raise SyntaxError("No alter command found")
 

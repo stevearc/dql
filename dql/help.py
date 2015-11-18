@@ -6,9 +6,9 @@ ALTER = """
     ALTER TABLE tablename
         SET [INDEX index] THROUGHPUT throughput
     ALTER TABLE tablename
-        DROP INDEX index
+        DROP INDEX index [IF EXISTS]
     ALTER TABLE tablename
-        CREATE GLOBAL [ALL|KEYS|INCLUDE] INDEX global_index
+        CREATE GLOBAL [ALL|KEYS|INCLUDE] INDEX global_index [IF NOT EXISTS]
 
     Examples
     --------
@@ -17,7 +17,9 @@ ALTER = """
     ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, *);
     ALTER TABLE foobars SET INDEX ts-index THROUGHPUT (5, *);
     ALTER TABLE foobars DROP INDEX ts-index;
+    ALTER TABLE foobars DROP INDEX ts-index IF EXISTS;
     ALTER TABLE foobars CREATE GLOBAL INDEX ('ts-index', ts NUMBER, THROUGHPUT (5, 5));
+    ALTER TABLE foobars CREATE GLOBAL INDEX ('ts-index', ts NUMBER) IF NOT EXISTS;
 """
 
 ANALYZE = """

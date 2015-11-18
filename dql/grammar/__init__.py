@@ -184,11 +184,11 @@ def create_alter():
         Optional(Suppress(upkey('index')) + var.setResultsName('index')) +
         create_throughput(prim_or_star))
 
-    drop_index = (Suppress(upkey('drop') + upkey('index')) + var)\
+    drop_index = (Suppress(upkey('drop') + upkey('index')) + var + Optional(if_exists))\
         .setResultsName('drop_index')
     global_index = _global_index()
     create_index = (Suppress(upkey('create')) +
-                    global_index.setResultsName('create_index'))
+                    global_index.setResultsName('create_index') + Optional(if_not_exists))
 
     return (alter + table_key + table +
             (set_throughput | drop_index | create_index))

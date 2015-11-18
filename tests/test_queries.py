@@ -156,6 +156,23 @@ class TestAlter(BaseSystemTest):
         self.assertEqual(ret[0][0], 'update_table')
         self.assertTrue('GlobalSecondaryIndexUpdates' in ret[0][1])
 
+    def test_alter_create_if_not_exists(self):
+        """ ALTER create index can fail silently """
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))")
+        self.query("ALTER TABLE foobar CREATE GLOBAL INDEX "
+                   "('foo_index', baz string) IF NOT EXISTS")
+        desc = self.engine.describe('foobar', refresh=True)
+        self.assertTrue('foo_index' in desc.global_indexes)
+        index = desc.global_indexes['foo_index']
+        self.assertEqual(index.hash_key.name, 'foo')
+
+    def test_alter_drop_if_exists(self):
+        """ ALTER drop index can fail silently """
+        self.make_table()
+        self.query("ALTER TABLE foobar DROP INDEX foo_index IF EXISTS")
+
 
 class TestInsert(BaseSystemTest):
 
