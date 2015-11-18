@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.5.3
+-----
+* ALTER commands can specify IF (NOT) EXISTS
+* New ``watch`` command to monitor table consumed capacities
+* SELECT can fetch attributes that aren't projected onto the queried index
+* SELECT can ORDER BY non-range-key attributes
+
 0.5.2
 -----
 * EXPLAIN <query> will print out the DynamoDB calls that will be made when you run the query
