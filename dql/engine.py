@@ -749,8 +749,9 @@ class Engine(object):
                 self.connection.update_table(tree.table,
                                              index_updates=updates)
             except DynamoDBError as e:
-                if (tree.not_exists and e.kwargs['Code'] == 'ValidationException'
-                        and 'already exists' in e.kwargs['Message']):
+                if (tree.not_exists and
+                        e.kwargs['Code'] == 'ValidationException' and
+                        'already exists' in e.kwargs['Message']):
                     pass
                 else:
                     raise
