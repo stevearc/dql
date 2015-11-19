@@ -5,6 +5,30 @@ import curses
 import six
 from datetime import datetime
 
+try:
+    from shutil import get_terminal_size  # pylint: disable=E0611
+
+    def getmaxyx():
+        """ Get the terminal height and width """
+        size = get_terminal_size()
+        return size[1], size[0]
+except ImportError:
+    import os
+    from fcntl import ioctl
+    from termios import TIOCGWINSZ
+    import struct
+
+    def getmaxyx():
+        """ Get the terminal height and width """
+        try:
+            return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
+        except KeyError:
+            height, width = struct.unpack("hhhh",
+                                          ioctl(0, TIOCGWINSZ, 8 * "\000"))[0:2]
+            if not height or not width:
+                return 25, 80
+            return height, width
+
 
 class Monitor(object):
     """ Tool for monitoring the consumed capacity of many tables """
@@ -30,8 +54,12 @@ class Monitor(object):
         curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
         curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
         while True:
-            self.refresh()
+            self.refresh(True)
             time.sleep(self._refresh_rate)
+            now = time.time()
+            while time.time() - now < self._refresh_rate:
+                time.sleep(2)
+                self.refresh(False)
 
     def _progress_bar(self, width, percent, left='', right='', fill='|'):
         """ Get the green/yellow/red pieces of a text + bar display """
@@ -66,15 +94,18 @@ class Monitor(object):
             x += len(text)
         return y + 1
 
-    def refresh(self):
+    def refresh(self, fetch_data):
         """ Redraw the display """
         self.win.erase()
-        height, width = self.win.getmaxyx()
+        height, width = getmaxyx()
+        if curses.is_term_resized(height, width):
+            self.win.clear()
+            curses.resizeterm(height, width)
         self.win.addstr(0, 0, datetime.now().strftime('%H:%M:%S'))
         y = 1
         x = 0
         for table in self._tables:
-            desc = self.engine.describe(table, True, True)
+            desc = self.engine.describe(table, fetch_data, True)
             cap = desc.consumed_capacity['__table__']
             col_width = min(width - x, self._max_width)
             rows = 2 * len(desc.consumed_capacity) + 1

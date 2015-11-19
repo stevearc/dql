@@ -32,6 +32,9 @@ def main():
         command = args.command.strip()
         if not command.endswith(';'):
             command += ' ;'
-        cli.onecmd(command)
+        try:
+            cli.onecmd(command)
+        except KeyboardInterrupt:
+            pass
     else:
         cli.start()
