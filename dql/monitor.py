@@ -91,11 +91,12 @@ class Monitor(object):
                                      desc.read_throughput, cap['read'])
             y = self._add_throughput(y, x, col_width, 'W', '',
                                      desc.write_throughput, cap['write'])
-            for index, cap in six.iteritems(desc.consumed_capacity):
-                if index == '__table__':
+            for index_name, cap in six.iteritems(desc.consumed_capacity):
+                if index_name == '__table__':
                     continue
-                y = self._add_throughput(y, x, col_width, 'R', index,
-                                         desc.read_throughput, cap['read'])
-                y = self._add_throughput(y, x, col_width, 'W', index,
-                                         desc.write_throughput, cap['write'])
+                index = desc.global_indexes[index_name]
+                y = self._add_throughput(y, x, col_width, 'R', index_name,
+                                         index.read_throughput, cap['read'])
+                y = self._add_throughput(y, x, col_width, 'W', index_name,
+                                         index.write_throughput, cap['write'])
         self.win.refresh()
