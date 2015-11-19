@@ -147,10 +147,11 @@ SELECT = """
         [ LIMIT limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
+        [ SAVE file.json ]
 
     Examples
     --------
-    SELECT * FROM foobars;
+    SELECT * FROM foobars SAVE out.json;
     SELECT * FROM foobars WHERE foo = 'bar';
     SELECT count(*) FROM foobars WHERE foo = 'bar';
     SELECT * FROM foobars KEYS IN 'id1', 'id2';

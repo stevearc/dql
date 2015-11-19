@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.4
+-----
+* Fixes for ``watch`` display
+* SELECT can save the results to a file
+
 0.5.3
 -----
 * ALTER commands can specify IF (NOT) EXISTS

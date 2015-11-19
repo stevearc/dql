@@ -1,10 +1,14 @@
 """ Execution engine """
+import os
 import time
 
 import botocore
+import csv
+import json
 import logging
 import six
 from botocore.exceptions import ClientError
+from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
                      IndexUpdate)
@@ -19,6 +23,16 @@ from .util import resolve
 
 
 LOG = logging.getLogger(__name__)
+
+
+def default(value):
+    """ Default encoder for JSON """
+    if isinstance(value, Decimal):
+        try:
+            return int(value)
+        except ValueError:
+            return float(value)
+    return value
 
 
 class ExplainSignal(Exception):
@@ -84,6 +98,7 @@ class Engine(object):
         self._call_list = []
         self._explaining = False
         self._analyzing = False
+        self._encoder = json.JSONEncoder(separators=(',', ':'), default=default)
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
@@ -477,6 +492,33 @@ class Engine(object):
                     new_item[attr] = item_map[key][attr]
                 final_result.append(new_item)
             result = final_result
+
+        # Save the data to a file
+        if tree.save_file:
+            filename = tree.save_file[0]
+            # If it's still an iterator, convert to a list so we can iterate
+            # multiple times.
+            if not isinstance(result, list):
+                result = list(result)
+            ext = os.path.splitext(filename)[1]
+            if ext.lower() == '.csv':
+                if attributes is not None:
+                    headers = attributes
+                else:
+                    headers = set()
+                    for item in result:
+                        headers.update(item.keys())
+                    headers = list(headers)
+                with open(filename, 'wb') as ofile:
+                    writer = csv.writer(ofile)
+                    writer.writerow(headers)
+                    for item in result:
+                        writer.writerow([item.get(h) for h in headers])
+            else:
+                with open(filename, 'w') as ofile:
+                    for item in result:
+                        ofile.write(self._encoder.encode(item))
+                        ofile.write(os.linesep)
 
         return result
 
