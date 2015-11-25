@@ -60,7 +60,7 @@ class BaseFormat(object):
         for result in results:
             self.format(result, ostream)
             count += 1
-            if count > self.pagesize:
+            if count > self.pagesize and self.pagesize > 0:
                 return True
         return False
 
@@ -117,7 +117,7 @@ class ColumnFormat(BaseFormat):
             to_format.append(result)
             all_columns.update(result.keys())
             count += 1
-            if count > self.pagesize:
+            if count > self.pagesize and self.pagesize > 0:
                 retval = True
                 break
         if to_format:
