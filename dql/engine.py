@@ -468,6 +468,9 @@ class Engine(object):
         if fetch_attrs_after:
             if not isinstance(result, list):
                 result = list(result)
+            # If no results, no need to batch_get
+            if not result:
+                return result
             visitor = Visitor(self.reserved_words)
             attrs = set(attributes)
             # We always have to fetch the primary key attributes
