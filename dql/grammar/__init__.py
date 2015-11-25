@@ -28,7 +28,8 @@ def _query(cmd):
     order_by = (Suppress(upkey('order') + upkey('by')) + var)\
         .setResultsName('order_by')
     ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
-    save = (Suppress(upkey('save')) + Word(printables))\
+    save_file_characters = printables.replace(';', '')
+    save = (Suppress(upkey('save')) + Word(save_file_characters))\
         .setResultsName('save_file')
 
     return (action + Optional(consist) + attrs + from_ + table +

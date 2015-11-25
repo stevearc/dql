@@ -32,7 +32,9 @@ def default(value):
             return int(value)
         except ValueError:
             return float(value)
-    return value
+    elif isinstance(value, set):
+        return list(value)
+    raise TypeError("Cannot encode %s value %r" % (type(value), value))
 
 
 class ExplainSignal(Exception):
@@ -489,7 +491,8 @@ class Engine(object):
                 # primary key attributes we don't want them in the output.
                 new_item = {}
                 for attr in attributes:
-                    new_item[attr] = item_map[key][attr]
+                    if attr in item_map[key]:
+                        new_item[attr] = item_map[key][attr]
                 final_result.append(new_item)
             result = final_result
 
@@ -510,10 +513,10 @@ class Engine(object):
                         headers.update(item.keys())
                     headers = list(headers)
                 with open(filename, 'wb') as ofile:
-                    writer = csv.writer(ofile)
-                    writer.writerow(headers)
+                    writer = csv.DictWriter(ofile, fieldnames=headers, extrasaction='ignore')
+                    writer.writeheader()
                     for item in result:
-                        writer.writerow([item.get(h) for h in headers])
+                        writer.writerow(item)
             else:
                 with open(filename, 'w') as ofile:
                     for item in result:
