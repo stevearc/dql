@@ -487,6 +487,12 @@ class DQLClient(cmd.Cmd):
         six.print_()
         return True
 
+    def run_command(self, command):
+        """ Run a command passed in from the command line with -c """
+        self.display = DISPLAYS['stdout']
+        self.conf['pagesize'] = 0
+        self.onecmd(command)
+
     def emptyline(self):
         self.default('')
 

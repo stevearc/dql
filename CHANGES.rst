@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.5
+-----
+* General bug fixes
+* Self contained ``run_dql.py`` script
+
 0.5.4
 -----
 * Fixes for ``watch`` display

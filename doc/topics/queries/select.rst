@@ -56,7 +56,8 @@ Parameters
     this if the constraints provided match more than one index.
 
 **limit**
-    Maximum number of results to return
+    The maximum number of items to evaluate (not necessarily the number of
+    matching items).
 
 **ORDER BY**
     Sort the results by a field.

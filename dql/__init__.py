@@ -6,7 +6,7 @@ import argparse
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.4'
+__version__ = '0.5.5'
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
         if not command.endswith(';'):
             command += ' ;'
         try:
-            cli.onecmd(command)
+            cli.run_command(command)
         except KeyboardInterrupt:
             pass
     else:
