@@ -197,7 +197,7 @@ def field_or_value(clause):
     create the right one and return it
 
     """
-    if hasattr(clause, 'getName'):
+    if hasattr(clause, 'getName') and clause.getName() != 'field':
         if clause.getName() == 'set_function':
             return SetFunction.from_clause(clause)
         else:
@@ -519,21 +519,21 @@ class OperatorConstraint(ConstraintExpression):
     def from_clause(cls, clause):
         """ Factory method """
         (field, operator, val) = clause
-        return cls(field, operator, resolve(val))
+        return cls(field, operator, field_or_value(val))
 
     def build(self, visitor):
         field = visitor.get_field(self.field)
-        val = visitor.get_value(self.value)
+        val = self.value.build(visitor)
         return field + ' ' + self.operator + ' ' + val
 
     @property
     def hash_field(self):
-        if self.operator == '=':
+        if self.operator == '=' and isinstance(self.value, Value):
             return self.field
 
     @property
     def range_field(self):
-        if self.operator != '<>':
+        if self.operator != '<>' and isinstance(self.value, Value):
             return self.field
 
     def remove_index(self, index):

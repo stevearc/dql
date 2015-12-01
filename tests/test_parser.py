@@ -169,6 +169,8 @@ CONSTRAINTS = [
      'bar = 1'),
     ('WHERE foo != 1 or bar > 0',
      '(foo <> 1 OR bar > 0)'),
+    ('WHERE foo != bar',
+     'foo <> bar'),
     ('WHERE foo < 1 and (bar >= 0 or baz < "str" or qux = 1)',
      "(foo < 1 AND (bar >= 0 OR baz < 'str' OR qux = 1))"),
     ('WHERE foo < 1 and ((bar > 0 or baz < 2) or qux > 4)',

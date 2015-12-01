@@ -597,6 +597,13 @@ class TestSelectScan(BaseSystemTest):
         self.assertEqual(len(ret), 1)
         self.assertEqual(ret[0][0], 'scan')
 
+    def test_field_ne_field(self):
+        """ SELECT can filter fields compared to other fields """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), ('b', 2, 3)")
+        self._run("* FROM foobar WHERE bar != baz",
+                  [{'id': 'b', 'bar': 2, 'baz': 3}])
+
 
 class TestCreate(BaseSystemTest):
 

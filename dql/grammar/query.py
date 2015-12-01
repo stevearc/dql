@@ -3,7 +3,7 @@ from pyparsing import (Group, OneOrMore, ZeroOrMore, delimitedList, Suppress,
                        Optional, oneOf, Combine, nestedExpr, Forward, Word)
 
 from .common import (var, value, and_, and_or, in_, upkey, primitive, set_,
-                     not_, types, string)
+                     not_, types, string, var_val)
 
 
 def make_function(name, *args):
@@ -17,7 +17,7 @@ def make_function(name, *args):
 def create_query_constraint():
     """ Create a constraint for a query WHERE clause """
     op = oneOf('= < > >= <= != <>', caseless=True).setName('operator')
-    basic_constraint = (var + op + value).setResultsName('operator')
+    basic_constraint = (var + op + var_val).setResultsName('operator')
     between = (var + Suppress(upkey('between')) + value + Suppress(and_) +
                value).setResultsName('between')
     is_in = (var + Suppress(upkey('in')) + set_).setResultsName('in')
@@ -33,31 +33,8 @@ def create_query_constraint():
     return Group(all_constraints).setName('constraint')
 
 
-def create_filter_constraint():
-    """ Create a constraint for a scan FILTER clause """
-    op = oneOf('= != < > >= <= CONTAINS',
-               caseless=True).setName('operator')
-    basic_constraint = (var + op + value)
-    between = (var + upkey('between') +
-               Group(Suppress('(') + value + Suppress(',') + value +
-                     Suppress(')')))
-    null = (var + upkey('is') + upkey('null'))
-    nnull = (var + upkey('is') + Combine(upkey('not') + upkey('null'), ' ', False))
-    is_in = (var + upkey('in') + set_)
-    ncontains = (var + Combine(upkey('not') + upkey('contains'), ' ', False) + primitive)
-    begins_with = (var + Combine(upkey('begins') + upkey('with'), ' ', False) + primitive)
-    return Group(between |
-                 basic_constraint |
-                 begins_with |
-                 null |
-                 nnull |
-                 is_in |
-                 ncontains
-                 ).setName('constraint')
-
 # pylint: disable=C0103
 constraint = create_query_constraint()
-filter_constraint = create_filter_constraint()
 # pylint: enable=C0103
 
 
