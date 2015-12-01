@@ -511,10 +511,10 @@ class Engine(object):
                 if attributes is not None:
                     headers = attributes
                 else:
-                    headers = set()
+                    all_headers = set()
                     for item in result:
-                        headers.update(item.keys())
-                    headers = list(headers)
+                        all_headers.update(item.keys())
+                    headers = list(all_headers)
                 with open(filename, 'wb') as ofile:
                     writer = csv.DictWriter(ofile, fieldnames=headers, extrasaction='ignore')
                     writer.writeheader()
@@ -557,7 +557,7 @@ class Engine(object):
                 try:
                     list(keys)
                 except ExplainSignal:
-                    keys = [{}]
+                    keys = [{}]  # pylint: disable=R0204
 
         method = getattr(self.connection, method_name + '2')
         count = 0
@@ -613,7 +613,6 @@ class Engine(object):
     def _create(self, tree):
         """ Run a SELECT statement """
         tablename = tree.table
-        attrs = []
         indexes = []
         global_indexes = []
         hash_key = None
