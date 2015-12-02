@@ -444,7 +444,7 @@ class Engine(object):
         # We will change the query to only fetch the primary keys, and then
         # fill in the selected attributes after the fact.
         fetch_attrs_after = False
-        if (attributes is not None and index is not None and
+        if (index is not None and
                 not index.projects_all_attributes(attributes)):
             kwargs['attributes'] = [visitor.get_field(a) for a in
                                     desc.primary_key_attributes]
@@ -472,13 +472,14 @@ class Engine(object):
             if not result:
                 return result
             visitor = Visitor(self.reserved_words)
-            attrs = set(attributes)
-            # We always have to fetch the primary key attributes
-            attrs.update(desc.primary_key_attributes)
             kwargs = {
                 'keys': [desc.primary_key(item) for item in result],
-                'attributes': [visitor.get_field(a) for a in attrs],
             }
+            if attributes is not None:
+                attrs = set(attributes)
+                # We always have to fetch the primary key attributes
+                attrs.update(desc.primary_key_attributes)
+                kwargs['attributes'] = [visitor.get_field(a) for a in attrs]
             if visitor.attribute_names:
                 kwargs['alias'] = visitor.attribute_names
             full_items = self.connection.batch_get(tablename, **kwargs)
@@ -493,7 +494,11 @@ class Engine(object):
                 # Create a new item dict because if we didn't select the
                 # primary key attributes we don't want them in the output.
                 new_item = {}
-                for attr in attributes:
+                if attributes is None:
+                    attrs = six.iterkeys(item_map[key])
+                else:
+                    attrs = attributes
+                for attr in attrs:
                     if attr in item_map[key]:
                         new_item[attr] = item_map[key][attr]
                 final_result.append(new_item)

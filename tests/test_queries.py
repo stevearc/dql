@@ -559,17 +559,16 @@ class TestSelectScan(BaseSystemTest):
         """ SELECT scan can scan a global index """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
                    "GLOBAL KEYS INDEX ('gindex', foo)")
-        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
-                   "('a', 'a', 1)")
-        # Will be missing 'bar' because it's not projected onto gindex
+        self.query("INSERT INTO foobar (id, foo) VALUES "
+                   "('a', 'a')")
         self._run("* FROM foobar USING gindex", [{'id': 'a', 'foo': 'a'}])
 
     def test_scan_global_with_constraints(self):
         """ SELECT scan can scan a global index and filter """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
                    "GLOBAL KEYS INDEX ('gindex', foo)")
-        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
-                   "('a', 'a', 1), ('b', 'b', 2)")
+        self.query("INSERT INTO foobar (id, foo) VALUES "
+                   "('a', 'a'), ('b', 'b')")
         self._run("* FROM foobar WHERE id = 'a' USING gindex",
                   [{'id': 'a', 'foo': 'a'}])
 
