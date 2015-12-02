@@ -78,7 +78,7 @@ FORMATTERS = {
     'column': ColumnFormat,
 }
 DEFAULT_CONFIG = {
-    'width': 100,
+    'width': 'auto',
     'pagesize': 100,
     'display': get_default_display(),
     'format': 'smart',
@@ -254,9 +254,15 @@ class DQLClient(cmd.Cmd):
             return method(text, line, begidx, endidx)
 
     def opt_width(self, width):
-        """ Set value for width option """
-        self.conf['width'] = width = int(width)
+        """ Set width of output ('auto' will auto-detect terminal width) """
+        if width != 'auto':
+            width = int(width)
         self.formatter.width = width
+        self.conf['width'] = width
+
+    def complete_opt_width(self, *_):
+        """ Autocomplete for width option """
+        return ['auto']
 
     def opt_pagesize(self, pagesize):
         """ Get or set the page size of the query output """
