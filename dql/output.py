@@ -14,6 +14,7 @@ import six
 import subprocess
 import tempfile
 from decimal import Decimal
+from .monitor import getmaxyx
 
 
 def truncate(string, length, ellipsis='…'):
@@ -49,9 +50,21 @@ class BaseFormat(object):
 
     """ Base class for formatters """
 
-    def __init__(self, width=100, pagesize=1000):
-        self.width = width
+    def __init__(self, width='auto', pagesize=1000):
+        self._width = width
         self.pagesize = pagesize
+
+    @property
+    def width(self):
+        """ The display width """
+        if self._width == 'auto':
+            return getmaxyx()[1]
+        return self._width
+
+    @width.setter
+    def width(self, new_width):
+        """ Setter for width """
+        self._width = new_width
 
     def write(self, results, ostream):
         """ Write results to an output stream """

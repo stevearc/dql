@@ -6,7 +6,7 @@ import argparse
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.6'
+__version__ = '0.5.7'
 
 
 def main():

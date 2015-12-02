@@ -1,5 +1,9 @@
 Changelog
 =========
+0.5.7
+-----
+* ``run_dql.py`` locks in a version
+* Display output auto-detects terminal width
 
 0.5.6
 -----
