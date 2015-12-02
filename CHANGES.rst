@@ -1,5 +1,9 @@
 Changelog
 =========
+0.5.8
+-----
+* Tab completion for Mac OS X
+
 0.5.7
 -----
 * ``run_dql.py`` locks in a version
