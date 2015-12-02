@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.6
+-----
+* Format option saves properly
+* WHERE expressions can compare fields to fields (e.g. ``WHERE foo > bar``)
+* Always perform batch_get after querying/scanning an index that doesn't project all attributes
+
 0.5.5
 -----
 * General bug fixes
