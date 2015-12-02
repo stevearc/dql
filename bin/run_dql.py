@@ -23,9 +23,7 @@ VENV_VERSION = '13.1.2'
 VENV_URL = ("https://pypi.python.org/packages/source/v/"
             "virtualenv/virtualenv-%s.tar.gz" % VENV_VERSION)
 VENV_NAME = 'dql_env'
-DEPENDENCIES = {
-    'dql': 'dql',
-}
+VERSION = '0.5.6'
 
 
 def bootstrap_virtualenv(env):
@@ -52,7 +50,11 @@ def bootstrap_virtualenv(env):
             os.unlink(path)
             shutil.rmtree("virtualenv-%s" % VENV_VERSION)
         print("Created virtualenv %s" % env)
+    restart(env)
 
+
+def restart(env):
+    """ Restart into a virtualenv """
     executable = os.path.join(env, 'bin', 'python')
     os.execv(executable, [executable] + sys.argv)
 
@@ -62,25 +64,24 @@ def is_inside_virtualenv(env):
     return any((p.startswith(env) for p in sys.path))
 
 
-def install_lib(venv, name, pip_name=None):
-    """ Install a library inside the virtualenv """
-    try:
-        __import__(name)
-    except ImportError:
-        if pip_name is None:
-            pip_name = name
-        pip = os.path.join(venv, 'bin', 'pip')
-        subprocess.check_call([pip, 'install', pip_name])
-
-
 def main():
     """ Main method """
     venv_dir = os.path.join(tempfile.gettempdir(), VENV_NAME)
     if not is_inside_virtualenv(venv_dir):
         bootstrap_virtualenv(venv_dir)
         return
-    for name, pip_name in DEPENDENCIES.items():
-        install_lib(venv_dir, name, pip_name)
+    try:
+        __import__('dql')
+        import dql
+        need_install = VERSION != dql.__version__
+    except ImportError:
+        need_install = True
+    if need_install:
+        pip = os.path.join(venv_dir, 'bin', 'pip')
+        subprocess.check_call([pip, 'install', "dql==%s" % VERSION])
+        # If we installed a new version, we need to restart
+        if 'dql' in sys.modules:
+            restart(venv_dir)
 
     import dql
     dql.main()
