@@ -4,7 +4,7 @@ from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        quotedString, OneOrMore, Regex, Word, printables)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
-                     set_, primitive)
+                     set_, primitive, var_val)
 from .query import where, limit, if_exists, if_not_exists, keys_in
 
 
@@ -136,7 +136,6 @@ def create_drop():
 
 def _create_update_expression():
     """ Create the grammar for an update expression """
-    var_val = (var.setResultsName('field') | value)
     ine = (Word('if_not_exists') + Suppress('(') + var +
            Suppress(',') + var_val + Suppress(')'))
     list_append = (Word('list_append') + Suppress('(') + var_val +

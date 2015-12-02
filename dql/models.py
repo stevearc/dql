@@ -38,6 +38,10 @@ class QueryIndex(object):
         """ Return True if the index projects all the attributes """
         if self.attributes is None:
             return True
+        # If attrs is None we are checking if the index projects ALL
+        # attributes, and the answer is "no"
+        if attrs is None:
+            return False
         for attr in attrs:
             if attr not in self.attributes:
                 return False

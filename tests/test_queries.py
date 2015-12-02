@@ -559,17 +559,16 @@ class TestSelectScan(BaseSystemTest):
         """ SELECT scan can scan a global index """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
                    "GLOBAL KEYS INDEX ('gindex', foo)")
-        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
-                   "('a', 'a', 1)")
-        # Will be missing 'bar' because it's not projected onto gindex
+        self.query("INSERT INTO foobar (id, foo) VALUES "
+                   "('a', 'a')")
         self._run("* FROM foobar USING gindex", [{'id': 'a', 'foo': 'a'}])
 
     def test_scan_global_with_constraints(self):
         """ SELECT scan can scan a global index and filter """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
                    "GLOBAL KEYS INDEX ('gindex', foo)")
-        self.query("INSERT INTO foobar (id, foo, bar) VALUES "
-                   "('a', 'a', 1), ('b', 'b', 2)")
+        self.query("INSERT INTO foobar (id, foo) VALUES "
+                   "('a', 'a'), ('b', 'b')")
         self._run("* FROM foobar WHERE id = 'a' USING gindex",
                   [{'id': 'a', 'foo': 'a'}])
 
@@ -596,6 +595,13 @@ class TestSelectScan(BaseSystemTest):
         ret = self.engine._call_list
         self.assertEqual(len(ret), 1)
         self.assertEqual(ret[0][0], 'scan')
+
+    def test_field_ne_field(self):
+        """ SELECT can filter fields compared to other fields """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), ('b', 2, 3)")
+        self._run("* FROM foobar WHERE bar != baz",
+                  [{'id': 'b', 'bar': 2, 'baz': 3}])
 
 
 class TestCreate(BaseSystemTest):

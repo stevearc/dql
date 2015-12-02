@@ -56,6 +56,7 @@ dict_ = (Suppress('{') + Optional(delimitedList(Group(key_val))) +
 json_value <<= Group(json_primitive | list_ | dict_)
 value <<= Group(primitive | expr | set_ | _emptyset | list_ |
                 dict_).setName('value')
+var_val = (var.setResultsName('field') | value)
 
 # Wrap these in a group so they can be used independently
 primitive = Group(primitive | expr).setName('primitive')
