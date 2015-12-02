@@ -120,8 +120,14 @@ class DQLClient(cmd.Cmd):
     def initialize(self, region='us-west-1', host=None, port=8000,
                    config_dir=None, session=None):
         """ Set up the repl for execution. """
-        # Tab-complete names with a '-' in them
         import readline
+        import rlcompleter
+        # Mac OS X readline compatibility from http://stackoverflow.com/a/7116997
+        if 'libedit' in readline.__doc__:
+            readline.parse_and_bind("bind ^I rl_complete")
+        else:
+            readline.parse_and_bind("tab: complete")
+        # Tab-complete names with a '-' in them
         delims = set(readline.get_completer_delims())
         if '-' in delims:
             delims.remove('-')
