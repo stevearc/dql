@@ -109,6 +109,7 @@ class DQLClient(cmd.Cmd):
     """
 
     running = False
+    conf = None
     engine = None
     formatter = None
     display = None
@@ -139,8 +140,9 @@ class DQLClient(cmd.Cmd):
         for key, value in six.iteritems(DEFAULT_CONFIG):
             self.conf.setdefault(key, value)
         self.display = DISPLAYS[self.conf['display']]
-        self.formatter = SmartFormat(pagesize=self.conf['pagesize'],
-                                     width=self.conf['width'])
+        formatter = self.conf['format']
+        self.formatter = FORMATTERS[formatter](
+            pagesize=self.conf['pagesize'], width=self.conf['width'])
 
     def start(self):
         """ Start running the interactive session (blocking) """
