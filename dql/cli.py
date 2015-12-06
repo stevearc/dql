@@ -17,7 +17,7 @@ from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
                    SELECT, UPDATE, OPTIONS, EXPLAIN)
 from .monitor import Monitor
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
-                     get_default_display, less_display, stdout_display)
+                     less_display, stdout_display)
 
 
 try:
@@ -80,7 +80,7 @@ FORMATTERS = {
 DEFAULT_CONFIG = {
     'width': 'auto',
     'pagesize': 'auto',
-    'display': get_default_display(),
+    'display': 'stdout',
     'format': 'smart',
     'allow_select_scan': False,
 }
@@ -146,9 +146,6 @@ class DQLClient(cmd.Cmd):
         for key, value in six.iteritems(DEFAULT_CONFIG):
             self.conf.setdefault(key, value)
         self.display = DISPLAYS[self.conf['display']]
-        formatter = self.conf['format']
-        self.formatter = FORMATTERS[formatter](
-            pagesize=self.conf['pagesize'], width=self.conf['width'])
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -263,7 +260,6 @@ class DQLClient(cmd.Cmd):
         """ Set width of output ('auto' will auto-detect terminal width) """
         if width != 'auto':
             width = int(width)
-        self.formatter.width = width
         self.conf['width'] = width
 
     def complete_opt_width(self, *_):
@@ -275,7 +271,6 @@ class DQLClient(cmd.Cmd):
         if pagesize != 'auto':
             pagesize = int(pagesize)
         self.conf['pagesize'] = pagesize
-        self.formatter.pagesize = pagesize
 
     def complete_opt_pagesize(self, *_):
         """ Autocomplete for pagesize option """
@@ -312,8 +307,6 @@ class DQLClient(cmd.Cmd):
         key = get_enum_key(format, FORMATTERS)
         if key is not None:
             self.conf['format'] = key
-            self.formatter = FORMATTERS[key](width=self.conf['width'],
-                                             pagesize=self.conf['pagesize'])
             six.print_("Set format %r" % key)
         else:
             six.print_("Unknown format %r" % format)
@@ -477,15 +470,11 @@ class DQLClient(cmd.Cmd):
         elif isinstance(results, six.string_types):
             six.print_(results)
         else:
-            if isinstance(results, list):
-                results = iter(results)
-            has_more = True
-            while has_more:
-                with self.display() as ostream:
-                    has_more = self.formatter.write(results, ostream)
-                if has_more:
-                    raw_input("Press return for next %d results:" %
-                              self.formatter.pagesize)
+            with self.display() as ostream:
+                formatter = FORMATTERS[self.conf['format']](
+                    results, ostream, pagesize=self.conf['pagesize'],
+                    width=self.conf['width'])
+                formatter.display()
         print_count = 0
         total = None
         for (command, capacity) in self.engine.consumed_capacities:
