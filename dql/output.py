@@ -50,9 +50,9 @@ class BaseFormat(object):
 
     """ Base class for formatters """
 
-    def __init__(self, width='auto', pagesize=1000):
+    def __init__(self, width='auto', pagesize='auto'):
         self._width = width
-        self.pagesize = pagesize
+        self._pagesize = pagesize
 
     @property
     def width(self):
@@ -66,6 +66,18 @@ class BaseFormat(object):
         """ Setter for width """
         self._width = new_width
 
+    @property
+    def pagesize(self):
+        """ The number of results to display at a time """
+        if self._pagesize == 'auto':
+            return getmaxyx()[0] - 6
+        return self._pagesize
+
+    @pagesize.setter
+    def pagesize(self, new_pagesize):
+        """ Setter for pagesize """
+        self._pagesize = new_pagesize
+
     def write(self, results, ostream):
         """ Write results to an output stream """
 
@@ -73,7 +85,7 @@ class BaseFormat(object):
         for result in results:
             self.format(result, ostream)
             count += 1
-            if count > self.pagesize and self.pagesize > 0:
+            if count >= self.pagesize and self.pagesize > 0:
                 return True
         return False
 
@@ -96,6 +108,12 @@ class BaseFormat(object):
 class ExpandedFormat(BaseFormat):
 
     """ A layout that puts item attributes on separate lines """
+
+    @property
+    def pagesize(self):
+        if self._pagesize == 'auto':
+            return 1
+        return self._pagesize
 
     def format(self, result, ostream):
         ostream.write(self.width * '-' + '\n')

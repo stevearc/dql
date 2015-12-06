@@ -79,7 +79,7 @@ FORMATTERS = {
 }
 DEFAULT_CONFIG = {
     'width': 'auto',
-    'pagesize': 100,
+    'pagesize': 'auto',
     'display': get_default_display(),
     'format': 'smart',
     'allow_select_scan': False,
@@ -272,8 +272,14 @@ class DQLClient(cmd.Cmd):
 
     def opt_pagesize(self, pagesize):
         """ Get or set the page size of the query output """
-        self.conf['pagesize'] = pagesize = int(pagesize)
+        if pagesize != 'auto':
+            pagesize = int(pagesize)
+        self.conf['pagesize'] = pagesize
         self.formatter.pagesize = pagesize
+
+    def complete_opt_pagesize(self, *_):
+        """ Autocomplete for pagesize option """
+        return ['auto']
 
     def _print_enum_opt(self, option, choices):
         """ Helper for enum options """
