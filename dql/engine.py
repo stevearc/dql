@@ -158,6 +158,10 @@ class Engine(object):
                 else:
                     ret = "%d (scanned count: %d)" % (result,
                                                       result.scanned_count)
+            elif statement.save_file:
+                ret = "Saved %d record%s to %s" % (len(result),
+                                                   plural(len(result)),
+                                                   statement.save_file[0])
         elif statement.action == 'UPDATE':
             if isinstance(result, six.integer_types):
                 ret = "Updated %d item%s" % (result, plural(result))
