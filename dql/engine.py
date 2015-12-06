@@ -418,6 +418,11 @@ class Engine(object):
             elif tree.where:
                 raise SyntaxError("Cannot use WHERE with KEYS IN")
             keys = list(self._iter_where_in(tree))
+            if attributes is not None:
+                kwargs['attributes'] = [visitor.get_field(a) for a in
+                                        attributes]
+            if visitor.attribute_names:
+                kwargs['alias'] = visitor.attribute_names
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
 
         if tree.limit:
