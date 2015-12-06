@@ -477,6 +477,8 @@ class DQLClient(cmd.Cmd):
         elif isinstance(results, six.string_types):
             six.print_(results)
         else:
+            if isinstance(results, list):
+                results = iter(results)
             has_more = True
             while has_more:
                 with self.display() as ostream:
