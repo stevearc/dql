@@ -158,6 +158,10 @@ class Engine(object):
                 else:
                     ret = "%d (scanned count: %d)" % (result,
                                                       result.scanned_count)
+            elif statement.save_file:
+                ret = "Saved %d record%s to %s" % (len(result),
+                                                   plural(len(result)),
+                                                   statement.save_file[0])
         elif statement.action == 'UPDATE':
             if isinstance(result, six.integer_types):
                 ret = "Updated %d item%s" % (result, plural(result))
@@ -414,6 +418,11 @@ class Engine(object):
             elif tree.where:
                 raise SyntaxError("Cannot use WHERE with KEYS IN")
             keys = list(self._iter_where_in(tree))
+            if attributes is not None:
+                kwargs['attributes'] = [visitor.get_field(a) for a in
+                                        attributes]
+            if visitor.attribute_names:
+                kwargs['alias'] = visitor.attribute_names
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
 
         if tree.limit:

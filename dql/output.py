@@ -6,7 +6,6 @@ import locale
 import os
 import stat
 import sys
-from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
 
 import contextlib
 import json
@@ -50,9 +49,11 @@ class BaseFormat(object):
 
     """ Base class for formatters """
 
-    def __init__(self, width='auto', pagesize=1000):
+    def __init__(self, results, ostream, width='auto', pagesize='auto'):
+        self._results = list(results)
+        self._ostream = ostream
         self._width = width
-        self.pagesize = pagesize
+        self._pagesize = pagesize
 
     @property
     def width(self):
@@ -61,24 +62,38 @@ class BaseFormat(object):
             return getmaxyx()[1]
         return self._width
 
-    @width.setter
-    def width(self, new_width):
-        """ Setter for width """
-        self._width = new_width
+    @property
+    def pagesize(self):
+        """ The number of results to display at a time """
+        if self._pagesize == 'auto':
+            return getmaxyx()[0] - 6
+        return self._pagesize
 
-    def write(self, results, ostream):
+    def display(self):
         """ Write results to an output stream """
-
+        if len(self._results) == 0:
+            self._ostream.write('No results\n')
+            return
         count = 0
-        for result in results:
-            self.format(result, ostream)
+        num_results = len(self._results)
+        for result in self._results:
+            self.write(result)
             count += 1
-            if count > self.pagesize and self.pagesize > 0:
-                return True
-        return False
+            if (count >= self.pagesize and self.pagesize > 0 and count <
+                    num_results):
+                self.wait()
 
-    def format(self, result, ostream):
-        """ Format a single result and stick it in an output stream """
+    def wait(self):
+        """ Block for user input """
+        text = raw_input("Press return for next %d results:" % self.pagesize)
+        if text:
+            if text.lower() in ['a', 'all']:
+                self._pagesize = 0
+            elif text.isdigit():
+                self._pagesize = int(text)
+
+    def write(self, result):
+        """ Write a single result and stick it in an output stream """
         raise NotImplementedError
 
     def format_field(self, field):
@@ -97,8 +112,14 @@ class ExpandedFormat(BaseFormat):
 
     """ A layout that puts item attributes on separate lines """
 
-    def format(self, result, ostream):
-        ostream.write(self.width * '-' + '\n')
+    @property
+    def pagesize(self):
+        if self._pagesize == 'auto':
+            return 1
+        return self._pagesize
+
+    def write(self, result):
+        self._ostream.write(self.width * '-' + '\n')
         max_key = max((len(k) for k in result.keys()))
         for key, val in sorted(result.items()):
             # If the value is json, try to unpack it and format it better.
@@ -114,78 +135,87 @@ class ExpandedFormat(BaseFormat):
             else:
                 val = wrap(self.format_field(val), self.width - max_key - 3,
                            max_key + 3)
-            ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
+            self._ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
 
 
 class ColumnFormat(BaseFormat):
 
     """ A layout that puts item attributes in columns """
+    def __init__(self, *args, **kwargs):
+        super(ColumnFormat, self).__init__(*args, **kwargs)
+        col_width = {}
+        for result in self._results:
+            for key, value in six.iteritems(result):
+                col_width.setdefault(key, len(key))
+                col_width[key] = max(col_width[key], len(self.format_field(value)))
+        self._all_columns = six.viewkeys(col_width)
+        self.width_requested = 3 + len(col_width) + sum(six.itervalues(col_width))
+        if self.width_requested > self.width:
+            even_width = int((self.width - 1) / len(self._all_columns)) - 3
+            for key in col_width:
+                col_width[key] = even_width
+        self._col_width = col_width
 
-    def write(self, results, ostream):
-        count = 0
-        to_format = []
-        all_columns = set()
-        retval = False
-        for result in results:
-            to_format.append(result)
-            all_columns.update(result.keys())
-            count += 1
-            if count > self.pagesize and self.pagesize > 0:
-                retval = True
-                break
-        if to_format:
-            self.format(to_format, all_columns, ostream)
-        return retval
-
-    def format(self, results, columns, ostream):
-        col_width = int((self.width - 1) / len(columns)) - 3
-
-        # Print the header
         header = '|'
-        for col in columns:
+        for col in self._all_columns:
+            width = self._col_width[col]
             header += ' '
-            header += truncate(col.center(col_width), col_width)
+            header += truncate(col.center(width), width)
             header += ' |'
-        ostream.write(len(header) * '-' + '\n')
-        ostream.write(header)
-        ostream.write('\n')
-        ostream.write(len(header) * '-' + '\n')
+        self._header = header
 
-        for result in results:
-            ostream.write('|')
-            for col in columns:
-                ostream.write(' ')
-                val = self.format_field(result.get(
-                    col, None)).ljust(col_width)
-                ostream.write(truncate(val, col_width))
-                ostream.write(' |')
-            ostream.write('\n')
-        ostream.write(len(header) * '-' + '\n')
+    def _write_header(self):
+        """ Write out the table header """
+        self._ostream.write(len(self._header) * '-' + '\n')
+        self._ostream.write(self._header)
+        self._ostream.write('\n')
+        self._ostream.write(len(self._header) * '-' + '\n')
+
+    def _write_footer(self):
+        """ Write out the table footer """
+        self._ostream.write(len(self._header) * '-' + '\n')
+
+    def display(self):
+        if len(self._results) == 0:
+            self._ostream.write('No results\n')
+            return
+        self._write_header()
+        super(ColumnFormat, self).display()
+        self._write_footer()
+
+    def wait(self):
+        """ Block for user input """
+        self._write_footer()
+        raw_input("Press return for next %d results:" % self.pagesize)
+        self._write_header()
+
+    def write(self, result):
+        self._ostream.write('|')
+        for col, width in six.iteritems(self._col_width):
+            self._ostream.write(' ')
+            val = self.format_field(result.get(
+                col, None)).ljust(width)
+            self._ostream.write(truncate(val, width))
+            self._ostream.write(' |')
+        self._ostream.write('\n')
 
 
-class SmartFormat(ColumnFormat):
+class SmartFormat(object):
 
     """ A layout that chooses column/expanded format intelligently """
 
-    def __init__(self, *args, **kwargs):
-        super(SmartFormat, self).__init__(*args, **kwargs)
-
-    def format(self, results, columns, ostream):
-        col_width = int((self.width - 2) / len(columns))
-        if col_width < 16:
-            expanded = ExpandedFormat(self.width, self.pagesize)
-            for result in results:
-                expanded.format(result, ostream)
+    def __init__(self, results, ostream, *args, **kwargs):
+        results = list(results)
+        fmt = ColumnFormat(results, ostream, *args, **kwargs)
+        if fmt.width_requested > fmt.width:
+            self._sub_formatter = ExpandedFormat(results, ostream, *args,
+                                                 **kwargs)
         else:
-            super(SmartFormat, self).format(results, columns, ostream)
+            self._sub_formatter = fmt
 
-
-def get_default_display():
-    """ Get the default display function for this system """
-    if find_executable('less'):
-        return 'less'
-    else:
-        return 'stdout'
+    def display(self):
+        """ Write results to an output stream """
+        self._sub_formatter.display()
 
 
 class SmartBuffer(object):

@@ -1,5 +1,15 @@
 Changelog
 =========
+
+0.5.9
+-----
+* Don't print results to console when saving to a file
+* 'auto' pagesize to adapt to terminal height
+* When selecting specific attributes with KEYS IN only those attributes are fetched
+* ORDER BY queries spanning multiple pages no longer stuck on first page
+* Column formatter fits column widths more intelligently
+* Smart formatter is smarter about switching to Expanded mode
+
 0.5.8
 -----
 * Tab completion for Mac OS X
