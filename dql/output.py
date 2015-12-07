@@ -71,6 +71,9 @@ class BaseFormat(object):
 
     def display(self):
         """ Write results to an output stream """
+        if len(self._results) == 0:
+            self._ostream.write('No results\n')
+            return
         count = 0
         num_results = len(self._results)
         for result in self._results:
@@ -173,6 +176,9 @@ class ColumnFormat(BaseFormat):
         self._ostream.write(len(self._header) * '-' + '\n')
 
     def display(self):
+        if len(self._results) == 0:
+            self._ostream.write('No results\n')
+            return
         self._write_header()
         super(ColumnFormat, self).display()
         self._write_footer()
