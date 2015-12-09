@@ -81,6 +81,12 @@ ts_functions = Group(
 ).setName('function').setResultsName('ts_function')
 
 
+def quoted(body):
+    """ Quote an item with ' or " """
+    return ((Suppress('"') + body + Suppress('"')) |
+            (Suppress("'") + body + Suppress("'")))
+
+
 def make_interval(long_name, short_name):
     """ Create an interval segment """
     return Group(Regex('(-+)?[0-9]+') +
@@ -103,9 +109,7 @@ interval = (
     make_interval('microsecond', 'us')
 )
 intervals = OneOrMore(interval)
-quoted_interval = ((Suppress('"') + intervals + Suppress('"')) |
-                   (Suppress("'") + intervals + Suppress("'")))
-interval_fxn = Group(function('interval', quoted_interval, caseless=True,
+interval_fxn = Group(function('interval', quoted(intervals), caseless=True,
                               optparen=True)).setResultsName('interval')
 ts_expression = Forward()
 ts_expression <<= (Group(ts_functions + oneOf('+ -') + interval_fxn)
@@ -122,3 +126,4 @@ var_val = (value | var.setResultsName('field'))
 primitive = Group(primitive).setName('primitive')
 set_ = Group(set_ | _emptyset).setName('set')
 types = Upcase(oneOf('s ss n ns b bs bool null l m', caseless=True))
+filename = (quotedString | Regex(r'[0-9A-Za-z_\-\.]+'))

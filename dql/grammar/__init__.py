@@ -4,7 +4,7 @@ from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        quotedString, OneOrMore, Regex, Word, printables)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
-                     set_, primitive, var_val)
+                     set_, primitive, var_val, filename)
 from .query import where, limit, if_exists, if_not_exists, keys_in
 
 
@@ -28,8 +28,7 @@ def _query(cmd):
     order_by = (Suppress(upkey('order') + upkey('by')) + var)\
         .setResultsName('order_by')
     ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
-    save_file_characters = printables.replace(';', '')
-    save = (Suppress(upkey('save')) + Word(save_file_characters))\
+    save = (Suppress(upkey('save')) + filename)\
         .setResultsName('save_file')
 
     return (action + Optional(consist) + attrs + from_ + table +
@@ -204,6 +203,13 @@ def create_dump():
             Optional(Group(delimitedList(table)).setResultsName('tables')))
 
 
+def create_load():
+    """ Create the grammar for the 'load' statement """
+    load = upkey('load').setResultsName('action')
+    return (load + Group(filename).setResultsName('load_file') +
+            upkey('into') + table)
+
+
 def create_parser():
     """ Create the language parser """
     select = create_select()
@@ -215,8 +221,9 @@ def create_parser():
     drop = create_drop()
     alter = create_alter()
     dump = create_dump()
+    load = create_load()
     base = (select | scan | delete | update | insert |
-            create | drop | alter | dump)
+            create | drop | alter | dump | load)
     explain = (upkey('explain').setResultsName('action') +
                Group(select | scan | delete | update |
                      insert | create | drop | alter))

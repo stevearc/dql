@@ -1,10 +1,12 @@
 """ Execution engine """
+import gzip
 import os
 import time
 
 import botocore
 import csv
 import json
+import pickle
 import logging
 import six
 from botocore.exceptions import ClientError
@@ -19,7 +21,7 @@ from pyparsing import ParseException
 from .expressions import ConstraintExpression, UpdateExpression, Visitor
 from .grammar import parser, line_parser
 from .models import TableMeta
-from .util import resolve
+from .util import resolve, unwrap
 
 
 LOG = logging.getLogger(__name__)
@@ -159,9 +161,12 @@ class Engine(object):
                     ret = "%d (scanned count: %d)" % (result,
                                                       result.scanned_count)
             elif statement.save_file:
+                filename = statement.save_file[0]
+                if filename[0] in ['"', "'"]:
+                    filename = unwrap(filename)
                 ret = "Saved %d record%s to %s" % (len(result),
                                                    plural(len(result)),
-                                                   statement.save_file[0])
+                                                   filename)
         elif statement.action == 'UPDATE':
             if isinstance(result, six.integer_types):
                 ret = "Updated %d item%s" % (result, plural(result))
@@ -181,6 +186,8 @@ class Engine(object):
                 ret = "Table %r does not exist" % statement.table
         elif statement.action == 'ANALYZE':
             ret = self._pretty_format(statement[1], result)
+        elif statement.action == 'LOAD':
+            ret = "Loaded %d item%s" % (result, plural(result))
         return ret
 
     def describe_all(self):
@@ -301,6 +308,8 @@ class Engine(object):
             return self._alter(tree)
         elif tree.action == 'DUMP':
             return self._dump(tree)
+        elif tree.action == 'LOAD':
+            return self._load(tree)
         elif tree.action == 'EXPLAIN':
             return self._explain(tree)
         elif tree.action == 'ANALYZE':
@@ -516,11 +525,18 @@ class Engine(object):
         # Save the data to a file
         if tree.save_file:
             filename = tree.save_file[0]
+            if filename[0] in ['"', "'"]:
+                filename = unwrap(filename)
             # If it's still an iterator, convert to a list so we can iterate
             # multiple times.
             if not isinstance(result, list):
                 result = list(result)
-            ext = os.path.splitext(filename)[1]
+            remainder, ext = os.path.splitext(filename)
+            if ext.lower() in ['.gz', '.gzip']:
+                ext = os.path.splitext(remainder)[1]
+                opened = gzip.open(filename, 'wb')
+            else:
+                opened = open(filename, 'wb')
             if ext.lower() == '.csv':
                 if attributes is not None:
                     headers = attributes
@@ -529,16 +545,21 @@ class Engine(object):
                     for item in result:
                         all_headers.update(item.keys())
                     headers = list(all_headers)
-                with open(filename, 'wb') as ofile:
-                    writer = csv.DictWriter(ofile, fieldnames=headers, extrasaction='ignore')
+                with opened as ofile:
+                    writer = csv.DictWriter(ofile, fieldnames=headers,
+                                            extrasaction='ignore')
                     writer.writeheader()
                     for item in result:
                         writer.writerow(item)
-            else:
-                with open(filename, 'w') as ofile:
+            elif ext.lower() == '.json':
+                with opened as ofile:
                     for item in result:
                         ofile.write(self._encoder.encode(item))
-                        ofile.write(os.linesep)
+                        ofile.write('\n')
+            else:
+                with opened as ofile:
+                    for item in result:
+                        pickle.dump(item, ofile)
 
         return result
 
@@ -830,6 +851,41 @@ class Engine(object):
                 schema.append(table.schema)
 
         return '\n\n'.join(schema)
+
+    def _load(self, tree):
+        """ Run a LOAD statement """
+        filename = tree.load_file[0]
+        if filename[0] in ['"', "'"]:
+            filename = unwrap(filename)
+        if not os.path.exists(filename):
+            raise Exception("No such file %r" % filename)
+        batch = self.connection.batch_write(tree.table)
+        count = 0
+        with batch:
+            remainder, ext = os.path.splitext(filename)
+            if ext.lower() in ['.gz', '.gzip']:
+                ext = os.path.splitext(remainder)[1]
+                opened = gzip.open(filename, 'rb')
+            else:
+                opened = open(filename, 'r')
+            with opened as ifile:
+                if ext.lower() == '.csv':
+                    reader = csv.DictReader(ifile)
+                    for row in reader:
+                        batch.put(row)
+                        count += 1
+                elif ext.lower() == '.json':
+                    for row in ifile:
+                        batch.put(json.loads(row))
+                        count += 1
+                else:
+                    try:
+                        while True:
+                            batch.put(pickle.load(ifile))
+                            count += 1
+                    except EOFError:
+                        pass
+        return count
 
 
 class FragmentEngine(Engine):
