@@ -18,11 +18,11 @@ from dynamo3.constants import RESERVED_WORDS
 from pprint import pformat
 from pyparsing import ParseException
 
-from .expressions import ConstraintExpression, UpdateExpression, Visitor
+from .expressions import (ConstraintExpression, UpdateExpression, Visitor,
+                          SelectionExpression)
 from .grammar import parser, line_parser
 from .models import TableMeta
-from .util import resolve, unwrap
-
+from .util import resolve, unwrap, plural
 
 LOG = logging.getLogger(__name__)
 
@@ -71,11 +71,6 @@ def iter_insert_items(tree):
             yield data
     else:
         raise SyntaxError("No insert data found")
-
-
-def plural(value, append='s'):
-    """ Helper function for pluralizing text """
-    return '' if value == 1 else append
 
 
 class Engine(object):
@@ -154,19 +149,18 @@ class Engine(object):
             return 'Success'
         ret = result
         if statement.action in ('SELECT', 'SCAN'):
-            if isinstance(result, six.integer_types):
+            if statement.save_file:
+                filename = statement.save_file[0]
+                if filename[0] in ['"', "'"]:
+                    filename = unwrap(filename)
+                ret = "Saved %d record%s to %s" % (result, plural(result),
+                                                   filename)
+            elif isinstance(result, six.integer_types):
                 if result == result.scanned_count:
                     ret = "%d" % result
                 else:
                     ret = "%d (scanned count: %d)" % (result,
                                                       result.scanned_count)
-            elif statement.save_file:
-                filename = statement.save_file[0]
-                if filename[0] in ['"', "'"]:
-                    filename = unwrap(filename)
-                ret = "Saved %d record%s to %s" % (len(result),
-                                                   plural(len(result)),
-                                                   filename)
         elif statement.action == 'UPDATE':
             if isinstance(result, six.integer_types):
                 ret = "Updated %d item%s" % (result, plural(result))
@@ -367,8 +361,7 @@ class Engine(object):
                     action = 'scan'
                     kwargs['filter'] = constraints.build(visitor)
                     kwargs['expr_values'] = visitor.expression_values
-                    if visitor.attribute_names:
-                        kwargs['alias'] = visitor.attribute_names
+                    kwargs['alias'] = visitor.attribute_names
                 elif len(indexes) == 1:
                     index = indexes[0]
                     action = 'query'
@@ -389,8 +382,7 @@ class Engine(object):
                                           index_name)
                     kwargs['filter'] = constraints.build(visitor)
                     kwargs['expr_values'] = visitor.expression_values
-                    if visitor.attribute_names:
-                        kwargs['alias'] = visitor.attribute_names
+                    kwargs['alias'] = visitor.attribute_names
         else:
             action = 'scan'
         return [action, kwargs, index]
@@ -410,12 +402,10 @@ class Engine(object):
             kwargs['consistent'] = True
 
         visitor = Visitor(self.reserved_words)
-        attr_list = tree.attrs.asList()
-        attributes = None
-        if attr_list == ['COUNT(*)']:
+
+        selection = SelectionExpression.from_selection(tree.attrs)
+        if selection.is_count:
             kwargs['select'] = 'COUNT'
-        elif attr_list != ['*']:
-            attributes = tree.attrs.asList()
 
         if tree.keys_in:
             if tree.limit:
@@ -427,11 +417,8 @@ class Engine(object):
             elif tree.where:
                 raise SyntaxError("Cannot use WHERE with KEYS IN")
             keys = list(self._iter_where_in(tree))
-            if attributes is not None:
-                kwargs['attributes'] = [visitor.get_field(a) for a in
-                                        attributes]
-            if visitor.attribute_names:
-                kwargs['alias'] = visitor.attribute_names
+            kwargs['attributes'] = selection.build(visitor)
+            kwargs['alias'] = visitor.attribute_names
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
 
         if tree.limit:
@@ -463,16 +450,14 @@ class Engine(object):
         # fill in the selected attributes after the fact.
         fetch_attrs_after = False
         if (index is not None and
-                not index.projects_all_attributes(attributes)):
+                not index.projects_all_attributes(selection.all_fields)):
             kwargs['attributes'] = [visitor.get_field(a) for a in
                                     desc.primary_key_attributes]
             fetch_attrs_after = True
-        elif attributes is not None:
-            kwargs['attributes'] = [visitor.get_field(a) for a in attributes]
-        if visitor.expression_values:
-            kwargs['expr_values'] = visitor.expression_values
-        if visitor.attribute_names:
-            kwargs['alias'] = visitor.attribute_names
+        else:
+            kwargs['attributes'] = selection.build(visitor)
+        kwargs['expr_values'] = visitor.expression_values
+        kwargs['alias'] = visitor.attribute_names
 
         method = getattr(self.connection, action + '2')
         result = method(tablename, **kwargs)
@@ -493,37 +478,16 @@ class Engine(object):
             kwargs = {
                 'keys': [desc.primary_key(item) for item in result],
             }
-            if attributes is not None:
-                attrs = set(attributes)
-                # We always have to fetch the primary key attributes
-                attrs.update(desc.primary_key_attributes)
-                kwargs['attributes'] = [visitor.get_field(a) for a in attrs]
-            if visitor.attribute_names:
-                kwargs['alias'] = visitor.attribute_names
-            full_items = self.connection.batch_get(tablename, **kwargs)
-            # Make a map of primary key to the full-data items
-            item_map = {}
-            for item in full_items:
-                key = desc.primary_key_tuple(item)
-                item_map[key] = item
-            final_result = []
-            for item in result:
-                key = desc.primary_key_tuple(item)
-                # Create a new item dict because if we didn't select the
-                # primary key attributes we don't want them in the output.
-                new_item = {}
-                if attributes is None:
-                    attrs = six.iterkeys(item_map[key])
-                else:
-                    attrs = attributes
-                for attr in attrs:
-                    if attr in item_map[key]:
-                        new_item[attr] = item_map[key][attr]
-                final_result.append(new_item)
-            result = final_result
+            kwargs['attributes'] = selection.build(visitor)
+            kwargs['alias'] = visitor.attribute_names
+            result = self.connection.batch_get(tablename, **kwargs)
 
         # Save the data to a file
         if tree.save_file:
+            if selection.is_count:
+                raise Exception("Cannot use count(*) with SAVE")
+            count = 0
+            result = (selection.convert(item, True) for item in result)
             filename = tree.save_file[0]
             if filename[0] in ['"', "'"]:
                 filename = unwrap(filename)
@@ -538,9 +502,11 @@ class Engine(object):
             else:
                 opened = open(filename, 'wb')
             if ext.lower() == '.csv':
-                if attributes is not None:
-                    headers = attributes
+                if selection.all_keys:
+                    headers = selection.all_keys
                 else:
+                    # Have to do this to get all the headers :(
+                    result = list(result)
                     all_headers = set()
                     for item in result:
                         all_headers.update(item.keys())
@@ -550,16 +516,22 @@ class Engine(object):
                                             extrasaction='ignore')
                     writer.writeheader()
                     for item in result:
+                        count += 1
                         writer.writerow(item)
             elif ext.lower() == '.json':
                 with opened as ofile:
                     for item in result:
+                        count += 1
                         ofile.write(self._encoder.encode(item))
                         ofile.write('\n')
             else:
                 with opened as ofile:
                     for item in result:
+                        count += 1
                         pickle.dump(item, ofile)
+            return count
+        elif not selection.is_count:
+            result = (selection.convert(item) for item in result)
 
         return result
 
@@ -581,10 +553,8 @@ class Engine(object):
             if table.range_key is not None:
                 attrs.append(visitor.get_field(table.range_key.name))
             kwargs['attributes'] = attrs
-            if visitor.expression_values:
-                kwargs['expr_values'] = visitor.expression_values
-            if visitor.attribute_names:
-                kwargs['alias'] = visitor.attribute_names
+            kwargs['expr_values'] = visitor.expression_values
+            kwargs['alias'] = visitor.attribute_names
 
             method = getattr(self.connection, action + '2')
             keys = method(table.name, **kwargs)
@@ -619,8 +589,7 @@ class Engine(object):
             constraints = ConstraintExpression.from_where(tree.where)
             kwargs['condition'] = constraints.build(visitor)
         kwargs['expr_values'] = visitor.expression_values
-        if visitor.attribute_names:
-            kwargs['alias'] = visitor.attribute_names
+        kwargs['alias'] = visitor.attribute_names
         return self._query_and_op(tree, table, 'delete_item', kwargs)
 
     def _update(self, tree):
@@ -641,8 +610,7 @@ class Engine(object):
             constraints = ConstraintExpression.from_where(tree.where)
             kwargs['condition'] = constraints.build(visitor)
         kwargs['expr_values'] = visitor.expression_values
-        if visitor.attribute_names:
-            kwargs['alias'] = visitor.attribute_names
+        kwargs['alias'] = visitor.attribute_names
         return self._query_and_op(tree, table, 'update_item', kwargs)
 
     def _create(self, tree):

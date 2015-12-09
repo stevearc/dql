@@ -1,4 +1,5 @@
 """ Tests for queries """
+from datetime import datetime, timedelta
 import time
 from dynamo3 import Binary
 from dql.models import TableField, IndexField, GlobalIndex
@@ -440,10 +441,10 @@ class TestSelect(BaseSystemTest):
             {'id': 'a', 'bar': 1, 'baz': 20},
             {'id': 'a', 'bar': 2, 'baz': 30},
         ]
-        self.assertEqual(ret, expected)
+        self.assertEqual(list(ret), expected)
         ret = self.query("SELECT * FROM foobar WHERE id = 'a' ORDER BY baz DESC")
         expected.reverse()
-        self.assertEqual(ret, expected)
+        self.assertEqual(list(ret), expected)
 
     def test_select_non_projected(self):
         """ SELECT can get attributes not projected onto an index """
@@ -612,12 +613,82 @@ class TestSelectScan(BaseSystemTest):
         self._run("* FROM foobar WHERE bar != baz",
                   [{'id': 'b', 'bar': 2, 'baz': 3}])
 
-    def test_select_timestamp(self):
+    def test_select_filter_timestamp(self):
         """ SELECT can filter by timestamp """
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=now() + interval '1 hour')")
         ret = list(self.query("SCAN * FROM foobar WHERE bar > NOW()"))
         self.assertEqual(len(ret), 1)
+
+    def test_select_alias(self):
+        """ SELECT can alias selected fields """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=5)")
+        self._run("id, bar as baz FROM foobar",
+                  [{'id': 'a', 'baz': 5}])
+
+    def test_select_operation(self):
+        """ SELECT can perform simple arithmetic """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=5, baz=3)")
+        self._run("bar + baz as ret FROM foobar",
+                  [{'ret': 8}])
+
+    def test_select_none_operation(self):
+        """ SELECT operations ignore None values """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=5)")
+        self._run("bar + baz as ret FROM foobar",
+                  [{'ret': 5}])
+
+    def test_select_type_error_operation(self):
+        """ SELECT operations with bad values return TypeError """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=5, baz=(1, 2))")
+        ret = list(self.query("SCAN bar + baz as ret FROM foobar"))[0]
+        self.assertTrue(isinstance(ret['ret'], TypeError))
+
+    def test_nested_operation(self):
+        """ SELECT can perform nested operations """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', foo=10, bar=5, baz=3)")
+        self._run("foo - (bar - baz) as ret FROM foobar",
+                  [{'ret': 8}])
+
+    def test_select_timestamp(self):
+        """ SELECT can convert values to timestamps """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=NOW())")
+        ret = list(self.query("SCAN ts(bar) as bar FROM foobar"))[0]
+        self.assertTrue(isinstance(ret['bar'], datetime))
+
+    def test_select_timestamp_ms(self):
+        """ SELECT can convert millisecond values to timestamps """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=ms(NOW()))")
+        ret = list(self.query("SCAN ts(bar) as bar FROM foobar"))[0]
+        self.assertTrue(isinstance(ret['bar'], datetime))
+
+    def test_select_timestamp_literal(self):
+        """ SELECT can parse timestamp literals """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=4)")
+        ret = list(self.query("SCAN ts('2015-12-5') as d FROM foobar"))[0]
+        self.assertTrue(isinstance(ret['d'], datetime))
+
+    def test_select_now(self):
+        """ SELECT can get the current time """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=4)")
+        ret = list(self.query("SCAN now() as d FROM foobar"))[0]
+        self.assertTrue(isinstance(ret['d'], datetime))
+
+    def test_select_timedelta(self):
+        """ SELECT can subtract dates to get a timedelta """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=now())")
+        ret = list(self.query("SCAN now() - ts(bar) as d FROM foobar"))[0]
+        self.assertTrue(isinstance(ret['d'], timedelta))
 
 
 class TestCreate(BaseSystemTest):

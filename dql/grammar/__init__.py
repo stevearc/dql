@@ -5,7 +5,7 @@ from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
                      set_, primitive, var_val, filename)
-from .query import where, limit, if_exists, if_not_exists, keys_in
+from .query import selection, where, limit, if_exists, if_not_exists, keys_in
 
 
 def create_throughput(variable=primitive):
@@ -21,17 +21,13 @@ def _query(cmd):
     """ Create the grammar for a scan/query """
     action = upkey(cmd).setResultsName('action')
     consist = upkey('consistent').setResultsName('consistent')
-    attrs = Group(Keyword('*') | upkey('count(*)') |
-                  (Optional(Suppress('(')) + delimitedList(var) +
-                   Optional(Suppress(')'))))\
-        .setResultsName('attrs')
     order_by = (Suppress(upkey('order') + upkey('by')) + var)\
         .setResultsName('order_by')
     ordering = (upkey('desc') | upkey('asc')).setResultsName('order')
     save = (Suppress(upkey('save')) + filename)\
         .setResultsName('save_file')
 
-    return (action + Optional(consist) + attrs + from_ + table +
+    return (action + Optional(consist) + selection + from_ + table +
             Optional(keys_in | where) +
             Optional(using) +
             Optional(limit) +

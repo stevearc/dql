@@ -57,12 +57,14 @@ class Visitor(object):
     @property
     def attribute_names(self):
         """ Dict of encoded field names to original names """
-        return self._fields
+        if self._fields:
+            return self._fields
 
     @property
     def expression_values(self):
         """ Dict of encoded variable names to the variables """
-        return self._values
+        if self._values:
+            return self._values
 
 
 class DummyVisitor(Visitor):

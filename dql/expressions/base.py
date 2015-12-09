@@ -27,6 +27,10 @@ class Field(Expression):
     def build(self, visitor):
         return visitor.get_field(self.field)
 
+    def evaluate(self, item):
+        """ Pull the field off the item """
+        return item.get(self.field)
+
 
 class Value(Expression):
 
@@ -37,3 +41,7 @@ class Value(Expression):
 
     def build(self, visitor):
         return visitor.get_value(self.value)
+
+    def evaluate(self, item):
+        """ Values evaluate to themselves regardless of the item """
+        return self.value
