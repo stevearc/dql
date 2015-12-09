@@ -204,8 +204,8 @@ CONSTRAINTS = [
      "foo > 1449273661.0"),
     ('WHERE foo > ms(utcts "2015-12-5" + interval "1 minute 1s")',
      "foo > 1449273661000.0"),
-    ('WHERE foo > utcts "2015-12-5" - interval "1y -2d 1month -3 weeks 8 day 2h 3ms 4us"',
-     "foo > 1416434399.996996"),
+    ('WHERE foo > utcts "2015-12-5" - interval "1y -2d 1month -3 weeks 8 day 2h 3ms 10us"',
+     "foo > 1416434399.99699"),
 ]
 
 UPDATES = [
