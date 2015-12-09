@@ -82,6 +82,7 @@ class BaseFormat(object):
             if (count >= self.pagesize and self.pagesize > 0 and count <
                     num_results):
                 self.wait()
+                count = 0
 
     def wait(self):
         """ Block for user input """
@@ -186,7 +187,7 @@ class ColumnFormat(BaseFormat):
     def wait(self):
         """ Block for user input """
         self._write_footer()
-        raw_input("Press return for next %d results:" % self.pagesize)
+        super(ColumnFormat, self).wait()
         self._write_header()
 
     def write(self, result):

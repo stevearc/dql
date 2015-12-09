@@ -15,6 +15,7 @@ Queries
     dump
     explain
     insert
+    load
     scan
     select
     update

@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.10
+------
+* LOAD command to insert records from a file created with ``SELECT ... SAVE``
+* Default SAVE format is pickle
+* SAVE command can gzip the file
+
 0.5.9
 -----
 * Don't print results to console when saving to a file

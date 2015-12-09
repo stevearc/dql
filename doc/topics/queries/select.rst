@@ -16,13 +16,13 @@ Synopsis
         [ LIMIT limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
-        [ SAVE file.json ]
+        [ SAVE filename]
 
 Examples
 --------
 .. code-block:: sql
 
-    SELECT * FROM foobars SAVE out.json;
+    SELECT * FROM foobars SAVE out.p;
     SELECT * FROM foobars WHERE foo = 'bar';
     SELECT count(*) FROM foobars WHERE foo = 'bar';
     SELECT * FROM foobars KEYS IN 'id1', 'id2';
@@ -73,8 +73,11 @@ Parameters
     Sort the results in ASCending (the default) or DESCending order.
 
 **SAVE**
-    Save the results to a file. By default the items will be JSON-encoded, but
-    if the filename ends with '.csv' they will be saved in CSV format instead.
+    Save the results to a file. By default the items will be encoded with
+    pickle, but the '.json' and '.csv' extensions will use the proper format.
+    You may also append a '.gz' or '.gzip' afterwards to gzip the results. Note
+    that the JSON and CSV formats will be lossy because they cannot properly
+    encode some data structures, such as sets.
 
 Where Clause
 ------------

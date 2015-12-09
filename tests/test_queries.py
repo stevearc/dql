@@ -1,4 +1,5 @@
 """ Tests for queries """
+import time
 from dynamo3 import Binary
 from dql.models import TableField, IndexField, GlobalIndex
 
@@ -199,6 +200,14 @@ class TestInsert(BaseSystemTest):
         items = list(self.dynamo.scan(table))
         self.assertItemsEqual(items, [{'id': 'a', 'bar': 1},
                                       {'id': 'b', 'baz': 4}])
+
+    def test_insert_timestamps(self):
+        """ INSERT can insert timestamps """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=NOW() + interval '1 hour')")
+        ret = list(self.dynamo.scan(table))[0]
+        now = time.time()
+        self.assertTrue(abs(int(now + 60 * 60) - int(ret['bar'])) <= 1)
 
     def test_explain(self):
         """ EXPLAIN INSERT """
@@ -602,6 +611,13 @@ class TestSelectScan(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), ('b', 2, 3)")
         self._run("* FROM foobar WHERE bar != baz",
                   [{'id': 'b', 'bar': 2, 'baz': 3}])
+
+    def test_select_timestamp(self):
+        """ SELECT can filter by timestamp """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', bar=now() + interval '1 hour')")
+        ret = list(self.query("SCAN * FROM foobar WHERE bar > NOW()"))
+        self.assertEqual(len(ret), 1)
 
 
 class TestCreate(BaseSystemTest):

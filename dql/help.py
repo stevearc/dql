@@ -131,6 +131,17 @@ INSERT = """
     INSERT INTO foobars (id='foo'), (id='bar', baz=(1, 2, 3));
 """
 
+LOAD = """
+    Load data from a file (saved with SELECT ... SAVE) into a table
+
+    LOAD filename INTO tablename
+
+    Examples
+    --------
+    LOAD archive.p INTO mytable;
+    LOAD dump.json.gz INTO mytable;
+"""
+
 SCAN = """
     See SELECT
 """

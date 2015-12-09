@@ -13,8 +13,8 @@ import traceback
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
-from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, SCAN,
-                   SELECT, UPDATE, OPTIONS, EXPLAIN)
+from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, LOAD,
+                   SCAN, SELECT, UPDATE, OPTIONS, EXPLAIN)
 from .monitor import Monitor
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      less_display, stdout_display)
@@ -542,6 +542,10 @@ class DQLClient(cmd.Cmd):
     def help_insert(self):
         """ Print the help text for INSERT """
         six.print_(INSERT)
+
+    def help_load(self):
+        """ Print the help text for LOAD """
+        six.print_(LOAD)
 
     def help_scan(self):
         """ Print the help text for SCAN """
