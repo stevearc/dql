@@ -196,8 +196,6 @@ CONSTRAINTS = [
      "foo BETWEEN 1 AND 5"),
     ('WHERE foo in (1, 5, 7)',
      "foo IN (1, 5, 7)"),
-    ('WHERE foo > ts("2015-12-5")',
-     "foo > 1449302400.0"),
     ('WHERE foo > utcts("2015-12-5")',
      "foo > 1449273600.0"),
     ('WHERE foo > ms(utcts "2015-12-5")',
