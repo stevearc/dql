@@ -7,9 +7,9 @@ The following are options you can set for DQL. Options are set with ``opt
 <option>``
 
 +-------------------+---------------------------+-----------------------------------------------------+
-|             width | int                       | Number of characters wide to format the display     |
+|             width | int / auto                | Number of characters wide to format the display     |
 +-------------------+---------------------------+-----------------------------------------------------+
-|          pagesize | int                       | Number of results to get per page for queries       |
+|          pagesize | int / auto                | Number of results to get per page for queries       |
 +-------------------+---------------------------+-----------------------------------------------------+
 |           display | less / stdout             | The reader used to view query results               |
 +-------------------+---------------------------+-----------------------------------------------------+
