@@ -1,26 +1,41 @@
 """ Common use grammars """
-
 from pyparsing import (Word, Upcase, Optional, Combine, Group, alphas, nums,
                        alphanums, quotedString, Keyword, Suppress, Regex,
-                       delimitedList, Forward, oneOf)
+                       delimitedList, Forward, oneOf, OneOrMore)
 
 
 def upkey(name):
     """ Shortcut for creating an uppercase keyword """
     return Upcase(Keyword(name, caseless=True))
 
-# pylint: disable=C0103
-backtickString = Regex(r'`[^`]*`').setName("string enclosed in backticks")
 
-and_, or_, from_, into, in_, table_key, null, not_ = \
-    map(upkey, ['and', 'or', 'from', 'into', 'in', 'table', 'null', 'not'])
+def function(name, *args, **kwargs):
+    """ Construct a parser for a standard function format """
+    if kwargs.get('caseless'):
+        name = upkey(name)
+    else:
+        name = Word(name)
+    fxn_args = None
+    for i, arg in enumerate(args):
+        if i == 0:
+            fxn_args = arg
+        else:
+            fxn_args += Suppress(',') + arg
+    if fxn_args is None:
+        return name + Suppress('(') + Suppress(')')
+    if kwargs.get('optparen'):
+        return name + ((Suppress('(') + fxn_args + Suppress(')')) | fxn_args)
+    else:
+        return name + Suppress('(') + fxn_args + Suppress(')')
+
+# pylint: disable=C0103
+
+and_, or_, from_, into, table_key, null, not_ = \
+    map(upkey, ['and', 'or', 'from', 'into', 'table', 'null', 'not'])
 and_or = and_ | or_
 
 var = Word(alphas, alphanums + '_-.[]').setName('variable')\
     .setResultsName('var')
-expr = Combine(
-    Optional('m') +
-    backtickString).setName('python expression').setResultsName('python')
 table = Word(alphas, alphanums + '_-.').setResultsName('table')
 type_ = (upkey('string') |
          upkey('number') |
@@ -28,8 +43,11 @@ type_ = (upkey('string') |
     .setName('type').setResultsName('type')
 
 _sign = Word('+-', exact=1)
-num = Combine(Optional(_sign) + Word(nums) +
-              Optional('.' + Optional(Word(nums)))).setName('number')
+number = Combine(Optional(_sign) + Word(nums) +
+                 Optional('.' + Optional(Word(nums)))) \
+    .setName('number').setResultsName('number')
+integer = Combine(Optional(_sign) + Word(nums)) \
+    .setName('number').setResultsName('number')
 boolean = (upkey('true') | upkey('false')).setName('bool')
 binary = Combine('b' + quotedString)
 
@@ -37,10 +55,9 @@ value = Forward()
 json_value = Forward()
 string = quotedString.setResultsName('str')
 json_primitive = (null.setResultsName('null') |
-                  num.setResultsName('number') |
-                  string |
+                  number | string |
                   boolean.setResultsName('bool'))
-set_primitive = (num.setResultsName('number') |
+set_primitive = (number.setResultsName('number') |
                  quotedString.setResultsName('str') |
                  binary.setResultsName('binary'))
 primitive = (json_primitive | binary.setResultsName('binary'))
@@ -54,11 +71,54 @@ key_val = (Group(quotedString.setResultsName('str')) + Suppress(':') +
 dict_ = (Suppress('{') + Optional(delimitedList(Group(key_val))) +
          Suppress('}')).setResultsName('dict')
 json_value <<= Group(json_primitive | list_ | dict_)
-value <<= Group(primitive | expr | set_ | _emptyset | list_ |
+
+ts_functions = Group(
+    function('timestamp', quotedString, caseless=True, optparen=True) |
+    function('ts', quotedString, caseless=True, optparen=True) |
+    function('utctimestamp', quotedString, caseless=True, optparen=True) |
+    function('utcts', quotedString, caseless=True, optparen=True) |
+    function('now', caseless=True)
+).setName('function').setResultsName('ts_function')
+
+
+def make_interval(long_name, short_name):
+    """ Create an interval segment """
+    return Group(Regex('(-+)?[0-9]+') +
+                 (upkey(long_name + 's') |
+                  Upcase(Regex(long_name + 's')) |
+                  upkey(long_name) |
+                  Upcase(Regex(long_name)) |
+                  upkey(short_name) |
+                  Upcase(Regex(short_name)))) \
+        .setResultsName(long_name)
+interval = (
+    make_interval('year', 'y') |
+    make_interval('month', 'month') |
+    make_interval('week', 'w') |
+    make_interval('day', 'd') |
+    make_interval('hour', 'h') |
+    make_interval('millisecond', 'ms') |
+    make_interval('minute', 'm') |
+    make_interval('second', 's') |
+    make_interval('microsecond', 'us')
+)
+intervals = OneOrMore(interval)
+quoted_interval = ((Suppress('"') + intervals + Suppress('"')) |
+                   (Suppress("'") + intervals + Suppress("'")))
+interval_fxn = Group(function('interval', quoted_interval, caseless=True,
+                              optparen=True)).setResultsName('interval')
+ts_expression = Forward()
+ts_expression <<= (Group(ts_functions + oneOf('+ -') + interval_fxn)
+                   .setResultsName('ts_expression') |
+                   ts_functions |
+                   Group(function('ms', Group(ts_expression), caseless=True))
+                   .setResultsName('ts_function'))
+
+value <<= Group(ts_expression | primitive | set_ | _emptyset | list_ |
                 dict_).setName('value')
-var_val = (var.setResultsName('field') | value)
+var_val = (value | var.setResultsName('field'))
 
 # Wrap these in a group so they can be used independently
-primitive = Group(primitive | expr).setName('primitive')
-set_ = Group(set_ | _emptyset | expr).setName('set')
+primitive = Group(primitive).setName('primitive')
+set_ = Group(set_ | _emptyset).setName('set')
 types = Upcase(oneOf('s ss n ns b bs bool null l m', caseless=True))

@@ -1,6 +1,6 @@
 """ Tests for the language parser """
 import six
-from pyparsing import ParseException
+from pyparsing import ParseException, StringEnd
 
 from dql.expressions import ConstraintExpression, UpdateExpression
 from dql.grammar import statement_parser, parser, update_expr
@@ -26,10 +26,10 @@ TEST_CASES = {
     ],
     'create_index': [
         ('CREATE TABLE foobars (foo binary index("foo-index"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INDEX'], ['"foo-index"']]]]]),
-        ('CREATE TABLE foobars (foo binary index(`idxname`))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INDEX'], ['`idxname`']]]]]),
-        ('CREATE TABLE foobars (foo binary keys index(`idxname`))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['KEYS', 'INDEX'], ['`idxname`']]]]]),
-        ('CREATE TABLE foobars (foo binary include index(`idxname`, ["foo"]))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INCLUDE', 'INDEX'], ['`idxname`'], [['"foo"']]]]]]),
-        ('CREATE TABLE foobars (foo binary INCLUDE INDEX(`idxname`, ["foo", "bar"]))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INCLUDE', 'INDEX'], ['`idxname`'], [['"foo"'], ['"bar"']]]]]]),
+        ('CREATE TABLE foobars (foo binary index("idxname"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INDEX'], ['"idxname"']]]]]),
+        ('CREATE TABLE foobars (foo binary keys index("idxname"))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['KEYS', 'INDEX'], ['"idxname"']]]]]),
+        ('CREATE TABLE foobars (foo binary include index("idxname", ["foo"]))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INCLUDE', 'INDEX'], ['"idxname"'], [['"foo"']]]]]]),
+        ('CREATE TABLE foobars (foo binary INCLUDE INDEX("idxname", ["foo", "bar"]))', ['CREATE', 'TABLE', 'foobars', [['foo', 'BINARY', [['INCLUDE', 'INDEX'], ['"idxname"'], [['"foo"'], ['"bar"']]]]]]),
         ('CREATE foobars (foo binary index(idxname))', 'error'),
     ],
     'create_global': [
@@ -89,8 +89,6 @@ TEST_CASES = {
         ('()', [['()']]),
         ('(1, 2)', [[['1'], ['2']]]),
         ('("a", "b")', [[['"a"'], ['"b"']]]),
-        ('`1 + 2`', [['`1 + 2`']]),
-        ('m`foo(bar + \n2)`', [['m`foo(bar + \n2)`']]),
         ('true', [['TRUE']]),
         ('false', [['FALSE']]),
         ('[1, "a"]', [[['1'], ['"a"']]]),
@@ -99,6 +97,11 @@ TEST_CASES = {
         ('{"a": 1}', [[[['"a"'], ['1']]]]),
         ('{}', [[]]),
         ('{"a": {"b": true}}', [[[['"a"'], [[['"b"'], ['TRUE']]]]]]),
+        ('timestamp("2012")', [[['TIMESTAMP', '"2012"']]]),
+        ('utctimestamp "2012" ', [[['UTCTIMESTAMP', '"2012"']]]),
+        ('ts("2012")', [[['TS', '"2012"']]]),
+        ('now()', [[['NOW']]]),
+        ('ms(now() + interval("1 day"))', [[['MS', [[['NOW'], '+', ['INTERVAL', ['1', 'DAY']]]]]]]),
     ],
 }
 
@@ -193,6 +196,18 @@ CONSTRAINTS = [
      "foo BETWEEN 1 AND 5"),
     ('WHERE foo in (1, 5, 7)',
      "foo IN (1, 5, 7)"),
+    ('WHERE foo > ts("2015")',
+     "foo > 1449561600.0"),
+    ('WHERE foo > utcts("2015")',
+     "foo > 1449532800.0"),
+    ('WHERE foo > ms(utcts "2015")',
+     "foo > 1449532800000.0"),
+    ('WHERE foo > utcts "2015" + interval "1 minute 1s"',
+     "foo > 1449532861.0"),
+    ('WHERE foo > ms(utcts "2015" + interval "1 minute 1s")',
+     "foo > 1449532861000.0"),
+    ('WHERE foo > utcts "2015" - interval "1y -2d 1month -3 weeks 8 day 2h 3ms 4us"',
+     "foo > 1416693599.996996"),
 ]
 
 UPDATES = [
@@ -244,6 +259,7 @@ class TestExpressions(TestCase):
 
     def _run_test(self, expression, expected, grammar, key, factory):
         """ Parse an expression, build it, and compare """
+        grammar = grammar + StringEnd()
         try:
             parse_result = grammar.parseString(expression)
             const = factory(parse_result[key])
