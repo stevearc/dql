@@ -101,8 +101,10 @@ class BaseFormat(object):
         """ Format a single Dynamo value """
         if isinstance(field, Decimal):
             if field % 1 == 0:
-                return unicode(int(field))
-            return unicode(float(field))
+                return six.text_type(int(field))
+            return six.text_type(float(field))
+        if isinstance(field, set):
+            return '(' + ', '.join([self.format_field(v) for v in field]) + ')'
         pretty = repr(field)
         if pretty.startswith("u'"):
             return pretty[1:]
