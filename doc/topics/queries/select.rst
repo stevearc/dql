@@ -25,12 +25,12 @@ Examples
     SELECT * FROM foobars SAVE out.p;
     SELECT * FROM foobars WHERE foo = 'bar';
     SELECT count(*) FROM foobars WHERE foo = 'bar';
-    SELECT * FROM foobars KEYS IN 'id1', 'id2';
+    SELECT id, TIMESTAMP(updated) FROM foobars KEYS IN 'id1', 'id2';
     SELECT * FROM foobars KEYS IN ('hkey', 'rkey1'), ('hkey', 'rkey2');
     SELECT CONSISTENT * foobars WHERE foo = 'bar' AND baz >= 3;
     SELECT * foobars WHERE foo = 'bar' AND attribute_exists(baz);
-    SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR attribute_exists(baz));
-    SELECT foo, bar FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
+    SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR contains(baz, 'qux'));
+    SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
     SELECT * FROM foobars WHERE foo = 'bar' LIMIT 50 DESC;
 
 Description
@@ -43,9 +43,11 @@ Parameters
     If this is present, perform a strongly consistent read
 
 **attributes**
-    Comma-separated list of item attributes to fetch. ``*`` is a special case
-    meaning 'all attributes'. ``count(*)`` is a special case that will return
-    the number of results, rather than the results themselves.
+    Comma-separated list of attributes to fetch or expressions. You can use the
+    ``TIMESTAMP`` and ``DATE`` functions, as well as performing simple,
+    arbitrarily nested arithmetic (``foo + (bar - 3) / 100``). ``SELECT *`` is a
+    special case meaning 'all attributes'. ``SELECT count(*)`` is a special case
+    that will return the number of results, rather than the results themselves.
 
 **tablename**
     The name of the table

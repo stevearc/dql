@@ -77,6 +77,10 @@ DELETE = """
     DELETE FROM foobars KEYS IN 'hkey1', 'hkey2' WHERE attribute_exists(foo);
     DELETE FROM foobars KEYS IN ('hkey1', 'rkey1'), ('hkey2', 'rkey2');
     DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
+
+    Links
+    -----
+    http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#ConditionExpressionReference
 """
 
 DROP = """
@@ -142,11 +146,7 @@ LOAD = """
     LOAD dump.json.gz INTO mytable;
 """
 
-SCAN = """
-    See SELECT
-"""
-
-SELECT = """
+SCAN = SELECT = """
     Select items from a table by querying an index
 
     SELECT
@@ -162,16 +162,20 @@ SELECT = """
 
     Examples
     --------
-    SELECT * FROM foobars SAVE out.json;
+    SELECT * FROM foobars SAVE out.p;
     SELECT * FROM foobars WHERE foo = 'bar';
     SELECT count(*) FROM foobars WHERE foo = 'bar';
-    SELECT * FROM foobars KEYS IN 'id1', 'id2';
+    SELECT id, TIMESTAMP(updated) FROM foobars KEYS IN 'id1', 'id2';
     SELECT * FROM foobars KEYS IN ('hkey', 'rkey1'), ('hkey', 'rkey2');
     SELECT CONSISTENT * foobars WHERE foo = 'bar' AND baz >= 3;
     SELECT * foobars WHERE foo = 'bar' AND attribute_exists(baz);
-    SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR attribute_exists(baz));
-    SELECT foo, bar FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
+    SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR contains(baz, 'qux'));
+    SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
     SELECT * FROM foobars WHERE foo = 'bar' LIMIT 50 DESC;
+
+    Links
+    -----
+    http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#ConditionExpressionReference
 """
 
 UPDATE = """
@@ -194,6 +198,11 @@ UPDATE = """
     UPDATE foobars ADD fooset (1, 2);
     UPDATE foobars REMOVE old_attribute;
     UPDATE foobars DELETE fooset (1, 2);
+
+    Links
+    -----
+    http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.Modifying.html#Expressions.Modifying.UpdateExpressions
+    http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#ConditionExpressionReference
 """
 
 OPTIONS = """
