@@ -2,9 +2,10 @@
 import six
 from pyparsing import ParseException, StringEnd
 
-from dql.expressions import ConstraintExpression, UpdateExpression
+from dql.expressions import (ConstraintExpression, UpdateExpression,
+                             SelectionExpression)
 from dql.grammar import statement_parser, parser, update_expr
-from dql.grammar.query import where, value
+from dql.grammar.query import where, value, selection
 
 
 try:
@@ -251,6 +252,31 @@ UPDATES = [
      "DELETE foo 1, bar 2"),
 ]
 
+SELECTION = [
+    ('foo',
+     'foo'),
+    ('foo + bar',
+     '(foo + bar)'),
+    ('foo + bar * baz',
+     '(foo + (bar * baz))'),
+    ('foo - (bar - baz)',
+     '(foo - (bar - baz))'),
+    ('foo + bar AS baz',
+     '(foo + bar) AS baz'),
+    ('foo + 2',
+     '(foo + 2)'),
+    ('*',
+     ''),
+    ('count(*)',
+     ''),
+    ('timestamp(foo)',
+     'TIMESTAMP(foo)'),
+    ('utcts(foo - bar)',
+     'UTCTIMESTAMP((foo - bar))'),
+    ('now() - now()',
+     '(NOW() - NOW())'),
+]
+
 
 class TestExpressions(TestCase):
     """ Tests for expression parsing and building """
@@ -287,3 +313,9 @@ class TestExpressions(TestCase):
         for (expression, expected) in UPDATES:
             self._run_test(expression, expected, update_expr, 'update',
                            UpdateExpression.from_update)
+
+    def test_selection(self):
+        """ Test parsing selection expressions (SELECT ...) """
+        for (expression, expected) in SELECTION:
+            self._run_test(expression, expected, selection, 'attrs',
+                           SelectionExpression.from_selection)

@@ -8,6 +8,11 @@ from decimal import Decimal
 from dynamo3 import Binary
 
 
+def plural(value, append='s'):
+    """ Helper function for pluralizing text """
+    return '' if value == 1 else append
+
+
 def unwrap(value):
     """ Unwrap a quoted string """
     return value[1:-1]

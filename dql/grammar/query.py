@@ -1,9 +1,44 @@
 """ Grammars for parsing query strings """
-from pyparsing import (Group, OneOrMore, delimitedList, Suppress, Optional,
-                       oneOf, Forward)
+from pyparsing import (Group, OneOrMore, ZeroOrMore, delimitedList, Suppress, Optional,
+                       oneOf, Forward, Keyword)
 
 from .common import (var, value, and_, and_or, upkey, set_, not_, types,
                      string, var_val, integer, function)
+
+
+def select_functions(expr):
+    """ Create the function expressions for selection """
+    body = Group(expr)
+    return Group(
+        function('timestamp', body, caseless=True) |
+        function('ts', body, caseless=True) |
+        function('utctimestamp', body, caseless=True) |
+        function('utcts', body, caseless=True) |
+        function('now', caseless=True) |
+        function('utcnow', caseless=True)
+    ).setResultsName('function')
+
+
+def create_selection():
+    """ Create a selection expression """
+    operation = Forward()
+    nested = Group(Suppress('(') + operation + Suppress(')'))\
+        .setResultsName('nested')
+    select_expr = Forward()
+    functions = select_functions(select_expr)
+    maybe_nested = (functions | nested | Group(var_val))
+    operation <<= maybe_nested + OneOrMore(oneOf('+ - * /') + maybe_nested)
+    select_expr <<= (
+        operation |
+        maybe_nested
+    )
+    alias = Group(Suppress(upkey('as')) + var)\
+        .setResultsName('alias')
+    full_select = Group(Group(select_expr).setResultsName('selection') +
+                        Optional(alias))
+    return Group(Keyword('*') | upkey('count(*)') |
+                 delimitedList(full_select))\
+        .setResultsName('attrs')
 
 
 def create_query_constraint():
@@ -62,3 +97,4 @@ if_not_exists = Group(upkey('if') + upkey('not') + upkey('exists'))\
 where = create_where()
 keys_in = create_keys_in()
 limit = Group(upkey('limit') + Group(integer)).setResultsName('limit')
+selection = create_selection()

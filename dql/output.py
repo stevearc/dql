@@ -12,8 +12,18 @@ import json
 import six
 import subprocess
 import tempfile
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
+
 from .monitor import getmaxyx
+from .util import plural
+
+
+try:
+    from collections import OrderedDict
+except ImportError:  # pragma: no cover
+    from ordereddict import OrderedDict  # pylint: disable=F0401
 
 
 def truncate(string, length, ellipsis='…'):
@@ -45,12 +55,29 @@ def format_json(json_object, indent):
     return indent_str.join(json_str.split('\n'))
 
 
+def delta_to_str(rd):
+    """ Convert a relativedelta to a human-readable string """
+    parts = []
+    if rd.days > 0:
+        parts.append("%d day%s" % (rd.days, plural(rd.days)))
+    clock_parts = []
+    if rd.hours > 0:
+        clock_parts.append("%02d" % rd.hours)
+    if rd.minutes > 0 or rd.hours > 0:
+        clock_parts.append("%02d" % rd.minutes)
+    if rd.seconds > 0 or rd.minutes > 0 or rd.hours > 0:
+        clock_parts.append("%02d" % rd.seconds)
+    if clock_parts:
+        parts.append(':'.join(clock_parts))
+    return ' '.join(parts)
+
+
 class BaseFormat(object):
 
     """ Base class for formatters """
 
     def __init__(self, results, ostream, width='auto', pagesize='auto'):
-        self._results = list(results)
+        self._results = results
         self._ostream = ostream
         self._width = width
         self._pagesize = pagesize
@@ -69,20 +96,31 @@ class BaseFormat(object):
             return getmaxyx()[0] - 6
         return self._pagesize
 
+    def pre_write(self):
+        """ Called once before writing the very first record """
+        pass
+
+    def post_write(self):
+        """ Called once after writing all records """
+        pass
+
     def display(self):
         """ Write results to an output stream """
-        if len(self._results) == 0:
-            self._ostream.write('No results\n')
-            return
+        total = 0
         count = 0
-        num_results = len(self._results)
         for result in self._results:
+            if count == 0:
+                self.pre_write()
             self.write(result)
             count += 1
-            if (count >= self.pagesize and self.pagesize > 0 and count <
-                    num_results):
+            total += 1
+            if count >= self.pagesize and self.pagesize > 0:
                 self.wait()
                 count = 0
+        if total == 0:
+            self._ostream.write('No results\n')
+        else:
+            self.post_write()
 
     def wait(self):
         """ Block for user input """
@@ -99,10 +137,22 @@ class BaseFormat(object):
 
     def format_field(self, field):
         """ Format a single Dynamo value """
-        if isinstance(field, Decimal):
+        if field is None:
+            return 'NULL'
+        elif isinstance(field, TypeError):
+            return 'TypeError'
+        elif isinstance(field, Decimal):
             if field % 1 == 0:
-                return unicode(int(field))
-            return unicode(float(field))
+                return six.text_type(int(field))
+            return six.text_type(float(field))
+        elif isinstance(field, set):
+            return '(' + ', '.join([self.format_field(v) for v in field]) + ')'
+        elif isinstance(field, datetime):
+            return field.isoformat()
+        elif isinstance(field, timedelta):
+            rd = relativedelta(seconds=int(field.total_seconds()),
+                               microseconds=field.microseconds)
+            return delta_to_str(rd)
         pretty = repr(field)
         if pretty.startswith("u'"):
             return pretty[1:]
@@ -122,7 +172,7 @@ class ExpandedFormat(BaseFormat):
     def write(self, result):
         self._ostream.write(self.width * '-' + '\n')
         max_key = max((len(k) for k in result.keys()))
-        for key, val in sorted(result.items()):
+        for key, val in result.items():
             # If the value is json, try to unpack it and format it better.
             if isinstance(val, six.string_types) and val.startswith("{"):
                 try:
@@ -144,7 +194,7 @@ class ColumnFormat(BaseFormat):
     """ A layout that puts item attributes in columns """
     def __init__(self, *args, **kwargs):
         super(ColumnFormat, self).__init__(*args, **kwargs)
-        col_width = {}
+        col_width = OrderedDict()
         for result in self._results:
             for key, value in six.iteritems(result):
                 col_width.setdefault(key, len(key))
@@ -176,12 +226,10 @@ class ColumnFormat(BaseFormat):
         """ Write out the table footer """
         self._ostream.write(len(self._header) * '-' + '\n')
 
-    def display(self):
-        if len(self._results) == 0:
-            self._ostream.write('No results\n')
-            return
+    def pre_write(self):
         self._write_header()
-        super(ColumnFormat, self).display()
+
+    def post_write(self):
         self._write_footer()
 
     def wait(self):

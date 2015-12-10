@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.11
+------
+* SELECT <attributes> can now use full expressions
+
 0.5.10
 ------
 * LOAD command to insert records from a file created with ``SELECT ... SAVE``
