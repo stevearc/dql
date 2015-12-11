@@ -313,7 +313,9 @@ class TimestampFunction(SelectFunction):
 
     def evaluate(self, item):
         base_value = self.expr.evaluate(item)
-        if isinstance(base_value, six.string_types):
+        if base_value is None:
+            return None
+        elif isinstance(base_value, six.string_types):
             dt = parse(base_value)
         else:
             base_value = float(base_value)
