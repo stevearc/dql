@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
-                     IndexUpdate)
+                     IndexUpdate, Limit)
 from dynamo3.constants import RESERVED_WORDS
 from pprint import pformat
 from pyparsing import ParseException
@@ -422,7 +422,15 @@ class Engine(object):
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
 
         if tree.limit:
-            kwargs['limit'] = resolve(tree.limit[1])
+            if tree.scan_limit:
+                kwargs['limit'] = Limit(scan_limit=resolve(tree.scan_limit[2]),
+                                        item_limit=resolve(tree.limit[1]),
+                                        strict=True)
+            else:
+                kwargs['limit'] = Limit(item_limit=resolve(tree.limit[1]),
+                                        strict=True)
+        elif tree.scan_limit:
+            kwargs['limit'] = Limit(scan_limit=resolve(tree.scan_limit[2]))
 
         (action, query_kwargs, index) = self._build_query(desc, tree, visitor)
         if action == 'scan' and not allow_select_scan:

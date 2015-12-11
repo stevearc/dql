@@ -156,6 +156,7 @@ SCAN = SELECT = """
         [ KEYS IN primary_keys | WHERE expression ]
         [ USING index ]
         [ LIMIT limit ]
+        [ SCAN LIMIT scan_limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
         [ SAVE file.json ]

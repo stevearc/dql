@@ -5,7 +5,8 @@ from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
                      set_, primitive, var_val, filename)
-from .query import selection, where, limit, if_exists, if_not_exists, keys_in
+from .query import (selection, where, limit, scan_limit, if_exists,
+                    if_not_exists, keys_in)
 
 
 def create_throughput(variable=primitive):
@@ -31,6 +32,7 @@ def _query(cmd):
             Optional(keys_in | where) +
             Optional(using) +
             Optional(limit) +
+            Optional(scan_limit) +
             Optional(order_by) +
             Optional(ordering) +
             Optional(save))

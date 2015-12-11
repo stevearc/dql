@@ -305,6 +305,15 @@ class TestSelect(BaseSystemTest):
         results = self.query("SELECT * FROM foobar WHERE id = 'a' LIMIT 1")
         self.assertEquals(len(list(results)), 1)
 
+    def test_scan_item_limit(self):
+        """ SELECT can provide a LIMIT and SCAN LIMIT """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
+                   "('a', 2, 200), ('a', 3, 300)")
+        results = self.query("SELECT * FROM foobar WHERE id = 'a' and "
+                             "ts > 200 LIMIT 1 SCAN LIMIT 2")
+        self.assertEquals(len(list(results)), 0)
+
     def test_attrs(self):
         """ SELECT can fetch only certain attrs """
         self.make_table()
@@ -492,6 +501,12 @@ class TestSelectScan(BaseSystemTest):
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self._run("* FROM foobar LIMIT 1", 1)
+
+    def test_scan_limit(self):
+        """ SELECT scan can limit the number of items scanned """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self._run("* FROM foobar SCAN LIMIT 1", 1)
 
     def test_begins_with(self):
         """ SELECT scan can filter attrs that begin with a string """

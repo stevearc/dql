@@ -14,6 +14,7 @@ Synopsis
         [ KEYS IN primary_keys | WHERE expression ]
         [ USING index ]
         [ LIMIT limit ]
+        [ SCAN LIMIT scan_limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
         [ SAVE filename]
@@ -58,8 +59,11 @@ Parameters
     this if the constraints provided match more than one index.
 
 **limit**
-    The maximum number of items to evaluate (not necessarily the number of
-    matching items).
+    The maximum number of items to return.
+
+**scan_limit**
+    The maximum number of items for DynamoDB to scan (not necessarily the number
+    of matching items returned).
 
 **ORDER BY**
     Sort the results by a field.
