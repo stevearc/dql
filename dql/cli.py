@@ -40,6 +40,24 @@ REGIONS = [
 ]
 NO_DEFAULT = object()
 
+DISPLAYS = {
+    'stdout': stdout_display,
+    'less': less_display,
+}
+FORMATTERS = {
+    'smart': SmartFormat,
+    'expanded': ExpandedFormat,
+    'column': ColumnFormat,
+}
+DEFAULT_CONFIG = {
+    'width': 'auto',
+    'pagesize': 'auto',
+    'display': 'stdout',
+    'format': 'smart',
+    'allow_select_scan': False,
+    '_throttle': {},
+}
+
 
 def indent(string, prefix='  '):
     """ Indent a paragraph of text """
@@ -97,25 +115,6 @@ def repl_command(fxn):
                     args.append(arg)
         return fxn(self, *args, **kwargs)
     return wrapper
-
-
-DISPLAYS = {
-    'stdout': stdout_display,
-    'less': less_display,
-}
-FORMATTERS = {
-    'smart': SmartFormat,
-    'expanded': ExpandedFormat,
-    'column': ColumnFormat,
-}
-DEFAULT_CONFIG = {
-    'width': 'auto',
-    'pagesize': 'auto',
-    'display': 'stdout',
-    'format': 'smart',
-    'allow_select_scan': False,
-    'throttle': {},
-}
 
 
 def get_enum_key(key, choices):
@@ -179,7 +178,7 @@ class DQLClient(cmd.Cmd):
             self.conf.setdefault(key, value)
         self.display = DISPLAYS[self.conf['display']]
         self.throttle = TableLimits()
-        self.throttle.load(self.conf['throttle'])
+        self.throttle.load(self.conf['_throttle'])
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -242,10 +241,11 @@ class DQLClient(cmd.Cmd):
         args = list(args)
         if not args:
             largest = 0
-            for key in self.conf:
+            keys = [key for key in self.conf if not key.startswith('_')]
+            for key in keys:
                 largest = max(largest, len(key))
-            for key, value in six.iteritems(self.conf):
-                six.print_("%s : %s" % (key.rjust(largest), value))
+            for key in keys:
+                six.print_("%s : %s" % (key.rjust(largest), self.conf[key]))
             return
         option = args.pop(0)
         if not args and not kwargs:
@@ -484,7 +484,7 @@ class DQLClient(cmd.Cmd):
         """
         Set the allowed consumed throughput for DQL.
 
-        # Set the total allowed throughput
+        # Set the total allowed throughput across all tables
         > throttle 1000 100
         # Set the default allowed throughput per-table/index
         > throttle default 40% 20%
@@ -518,7 +518,7 @@ class DQLClient(cmd.Cmd):
             self.throttle.set_total_limit(read, write)
         else:
             return self.onecmd('help throttle')
-        self.conf['throttle'] = self.throttle.save()
+        self.conf['_throttle'] = self.throttle.save()
         self.save_config()
 
     @repl_command
@@ -554,7 +554,7 @@ class DQLClient(cmd.Cmd):
             self.throttle.set_index_limit(tablename, indexname)
         else:
             self.onecmd("help unthrottle")
-        self.conf['throttle'] = self.throttle.save()
+        self.conf['_throttle'] = self.throttle.save()
         self.save_config()
 
     def default(self, command):
