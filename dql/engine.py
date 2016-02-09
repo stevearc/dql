@@ -516,10 +516,6 @@ class Engine(object):
 
         method = getattr(self.connection, action + '2')
         result = method(tablename, **kwargs)
-        if order_by is not None:
-            if index is None or order_by != index.range_key:
-                result = list(result)
-                result.sort(key=lambda x: x.get(order_by), reverse=reverse)
 
         # If the queried index didn't project the selected attributes, we need
         # to do a BatchGetItem to fetch all the data.
@@ -537,12 +533,22 @@ class Engine(object):
             kwargs['alias'] = visitor.attribute_names
             result = self.connection.batch_get(tablename, **kwargs)
 
+        def order(items):
+            """ Sort the items by the specified keys """
+            if order_by is None:
+                return items
+            if index is None or order_by != index.range_key:
+                if not isinstance(items, list):
+                    items = list(items)
+                items.sort(key=lambda x: x.get(order_by), reverse=reverse)
+            return items
+
         # Save the data to a file
         if tree.save_file:
             if selection.is_count:
                 raise Exception("Cannot use count(*) with SAVE")
             count = 0
-            result = (selection.convert(item, True) for item in result)
+            result = order(selection.convert(item, True) for item in result)
             filename = tree.save_file[0]
             if filename[0] in ['"', "'"]:
                 filename = unwrap(filename)
@@ -586,7 +592,7 @@ class Engine(object):
                         pickle.dump(item, ofile)
             return count
         elif not selection.is_count:
-            result = (selection.convert(item) for item in result)
+            result = order(selection.convert(item) for item in result)
 
         return result
 
