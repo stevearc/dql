@@ -18,6 +18,7 @@ from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, LOAD,
 from .monitor import Monitor
 from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      less_display, stdout_display)
+from .throttle import TableLimits
 
 
 try:
@@ -37,11 +38,41 @@ REGIONS = [
     'ap-northeast-1',
     'sa-east-1',
 ]
+NO_DEFAULT = object()
 
 
 def indent(string, prefix='  '):
     """ Indent a paragraph of text """
     return '\n'.join([prefix + line for line in string.split('\n')])
+
+
+def prompt(msg, default=NO_DEFAULT, validate=None):
+    """ Prompt user for input """
+    while True:
+        response = raw_input(msg + ' ').strip()
+        if not response:
+            if default is NO_DEFAULT:
+                continue
+            return default
+        if validate is None or validate(response):
+            return response
+
+
+def promptyn(msg, default=None):
+    """ Display a blocking prompt until the user confirms """
+    while True:
+        yes = "Y" if default else "y"
+        if default or default is None:
+            no = "n"
+        else:
+            no = "N"
+        confirm = prompt("%s [%s/%s]" % (msg, yes, no), '').lower()
+        if confirm in ('y', 'yes'):
+            return True
+        elif confirm in ('n', 'no'):
+            return False
+        elif len(confirm) == 0 and default is not None:
+            return default
 
 
 def repl_command(fxn):
@@ -83,6 +114,7 @@ DEFAULT_CONFIG = {
     'display': 'stdout',
     'format': 'smart',
     'allow_select_scan': False,
+    'throttle': {},
 }
 
 
@@ -146,6 +178,8 @@ class DQLClient(cmd.Cmd):
         for key, value in six.iteritems(DEFAULT_CONFIG):
             self.conf.setdefault(key, value)
         self.display = DISPLAYS[self.conf['display']]
+        self.throttle = TableLimits()
+        self.throttle.load(self.conf['throttle'])
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -445,6 +479,84 @@ class DQLClient(cmd.Cmd):
         """ Autocomplete for use """
         return [t + ' ' for t in REGIONS if t.startswith(text)]
 
+    @repl_command
+    def do_throttle(self, *args):
+        """
+        Set the allowed consumed throughput for DQL.
+
+        # Set the total allowed throughput
+        > throttle 1000 100
+        # Set the default allowed throughput per-table/index
+        > throttle default 40% 20%
+        # Set the allowed throughput on a table
+        > throttle mytable 10 10
+        # Set the allowed throughput on a global index
+        > throttle mytable myindex 40 6
+
+        see also: unthrottle
+
+        """
+        args = list(args)
+        if not args:
+            six.print_(self.throttle)
+            return
+        if len(args) < 2:
+            return self.onecmd("help throttle")
+        args, read, write = args[:-2], args[-2], args[-1]
+        if len(args) == 2:
+            tablename, indexname = args
+            self.throttle.set_index_limit(tablename, indexname, read, write)
+        elif len(args) == 1:
+            tablename = args[0]
+            if tablename == 'default':
+                self.throttle.set_default_limit(read, write)
+            elif tablename == 'total':
+                self.throttle.set_total_limit(read, write)
+            else:
+                self.throttle.set_table_limit(tablename, read, write)
+        elif len(args) == 0:
+            self.throttle.set_total_limit(read, write)
+        else:
+            return self.onecmd('help throttle')
+        self.conf['throttle'] = self.throttle.save()
+        self.save_config()
+
+    @repl_command
+    def do_unthrottle(self, *args):
+        """
+        Remove the throughput limits for DQL that were set with 'throttle'
+
+        # Remove all limits
+        > unthrottle
+        # Remove the limit on total allowed throughput
+        > unthrottle total
+        # Remove the default limit
+        > unthrottle default
+        # Remove the limit on a table
+        > unthrottle mytable
+        # Remove the limit on a global index
+        > unthrottle mytable myindex
+
+        """
+        if len(args) == 0:
+            if promptyn("Are you sure you want to clear all throttles?"):
+                self.throttle.load({})
+        elif len(args) == 1:
+            tablename = args[0]
+            if tablename == 'total':
+                self.throttle.set_total_limit()
+            elif tablename == 'default':
+                self.throttle.set_default_limit()
+            else:
+                self.throttle.set_table_limit(tablename)
+        elif len(args) == 2:
+            tablename, indexname = args
+            self.throttle.set_index_limit(tablename, indexname)
+        else:
+            self.onecmd("help unthrottle")
+        self.conf['throttle'] = self.throttle.save()
+        self.save_config()
+
     def default(self, command):
         self._run_cmd(command)
 
@@ -464,6 +576,12 @@ class DQLClient(cmd.Cmd):
 
     def _run_cmd(self, command):
         """ Run a DQL command """
+        if self.throttle:
+            tables = self.engine.describe_all(False)
+            limiter = self.throttle.get_limiter(tables)
+        else:
+            limiter = None
+        self.engine.rate_limit = limiter
         results = self.engine.execute(command)
         if results is None:
             pass

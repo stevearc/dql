@@ -102,7 +102,7 @@ class BaseFormat(object):
     def pagesize(self):
         """ The number of results to display at a time """
         if self._pagesize == 'auto':
-            return getmaxyx()[0] - 6
+            return getmaxyx()[0] - 5
         return self._pagesize
 
     def pre_write(self):
@@ -134,7 +134,9 @@ class BaseFormat(object):
 
     def wait(self):
         """ Block for user input """
-        text = raw_input("Press return for next %d results:" % self.pagesize)
+        text = raw_input(
+            "Press return for next %d result%s (or type 'all'):"
+            % (self.pagesize, plural(self.pagesize)))
         if text:
             if text.lower() in ['a', 'all']:
                 self._pagesize = 0

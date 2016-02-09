@@ -1,10 +1,10 @@
 """ DQL language parser """
 from pyparsing import (delimitedList, Optional, Group, restOfLine, Keyword,
                        Suppress, ZeroOrMore, oneOf, StringEnd, CharsNotIn,
-                       quotedString, OneOrMore, Regex, Word, printables)
+                       quotedString, OneOrMore, Regex, Word, printables, Combine)
 
 from .common import (from_, table, var, value, table_key, into, type_, upkey,
-                     set_, primitive, var_val, filename)
+                     set_, primitive, var_val, filename, function, number)
 from .query import (selection, where, limit, scan_limit, if_exists,
                     if_not_exists, keys_in)
 
@@ -14,6 +14,13 @@ def create_throughput(variable=primitive):
     return (Suppress(upkey('throughput') | upkey('tp')) + Suppress('(') +
             variable + Suppress(',') + variable + Suppress(')'))\
         .setResultsName('throughput')
+
+
+def create_throttle():
+    """ Create a THROTTLE statement """
+    throttle_amount = ('*' | Combine(number + '%') | number)
+    return Group(function('throttle', throttle_amount, throttle_amount,
+                          caseless=True)).setResultsName('throttle')
 
 # pylint: disable=W0104,W0106
 
@@ -35,6 +42,7 @@ def _query(cmd):
             Optional(scan_limit) +
             Optional(order_by) +
             Optional(ordering) +
+            Optional(throttle) +
             Optional(save))
 
 
@@ -103,7 +111,9 @@ def create_delete():
         table +
         Optional(keys_in) +
         Optional(where) +
-        Optional(using))
+        Optional(using) +
+        Optional(throttle)
+    )
 
 
 def create_insert():
@@ -122,7 +132,7 @@ def create_insert():
     item = Group(Suppress('(') + delimitedList(keyword) + Suppress(')'))
     keyword_insert = delimitedList(item).setResultsName('map_values')
 
-    return (insert + into + table + (values_insert | keyword_insert))
+    return (insert + into + table + (values_insert | keyword_insert) + Optional(throttle))
 
 
 def create_drop():
@@ -169,9 +179,14 @@ def create_update():
                               (updated + old) |
                               (updated + new))\
         .setResultsName('returns')
-    return (update + table + update_expr +
-            Optional(keys_in) + Optional(where) +
-            Optional(using) + Optional(return_))
+    return (
+        update + table + update_expr +
+        Optional(keys_in) +
+        Optional(where) +
+        Optional(using) +
+        Optional(return_) +
+        Optional(throttle)
+    )
 
 
 def create_alter():
@@ -205,7 +220,7 @@ def create_load():
     """ Create the grammar for the 'load' statement """
     load = upkey('load').setResultsName('action')
     return (load + Group(filename).setResultsName('load_file') +
-            upkey('into') + table)
+            upkey('into') + table + Optional(throttle))
 
 
 def create_parser():
@@ -234,6 +249,7 @@ def create_parser():
 # pylint: disable=C0103
 using = (upkey('using') + var).setResultsName('using')
 throughput = create_throughput()
+throttle = create_throttle()
 index = Group(Optional(upkey('all') | upkey('keys') | upkey('include')) +
               upkey('index')).setResultsName('index_type')
 include_vars = Group(Suppress('[') + delimitedList(primitive) +

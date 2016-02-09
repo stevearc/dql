@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
-                     IndexUpdate, Limit)
+                     IndexUpdate, Limit, RateLimit, Capacity)
 from dynamo3.constants import RESERVED_WORDS
 from pprint import pformat
 from pyparsing import ParseException
@@ -97,6 +97,8 @@ class Engine(object):
         self._call_list = []
         self._explaining = False
         self._analyzing = False
+        self._query_rate_limit = None
+        self.rate_limit = None
         self._encoder = json.JSONEncoder(separators=(',', ':'), default=default)
 
     def connect(self, *args, **kwargs):
@@ -121,6 +123,7 @@ class Engine(object):
         """ Change the dynamo connection """
         if connection is not None:
             connection.subscribe('capacity', self._on_capacity_data)
+            connection.default_return_capacity = True
         if self._connection is not None:
             connection.unsubscribe('capacity', self._on_capacity_data)
         self._connection = connection
@@ -184,12 +187,12 @@ class Engine(object):
             ret = "Loaded %d item%s" % (result, plural(result))
         return ret
 
-    def describe_all(self):
+    def describe_all(self, refresh=True):
         """ Describe all tables in the connected region """
         tables = self.connection.list_tables()
         descs = []
         for tablename in tables:
-            descs.append(self.describe(tablename, refresh=True))
+            descs.append(self.describe(tablename, refresh))
         return descs
 
     def _get_metric(self, metric, tablename, index_name=None):
@@ -275,7 +278,7 @@ class Engine(object):
         tree = parser.parseString(commands)
         self.consumed_capacities = []
         self._analyzing = False
-        self.connection.default_return_capacity = False
+        self._query_rate_limit = None
         for statement in tree:
             try:
                 result = self._run(statement)
@@ -287,6 +290,11 @@ class Engine(object):
 
     def _run(self, tree):
         """ Run a query from a parse tree """
+        if tree.throttle:
+            limiter = self._parse_throttle(tree.table, tree.throttle)
+            self._query_rate_limit = limiter
+            del tree['throttle']
+            return self._run(tree)
         if tree.action == 'SELECT':
             return self._select(tree, self.allow_select_scan)
         elif tree.action == 'SCAN':
@@ -316,10 +324,38 @@ class Engine(object):
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
+    def _parse_throttle(self, tablename, throttle):
+        """ Parse a 'throttle' statement and return a RateLimit """
+        amount = []
+        desc = self.describe(tablename)
+        throughputs = [desc.read_throughput, desc.write_throughput]
+        for value, throughput in zip(throttle[1:], throughputs):
+            if value == '*':
+                amount.append(0)
+            elif value[-1] == '%':
+                amount.append(throughput * float(value[:-1]) / 100.)
+            else:
+                amount.append(float(value))
+        cap = Capacity(*amount)  # pylint: disable=E1120
+        return RateLimit(total=cap, callback=self._on_throttle)
+
     def _on_capacity_data(self, conn, command, kwargs, response, capacity):
         """ Log the received consumed capacity data """
         if self._analyzing:
             self.consumed_capacities.append((command, capacity))
+        if self._query_rate_limit is not None:
+            self._query_rate_limit.on_capacity(conn, command, kwargs, response,
+                                               capacity)
+        elif self.rate_limit is not None:
+            self.rate_limit.callback = self._on_throttle
+            self.rate_limit.on_capacity(conn, command, kwargs, response,
+                                        capacity)
+
+    def _on_throttle(self, conn, command, kwargs, response, capacity, seconds):
+        """ Print out a message when the query is throttled """
+        LOG.info("Throughput limit exceeded during %s. "
+                 "Sleeping for %d second%s",
+                 command, seconds, plural(seconds))
 
     def _explain(self, tree):
         """ Set up the engine to do a dry run of a query """
