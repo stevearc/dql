@@ -34,7 +34,7 @@ def bootstrap_virtualenv(env):
     env : str
         Path to the virtualenv
     """
-    if not os.path.exists(env):
+    if not os.path.exists(os.path.join(env, 'bin', 'python')):
         # If virtualenv command exists, use that
         if find_executable('virtualenv') is not None:
             cmd = ['virtualenv'] + [env]
