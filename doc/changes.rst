@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.12
+------
+* Differentiate LIMIT and SCAN LIMIT
+* Options and query syntax for ``throttling`` the consumed throughput
+* Crash fixes and other small robustness improvements
+
 0.5.11
 ------
 * SELECT <attributes> can now use full expressions
