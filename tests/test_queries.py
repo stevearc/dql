@@ -144,6 +144,7 @@ class TestAlter(BaseSystemTest):
 
     def test_explain_throughput(self):
         """ EXPLAIN ALTER """
+        self.make_table()
         self.query("EXPLAIN ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         ret = self.engine._call_list
         self.assertEqual(len(ret), 1)
