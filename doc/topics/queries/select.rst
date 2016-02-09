@@ -14,8 +14,10 @@ Synopsis
         [ KEYS IN primary_keys | WHERE expression ]
         [ USING index ]
         [ LIMIT limit ]
+        [ SCAN LIMIT scan_limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
+        [ THROTTLE throughput ]
         [ SAVE filename]
 
 Examples
@@ -32,6 +34,7 @@ Examples
     SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR contains(baz, 'qux'));
     SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
     SELECT * FROM foobars WHERE foo = 'bar' LIMIT 50 DESC;
+    SELECT * FROM foobars THROTTLE (50%, *);
 
 Description
 -----------
@@ -58,8 +61,11 @@ Parameters
     this if the constraints provided match more than one index.
 
 **limit**
-    The maximum number of items to evaluate (not necessarily the number of
-    matching items).
+    The maximum number of items to return.
+
+**scan_limit**
+    The maximum number of items for DynamoDB to scan (not necessarily the number
+    of matching items returned).
 
 **ORDER BY**
     Sort the results by a field.
@@ -73,6 +79,13 @@ Parameters
 
 **ASC | DESC**
     Sort the results in ASCending (the default) or DESCending order.
+
+**THROTTLE**
+    Limit the amount of throughput this query can consume. This is a pair of
+    values for ``(read_throughput, write_throughput)``. You can use a flat
+    number or a percentage (e.g. ``20`` or ``50%``). Using ``*`` means no limit
+    (typically useless unless you have set a default throttle in the
+    :ref:`options`).
 
 **SAVE**
     Save the results to a file. By default the items will be encoded with

@@ -11,6 +11,7 @@ Synopsis
         [ WHERE expression ]
         [ USING index ]
         [ RETURNS (NONE | ( ALL | UPDATED) (NEW | OLD)) ]
+        [ THROTTLE throughput ]
 
 Examples
 --------
@@ -39,6 +40,13 @@ Parameters
     Amazon docs for `UpdateItem
     <http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html>`_
     for more detail.
+
+**THROTTLE**
+    Limit the amount of throughput this query can consume. This is a pair of
+    values for ``(read_throughput, write_throughput)``. You can use a flat
+    number or a percentage (e.g. ``20`` or ``50%``). Using ``*`` means no limit
+    (typically useless unless you have set a default throttle in the
+    :ref:`options`).
 
 Update expression
 -----------------

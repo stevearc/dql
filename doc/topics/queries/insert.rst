@@ -7,8 +7,10 @@ Synopsis
 
     INSERT INTO tablename
         attributes VALUES values
+        [ THROTTLE throughput ]
     INSERT INTO tablename
         items
+        [ THROTTLE throughput ]
 
 
 Examples
@@ -39,6 +41,13 @@ Parameters
 
 **items**
     Comma-separated key-value pairs to insert.
+
+**THROTTLE**
+    Limit the amount of throughput this query can consume. This is a pair of
+    values for ``(read_throughput, write_throughput)``. You can use a flat
+    number or a percentage (e.g. ``20`` or ``50%``). Using ``*`` means no limit
+    (typically useless unless you have set a default throttle in the
+    :ref:`options`).
 
 See :ref:`data_types` to find out how to represent the different data types of
 DynamoDB.

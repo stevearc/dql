@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
-                     IndexUpdate)
+                     IndexUpdate, Limit, RateLimit, Capacity)
 from dynamo3.constants import RESERVED_WORDS
 from pprint import pformat
 from pyparsing import ParseException
@@ -83,6 +83,12 @@ class Engine(object):
     connection : :class:`~dynamo3.DynamoDBConnection`, optional
         If not present, you will need to call :meth:`.Engine.connect`
 
+    Attributes
+    ----------
+    caution_callback : callable, optional
+        Called to prompt user when a potentially dangerous action is about to
+        occur.
+
     """
 
     def __init__(self, connection=None):
@@ -97,7 +103,11 @@ class Engine(object):
         self._call_list = []
         self._explaining = False
         self._analyzing = False
-        self._encoder = json.JSONEncoder(separators=(',', ':'), default=default)
+        self._query_rate_limit = None
+        self.rate_limit = None
+        self._encoder = json.JSONEncoder(separators=(',', ':'),
+                                         default=default)
+        self.caution_callback = None
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
@@ -121,6 +131,7 @@ class Engine(object):
         """ Change the dynamo connection """
         if connection is not None:
             connection.subscribe('capacity', self._on_capacity_data)
+            connection.default_return_capacity = True
         if self._connection is not None:
             connection.unsubscribe('capacity', self._on_capacity_data)
         self._connection = connection
@@ -184,12 +195,12 @@ class Engine(object):
             ret = "Loaded %d item%s" % (result, plural(result))
         return ret
 
-    def describe_all(self):
+    def describe_all(self, refresh=True):
         """ Describe all tables in the connected region """
         tables = self.connection.list_tables()
         descs = []
         for tablename in tables:
-            descs.append(self.describe(tablename, True))
+            descs.append(self.describe(tablename, refresh))
         return descs
 
     def _get_metric(self, metric, tablename, index_name=None):
@@ -234,12 +245,15 @@ class Engine(object):
         except ClientError:
             return 0, 0
 
-    def describe(self, tablename, refresh=False, metrics=False):
+    def describe(self, tablename, refresh=False, metrics=False, require=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self.cached_descriptions:
             desc = self.connection.describe_table(tablename)
             if desc is None:
-                return None
+                if require:
+                    raise RuntimeError("Table %r not found" % tablename)
+                else:
+                    return None
             table = TableMeta.from_description(desc)
             self.cached_descriptions[tablename] = table
             if metrics:
@@ -272,7 +286,7 @@ class Engine(object):
         tree = parser.parseString(commands)
         self.consumed_capacities = []
         self._analyzing = False
-        self.connection.default_return_capacity = False
+        self._query_rate_limit = None
         for statement in tree:
             try:
                 result = self._run(statement)
@@ -284,6 +298,11 @@ class Engine(object):
 
     def _run(self, tree):
         """ Run a query from a parse tree """
+        if tree.throttle:
+            limiter = self._parse_throttle(tree.table, tree.throttle)
+            self._query_rate_limit = limiter
+            del tree['throttle']
+            return self._run(tree)
         if tree.action == 'SELECT':
             return self._select(tree, self.allow_select_scan)
         elif tree.action == 'SCAN':
@@ -313,10 +332,38 @@ class Engine(object):
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
+    def _parse_throttle(self, tablename, throttle):
+        """ Parse a 'throttle' statement and return a RateLimit """
+        amount = []
+        desc = self.describe(tablename)
+        throughputs = [desc.read_throughput, desc.write_throughput]
+        for value, throughput in zip(throttle[1:], throughputs):
+            if value == '*':
+                amount.append(0)
+            elif value[-1] == '%':
+                amount.append(throughput * float(value[:-1]) / 100.)
+            else:
+                amount.append(float(value))
+        cap = Capacity(*amount)  # pylint: disable=E1120
+        return RateLimit(total=cap, callback=self._on_throttle)
+
     def _on_capacity_data(self, conn, command, kwargs, response, capacity):
         """ Log the received consumed capacity data """
         if self._analyzing:
             self.consumed_capacities.append((command, capacity))
+        if self._query_rate_limit is not None:
+            self._query_rate_limit.on_capacity(conn, command, kwargs, response,
+                                               capacity)
+        elif self.rate_limit is not None:
+            self.rate_limit.callback = self._on_throttle
+            self.rate_limit.on_capacity(conn, command, kwargs, response,
+                                        capacity)
+
+    def _on_throttle(self, conn, command, kwargs, response, capacity, seconds):
+        """ Print out a message when the query is throttled """
+        LOG.info("Throughput limit exceeded during %s. "
+                 "Sleeping for %d second%s",
+                 command, seconds, plural(seconds))
 
     def _explain(self, tree):
         """ Set up the engine to do a dry run of a query """
@@ -389,14 +436,14 @@ class Engine(object):
 
     def _iter_where_in(self, tree):
         """ Iterate over the KEYS IN and generate primary keys """
-        desc = self.describe(tree.table)
+        desc = self.describe(tree.table, require=True)
         for keypair in tree.keys_in:
             yield desc.primary_key(*map(resolve, keypair))
 
     def _select(self, tree, allow_select_scan):
         """ Run a SELECT statement """
         tablename = tree.table
-        desc = self.describe(tablename)
+        desc = self.describe(tablename, require=True)
         kwargs = {}
         if tree.consistent:
             kwargs['consistent'] = True
@@ -422,7 +469,15 @@ class Engine(object):
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
 
         if tree.limit:
-            kwargs['limit'] = resolve(tree.limit[1])
+            if tree.scan_limit:
+                kwargs['limit'] = Limit(scan_limit=resolve(tree.scan_limit[2]),
+                                        item_limit=resolve(tree.limit[1]),
+                                        strict=True)
+            else:
+                kwargs['limit'] = Limit(item_limit=resolve(tree.limit[1]),
+                                        strict=True)
+        elif tree.scan_limit:
+            kwargs['limit'] = Limit(scan_limit=resolve(tree.scan_limit[2]))
 
         (action, query_kwargs, index) = self._build_query(desc, tree, visitor)
         if action == 'scan' and not allow_select_scan:
@@ -461,10 +516,6 @@ class Engine(object):
 
         method = getattr(self.connection, action + '2')
         result = method(tablename, **kwargs)
-        if order_by is not None:
-            if index is None or order_by != index.range_key:
-                result = list(result)
-                result.sort(key=lambda x: x.get(order_by), reverse=reverse)
 
         # If the queried index didn't project the selected attributes, we need
         # to do a BatchGetItem to fetch all the data.
@@ -482,12 +533,22 @@ class Engine(object):
             kwargs['alias'] = visitor.attribute_names
             result = self.connection.batch_get(tablename, **kwargs)
 
+        def order(items):
+            """ Sort the items by the specified keys """
+            if order_by is None:
+                return items
+            if index is None or order_by != index.range_key:
+                if not isinstance(items, list):
+                    items = list(items)
+                items.sort(key=lambda x: x.get(order_by), reverse=reverse)
+            return items
+
         # Save the data to a file
         if tree.save_file:
             if selection.is_count:
                 raise Exception("Cannot use count(*) with SAVE")
             count = 0
-            result = (selection.convert(item, True) for item in result)
+            result = order(selection.convert(item, True) for item in result)
             filename = tree.save_file[0]
             if filename[0] in ['"', "'"]:
                 filename = unwrap(filename)
@@ -531,7 +592,7 @@ class Engine(object):
                         pickle.dump(item, ofile)
             return count
         elif not selection.is_count:
-            result = (selection.convert(item) for item in result)
+            result = order(selection.convert(item) for item in result)
 
         return result
 
@@ -555,7 +616,12 @@ class Engine(object):
             kwargs['attributes'] = attrs
             kwargs['expr_values'] = visitor.expression_values
             kwargs['alias'] = visitor.attribute_names
-
+            # If there is no 'where' on this update/delete, check with the
+            # caution_callback before proceeding.
+            if visitor.expression_values is None and \
+                    callable(self.caution_callback) and \
+                    not self.caution_callback(method_name):  # pylint: disable=E1102
+                return False
             method = getattr(self.connection, action + '2')
             keys = method(table.name, **kwargs)
             if self._explaining:
@@ -582,7 +648,7 @@ class Engine(object):
     def _delete(self, tree):
         """ Run a DELETE statement """
         tablename = tree.table
-        table = self.describe(tablename)
+        table = self.describe(tablename, require=True)
         kwargs = {}
         visitor = Visitor(self.reserved_words)
         if tree.where:
@@ -595,7 +661,7 @@ class Engine(object):
     def _update(self, tree):
         """ Run an UPDATE statement """
         tablename = tree.table
-        table = self.describe(tablename)
+        table = self.describe(tablename, require=True)
         kwargs = {}
 
         if tree.returns:
@@ -742,7 +808,7 @@ class Engine(object):
         """ Update the throughput on a table or index """
         def get_desc():
             """ Get the table or global index description """
-            desc = self.describe(tablename, refresh=True)
+            desc = self.describe(tablename, refresh=True, require=True)
             if index is not None:
                 return desc.global_indexes[index]
             return desc
@@ -813,7 +879,8 @@ class Engine(object):
         schema = []
         if tree.tables:
             for table in tree.tables:
-                schema.append(self.describe(table, True).schema)
+                desc = self.describe(table, refresh=True, require=True)
+                schema.append(desc.schema)
         else:
             for table in self.describe_all():
                 schema.append(table.schema)

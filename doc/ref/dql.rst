@@ -6,6 +6,7 @@ Subpackages
 
 .. toctree::
 
+    dql.expressions
     dql.grammar
 
 Submodules
@@ -14,12 +15,12 @@ Submodules
 .. toctree::
 
    dql.cli
-   dql.constants
    dql.engine
-   dql.expressions
    dql.help
    dql.models
+   dql.monitor
    dql.output
+   dql.throttle
    dql.util
 
 Module contents

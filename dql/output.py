@@ -33,6 +33,14 @@ def truncate(string, length, ellipsis='…'):
     return string
 
 
+def make_list(obj):
+    """ Turn an object into a list if it isn't already """
+    if isinstance(obj, list):
+        return obj
+    else:
+        return list(obj)
+
+
 def wrap(string, length, indent):
     """ Wrap a string at a line length """
     newline = '\n' + ' ' * indent
@@ -77,6 +85,7 @@ class BaseFormat(object):
     """ Base class for formatters """
 
     def __init__(self, results, ostream, width='auto', pagesize='auto'):
+        self._results = make_list(results)
         self._results = results
         self._ostream = ostream
         self._width = width
@@ -93,7 +102,7 @@ class BaseFormat(object):
     def pagesize(self):
         """ The number of results to display at a time """
         if self._pagesize == 'auto':
-            return getmaxyx()[0] - 6
+            return getmaxyx()[0] - 5
         return self._pagesize
 
     def pre_write(self):
@@ -108,13 +117,14 @@ class BaseFormat(object):
         """ Write results to an output stream """
         total = 0
         count = 0
-        for result in self._results:
+        for i, result in enumerate(self._results):
             if count == 0:
                 self.pre_write()
             self.write(result)
             count += 1
             total += 1
-            if count >= self.pagesize and self.pagesize > 0:
+            if (count >= self.pagesize and self.pagesize > 0 and
+                    i < len(self._results) - 1):
                 self.wait()
                 count = 0
         if total == 0:
@@ -124,7 +134,9 @@ class BaseFormat(object):
 
     def wait(self):
         """ Block for user input """
-        text = raw_input("Press return for next %d results:" % self.pagesize)
+        text = raw_input(
+            "Press return for next %d result%s (or type 'all'):"
+            % (self.pagesize, plural(self.pagesize)))
         if text:
             if text.lower() in ['a', 'all']:
                 self._pagesize = 0
@@ -254,7 +266,7 @@ class SmartFormat(object):
     """ A layout that chooses column/expanded format intelligently """
 
     def __init__(self, results, ostream, *args, **kwargs):
-        results = list(results)
+        results = make_list(results)
         fmt = ColumnFormat(results, ostream, *args, **kwargs)
         if fmt.width_requested > fmt.width:
             self._sub_formatter = ExpandedFormat(results, ostream, *args,

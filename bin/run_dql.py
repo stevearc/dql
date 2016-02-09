@@ -23,7 +23,7 @@ VENV_VERSION = '13.1.2'
 VENV_URL = ("https://pypi.python.org/packages/source/v/"
             "virtualenv/virtualenv-%s.tar.gz" % VENV_VERSION)
 VENV_NAME = 'dql_env'
-VERSION = '0.5.11'
+VERSION = '0.5.12'
 
 
 def bootstrap_virtualenv(env):
@@ -34,7 +34,7 @@ def bootstrap_virtualenv(env):
     env : str
         Path to the virtualenv
     """
-    if not os.path.exists(env):
+    if not os.path.exists(os.path.join(env, 'bin', 'python')):
         # If virtualenv command exists, use that
         if find_executable('virtualenv') is not None:
             cmd = ['virtualenv'] + [env]

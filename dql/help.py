@@ -156,6 +156,7 @@ SCAN = SELECT = """
         [ KEYS IN primary_keys | WHERE expression ]
         [ USING index ]
         [ LIMIT limit ]
+        [ SCAN LIMIT scan_limit ]
         [ ORDER BY field ]
         [ ASC | DESC ]
         [ SAVE file.json ]
@@ -172,6 +173,7 @@ SCAN = SELECT = """
     SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR contains(baz, 'qux'));
     SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
     SELECT * FROM foobars WHERE foo = 'bar' LIMIT 50 DESC;
+    SELECT * FROM foobars THROTTLE (50%, *);
 
     Links
     -----

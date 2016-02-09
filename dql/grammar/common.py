@@ -1,12 +1,12 @@
 """ Common use grammars """
-from pyparsing import (Word, Upcase, Optional, Combine, Group, alphas, nums,
-                       alphanums, quotedString, Keyword, Suppress, Regex,
+from pyparsing import (Word, upcaseTokens, Optional, Combine, Group, alphas,
+                       nums, alphanums, quotedString, Keyword, Suppress, Regex,
                        delimitedList, Forward, oneOf, OneOrMore)
 
 
 def upkey(name):
     """ Shortcut for creating an uppercase keyword """
-    return Upcase(Keyword(name, caseless=True))
+    return Keyword(name, caseless=True).setParseAction(upcaseTokens)
 
 
 def function(name, *args, **kwargs):
@@ -91,11 +91,11 @@ def make_interval(long_name, short_name):
     """ Create an interval segment """
     return Group(Regex('(-+)?[0-9]+') +
                  (upkey(long_name + 's') |
-                  Upcase(Regex(long_name + 's')) |
+                  Regex(long_name + 's').setParseAction(upcaseTokens) |
                   upkey(long_name) |
-                  Upcase(Regex(long_name)) |
+                  Regex(long_name).setParseAction(upcaseTokens) |
                   upkey(short_name) |
-                  Upcase(Regex(short_name)))) \
+                  Regex(short_name).setParseAction(upcaseTokens))) \
         .setResultsName(long_name)
 interval = (
     make_interval('year', 'y') |
@@ -125,5 +125,6 @@ var_val = (value | var.setResultsName('field'))
 # Wrap these in a group so they can be used independently
 primitive = Group(primitive).setName('primitive')
 set_ = Group(set_ | _emptyset).setName('set')
-types = Upcase(oneOf('s ss n ns b bs bool null l m', caseless=True))
-filename = (quotedString | Regex(r'[0-9A-Za-z_\-\.]+'))
+types = oneOf('s ss n ns b bs bool null l m',
+              caseless=True).setParseAction(upcaseTokens)
+filename = (quotedString | Regex(r'[0-9A-Za-z/_\-\.]+'))

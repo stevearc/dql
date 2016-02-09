@@ -97,4 +97,6 @@ if_not_exists = Group(upkey('if') + upkey('not') + upkey('exists'))\
 where = create_where()
 keys_in = create_keys_in()
 limit = Group(upkey('limit') + Group(integer)).setResultsName('limit')
+scan_limit = Group(upkey('scan') + upkey('limit') + Group(integer)) \
+    .setResultsName('scan_limit')
 selection = create_selection()

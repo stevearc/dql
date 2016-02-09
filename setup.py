@@ -10,9 +10,9 @@ README = open(os.path.join(HERE, 'README.rst')).read()
 CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
-    'dynamo3>=0.4.3',
+    'dynamo3>=0.4.7',
     'six',
-    'pyparsing',
+    'pyparsing>=2.1',
     'python-dateutil',
 ]
 
@@ -28,7 +28,7 @@ if sys.version_info[:2] < (2, 7):
 if __name__ == "__main__":
     setup(
         name='dql',
-        version='0.5.11',
+        version='0.5.12',
         description='DynamoDB Query Language',
         long_description=README + '\n\n' + CHANGES,
         classifiers=[
