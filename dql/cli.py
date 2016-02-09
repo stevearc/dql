@@ -168,6 +168,7 @@ class DQLClient(cmd.Cmd):
                           os.path.join(os.environ.get('HOME', '.'), '.config'))
         self.session = session or botocore.session.get_session()
         self.engine = FragmentEngine()
+        self.engine.caution_callback = self.caution_callback
         if host is not None:
             self._local_endpoint = (host, port)
         self.engine.connect(region, session=self.session, host=host, port=port,
@@ -218,6 +219,15 @@ class DQLClient(cmd.Cmd):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
         six.print_(proc.communicate()[0])
+
+    def caution_callback(self, action):
+        """
+        Prompt user for manual continue when doing write operation on all items
+        in a table
+
+        """
+        msg = "This will run %s on all items in the table! Continue?" % action
+        return promptyn(msg, False)
 
     def save_config(self):
         """ Save the conf file """

@@ -83,6 +83,12 @@ class Engine(object):
     connection : :class:`~dynamo3.DynamoDBConnection`, optional
         If not present, you will need to call :meth:`.Engine.connect`
 
+    Attributes
+    ----------
+    caution_callback : callable, optional
+        Called to prompt user when a potentially dangerous action is about to
+        occur.
+
     """
 
     def __init__(self, connection=None):
@@ -99,7 +105,9 @@ class Engine(object):
         self._analyzing = False
         self._query_rate_limit = None
         self.rate_limit = None
-        self._encoder = json.JSONEncoder(separators=(',', ':'), default=default)
+        self._encoder = json.JSONEncoder(separators=(',', ':'),
+                                         default=default)
+        self.caution_callback = None
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
@@ -602,7 +610,12 @@ class Engine(object):
             kwargs['attributes'] = attrs
             kwargs['expr_values'] = visitor.expression_values
             kwargs['alias'] = visitor.attribute_names
-
+            # If there is no 'where' on this update/delete, check with the
+            # caution_callback before proceeding.
+            if visitor.expression_values is None and \
+                    callable(self.caution_callback) and \
+                    not self.caution_callback(method_name):  # pylint: disable=E1102
+                return False
             method = getattr(self.connection, action + '2')
             keys = method(table.name, **kwargs)
             if self._explaining:
