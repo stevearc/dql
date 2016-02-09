@@ -57,8 +57,8 @@ class TableLimits(object):
         return RateLimit(**kwargs)
 
     def __nonzero__(self):
-        return (bool(self.tables) or bool(self.indexes) or bool(self.default)
-                or bool(self.total))
+        return (bool(self.tables) or bool(self.indexes) or
+                bool(self.default) or bool(self.total))
 
     def _set_limit(self, data, key, read, write):
         """ Set a limit or delete if non provided """
