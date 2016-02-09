@@ -189,7 +189,7 @@ class Engine(object):
         tables = self.connection.list_tables()
         descs = []
         for tablename in tables:
-            descs.append(self.describe(tablename, True))
+            descs.append(self.describe(tablename, refresh=True))
         return descs
 
     def _get_metric(self, metric, tablename, index_name=None):
@@ -234,12 +234,15 @@ class Engine(object):
         except ClientError:
             return 0, 0
 
-    def describe(self, tablename, refresh=False, metrics=False):
+    def describe(self, tablename, refresh=False, metrics=False, require=False):
         """ Get the :class:`.TableMeta` for a table """
         if refresh or tablename not in self.cached_descriptions:
             desc = self.connection.describe_table(tablename)
             if desc is None:
-                return None
+                if require:
+                    raise RuntimeError("Table %r not found" % tablename)
+                else:
+                    return None
             table = TableMeta.from_description(desc)
             self.cached_descriptions[tablename] = table
             if metrics:
@@ -389,14 +392,14 @@ class Engine(object):
 
     def _iter_where_in(self, tree):
         """ Iterate over the KEYS IN and generate primary keys """
-        desc = self.describe(tree.table)
+        desc = self.describe(tree.table, require=True)
         for keypair in tree.keys_in:
             yield desc.primary_key(*map(resolve, keypair))
 
     def _select(self, tree, allow_select_scan):
         """ Run a SELECT statement """
         tablename = tree.table
-        desc = self.describe(tablename)
+        desc = self.describe(tablename, require=True)
         kwargs = {}
         if tree.consistent:
             kwargs['consistent'] = True
@@ -590,7 +593,7 @@ class Engine(object):
     def _delete(self, tree):
         """ Run a DELETE statement """
         tablename = tree.table
-        table = self.describe(tablename)
+        table = self.describe(tablename, require=True)
         kwargs = {}
         visitor = Visitor(self.reserved_words)
         if tree.where:
@@ -603,7 +606,7 @@ class Engine(object):
     def _update(self, tree):
         """ Run an UPDATE statement """
         tablename = tree.table
-        table = self.describe(tablename)
+        table = self.describe(tablename, require=True)
         kwargs = {}
 
         if tree.returns:
@@ -750,7 +753,7 @@ class Engine(object):
         """ Update the throughput on a table or index """
         def get_desc():
             """ Get the table or global index description """
-            desc = self.describe(tablename, refresh=True)
+            desc = self.describe(tablename, refresh=True, require=True)
             if index is not None:
                 return desc.global_indexes[index]
             return desc
@@ -821,7 +824,8 @@ class Engine(object):
         schema = []
         if tree.tables:
             for table in tree.tables:
-                schema.append(self.describe(table, True).schema)
+                desc = self.describe(table, refresh=True, require=True)
+                schema.append(desc.schema)
         else:
             for table in self.describe_all():
                 schema.append(table.schema)
