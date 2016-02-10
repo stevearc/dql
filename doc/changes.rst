@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.13
+------
+* Fix bug where query would sometimes display 'No Results' even when results were found.
+
 0.5.12
 ------
 * Differentiate LIMIT and SCAN LIMIT
