@@ -86,7 +86,6 @@ class BaseFormat(object):
 
     def __init__(self, results, ostream, width='auto', pagesize='auto'):
         self._results = make_list(results)
-        self._results = results
         self._ostream = ostream
         self._width = width
         self._pagesize = pagesize
@@ -118,7 +117,7 @@ class BaseFormat(object):
         total = 0
         count = 0
         for i, result in enumerate(self._results):
-            if count == 0:
+            if total == 0:
                 self.pre_write()
             self.write(result)
             count += 1
