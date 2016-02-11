@@ -1,33 +1,17 @@
 """ Utilities for monitoring the consumed capacity of tables """
 import time
 
-import curses
 import six
 from datetime import datetime
 
+from .util import getmaxyx
+
+
 try:
-    from shutil import get_terminal_size  # pylint: disable=E0611
-
-    def getmaxyx():
-        """ Get the terminal height and width """
-        size = get_terminal_size()
-        return size[1], size[0]
+    import curses
+    CURSES_SUPPORTED = True
 except ImportError:
-    import os
-    from fcntl import ioctl
-    from termios import TIOCGWINSZ
-    import struct
-
-    def getmaxyx():
-        """ Get the terminal height and width """
-        try:
-            return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
-        except KeyError:
-            height, width = struct.unpack("hhhh",
-                                          ioctl(0, TIOCGWINSZ, 8 * "\000"))[0:2]
-            if not height or not width:
-                return 25, 80
-            return height, width
+    CURSES_SUPPORTED = False
 
 
 class Monitor(object):
@@ -42,7 +26,11 @@ class Monitor(object):
 
     def start(self):
         """ Start the monitor """
-        curses.wrapper(self.run)
+        if CURSES_SUPPORTED:
+            curses.wrapper(self.run)
+        else:
+            six.print_("Your system does not have curses installed. "
+                       "Cannot use 'watch'")
 
     def run(self, stdscr):
         """ Initialize curses and refresh in a loop """

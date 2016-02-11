@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.14
+------
+* Missing curses library won't cause ImportError
+
 0.5.13
 ------
 * Fix bug where query would sometimes display 'No Results' even when results were found.

@@ -16,8 +16,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 
-from .monitor import getmaxyx
-from .util import plural
+from .util import plural, getmaxyx
 
 
 try:

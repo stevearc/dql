@@ -8,6 +8,31 @@ from decimal import Decimal
 from dynamo3 import Binary
 
 
+try:
+    from shutil import get_terminal_size  # pylint: disable=E0611
+
+    def getmaxyx():
+        """ Get the terminal height and width """
+        size = get_terminal_size()
+        return size[1], size[0]
+except ImportError:
+    import os
+    from fcntl import ioctl
+    from termios import TIOCGWINSZ
+    import struct
+
+    def getmaxyx():
+        """ Get the terminal height and width """
+        try:
+            return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
+        except KeyError:
+            height, width = struct.unpack("hhhh",
+                                          ioctl(0, TIOCGWINSZ, 8 * "\000"))[0:2]
+            if not height or not width:
+                return 25, 80
+            return height, width
+
+
 def plural(value, append='s'):
     """ Helper function for pluralizing text """
     return '' if value == 1 else append
