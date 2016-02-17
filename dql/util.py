@@ -16,21 +16,27 @@ try:
         size = get_terminal_size()
         return size[1], size[0]
 except ImportError:
-    import os
-    from fcntl import ioctl
-    from termios import TIOCGWINSZ
-    import struct
+    try:
+        import os
+        from fcntl import ioctl
+        from termios import TIOCGWINSZ
+        import struct
 
-    def getmaxyx():
-        """ Get the terminal height and width """
-        try:
-            return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
-        except KeyError:
-            height, width = struct.unpack("hhhh",
-                                          ioctl(0, TIOCGWINSZ, 8 * "\000"))[0:2]
-            if not height or not width:
-                return 25, 80
-            return height, width
+        def getmaxyx():
+            """ Get the terminal height and width """
+            try:
+                return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
+            except KeyError:
+                height, width = \
+                    struct.unpack("hhhh", ioctl(0, TIOCGWINSZ, 8 * "\000"))[0:2]
+                if not height or not width:
+                    return 25, 80
+                return height, width
+    except ImportError:
+        # Windows doesn't have fcntl or termios, so fall back to defaults.
+        def getmaxyx():
+            """ Get the terminal height and width """
+            return 25, 80
 
 
 def plural(value, append='s'):
