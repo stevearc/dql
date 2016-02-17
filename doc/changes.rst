@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.15
+------
+* Gracefully handle missing imports on Windows
+
 0.5.14
 ------
 * Missing curses library won't cause ImportError
