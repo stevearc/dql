@@ -23,7 +23,7 @@ VENV_VERSION = '13.1.2'
 VENV_URL = ("https://pypi.python.org/packages/source/v/"
             "virtualenv/virtualenv-%s.tar.gz" % VENV_VERSION)
 VENV_NAME = 'dql_env'
-VERSION = '0.5.15'
+VERSION = '0.5.16'
 
 
 def bootstrap_virtualenv(env):
