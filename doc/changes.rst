@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.16
+------
+* Bug fix: Can't use boolean values in update statements
+
 0.5.15
 ------
 * Gracefully handle missing imports on Windows
