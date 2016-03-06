@@ -148,7 +148,8 @@ def _create_update_expression():
     list_append = (Word('list_append') + Suppress('(') + var_val +
                    Suppress(',') + var_val + Suppress(')'))
     fxn = Group(ine | list_append).setResultsName('set_function')
-    path = (fxn | var | value)
+    # value has to come before var to prevent parsing TRUE/FALSE as variables
+    path = (value | fxn | var)
     set_val = ((path + oneOf('+ -') + path) | path)
     set_cmd = Group(var + Suppress('=') + set_val)
     set_expr = (Suppress(upkey('set')) +

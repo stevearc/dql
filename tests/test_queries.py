@@ -1023,6 +1023,14 @@ class TestUpdate(BaseSystemTest):
         self.assertEqual(scan[0], 'scan')
         self.assertEqual(update[0], 'update_item')
 
+    def test_update_bool(self):
+        """ UPDATE sets boolean attributes """
+        table = self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', true)")
+        self.query("UPDATE foobar SET bar = false")
+        items = list(self.dynamo.scan(table))
+        self.assertItemsEqual(items, [{'id': 'a', 'bar': False}])
+
 
 class TestDelete(BaseSystemTest):
 
