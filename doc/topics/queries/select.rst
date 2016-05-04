@@ -32,7 +32,7 @@ Examples
     SELECT CONSISTENT * foobars WHERE foo = 'bar' AND baz >= 3;
     SELECT * foobars WHERE foo = 'bar' AND attribute_exists(baz);
     SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR contains(baz, 'qux'));
-    SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
+    SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING ts-index;
     SELECT * FROM foobars WHERE foo = 'bar' LIMIT 50 DESC;
     SELECT * FROM foobars THROTTLE (50%, *);
 

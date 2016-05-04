@@ -20,7 +20,7 @@ Examples
     DELETE FROM foobars WHERE foo != 'bar' AND baz >= 3;
     DELETE FROM foobars KEYS IN 'hkey1', 'hkey2' WHERE attribute_exists(foo);
     DELETE FROM foobars KEYS IN ('hkey1', 'rkey1'), ('hkey2', 'rkey2');
-    DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
+    DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING baz-index;
 
 Description
 -----------
