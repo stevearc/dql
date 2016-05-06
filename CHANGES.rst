@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.17
+------
+* Bug fix: Can't display Binary data
+
 0.5.16
 ------
 * Bug fix: Can't use boolean values in update statements

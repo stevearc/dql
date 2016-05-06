@@ -76,7 +76,7 @@ DELETE = """
     DELETE FROM foobars WHERE foo != 'bar' AND baz >= 3;
     DELETE FROM foobars KEYS IN 'hkey1', 'hkey2' WHERE attribute_exists(foo);
     DELETE FROM foobars KEYS IN ('hkey1', 'rkey1'), ('hkey2', 'rkey2');
-    DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING 'baz-index';
+    DELETE FROM foobars WHERE (foo = 'bar' AND baz >= 3) USING baz-index;
 
     Links
     -----
@@ -171,7 +171,7 @@ SCAN = SELECT = """
     SELECT CONSISTENT * foobars WHERE foo = 'bar' AND baz >= 3;
     SELECT * foobars WHERE foo = 'bar' AND attribute_exists(baz);
     SELECT * foobars WHERE foo = 1 AND NOT (attribute_exists(bar) OR contains(baz, 'qux'));
-    SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING 'ts-index';
+    SELECT 10 * (foo - bar) FROM foobars WHERE id = 'a' AND ts < 100 USING ts-index;
     SELECT * FROM foobars WHERE foo = 'bar' LIMIT 50 DESC;
     SELECT * FROM foobars THROTTLE (50%, *);
 

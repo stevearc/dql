@@ -15,6 +15,7 @@ import tempfile
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
+from dynamo3 import Binary
 
 from .util import plural, getmaxyx
 
@@ -163,6 +164,8 @@ class BaseFormat(object):
             rd = relativedelta(seconds=int(field.total_seconds()),
                                microseconds=field.microseconds)
             return delta_to_str(rd)
+        elif isinstance(field, Binary):
+            return "<Binary %d>" % len(field.value)
         pretty = repr(field)
         if pretty.startswith("u'"):
             return pretty[1:]
