@@ -9,11 +9,12 @@ import json
 import pickle
 import logging
 import six
+from base64 import b64encode
 from botocore.exceptions import ClientError
 from decimal import Decimal
 from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
                      GlobalIndex, DynamoDBError, Throughput, CheckFailed,
-                     IndexUpdate, Limit, RateLimit, Capacity)
+                     IndexUpdate, Limit, RateLimit, Capacity, Binary)
 from dynamo3.constants import RESERVED_WORDS
 from pprint import pformat
 from pyparsing import ParseException
@@ -36,6 +37,8 @@ def default(value):
             return float(value)
     elif isinstance(value, set):
         return list(value)
+    elif isinstance(value, Binary):
+        return b64encode(value.value)
     raise TypeError("Cannot encode %s value %r" % (type(value), value))
 
 
