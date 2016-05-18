@@ -2,7 +2,7 @@
 import re
 
 
-FIELD_RE = re.compile(r'^[^\.\[]+')
+FIELD_RE = re.compile(r'\w+(?![^\[]*\])')
 
 
 class Visitor(object):
@@ -34,18 +34,25 @@ class Visitor(object):
         For example, since 'order' is reserved, it would encode it as '#f1'
 
         """
-        name = FIELD_RE.findall(field)[0]
-        remainder = field[len(name):]
-        if self._reserved_words is not None:
-            if name.upper() not in self._reserved_words:
-                return field
-        if name in self._field_to_key:
-            return self._field_to_key[field] + remainder
+        return FIELD_RE.sub(self._maybe_replace_path, field)
+
+    def _maybe_replace_path(self, match):
+        """ Regex replacement method that will sub paths when needed """
+        path = match.group(0)
+        if self._reserved_words is None or path.upper() in self._reserved_words:
+            return self._replace_path(path)
+        else:
+            return path
+
+    def _replace_path(self, path):
+        """ Get the replacement value for a path """
+        if path in self._field_to_key:
+            return self._field_to_key[path]
         next_key = '#f%d' % self._next_field
         self._next_field += 1
-        self._field_to_key[name] = next_key
-        self._fields[next_key] = name
-        return next_key + remainder
+        self._field_to_key[path] = next_key
+        self._fields[next_key] = path
+        return next_key
 
     def get_value(self, value):
         """ Replace variable names with placeholders (e.g. ':v1') """
