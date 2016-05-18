@@ -1,7 +1,11 @@
 """ Common utilities for all expressions """
+import re
 import six
 
 from .visitor import dummy_visitor
+
+
+PATH_PATTERN = re.compile(r'\w+|\[(\d+)\]')
 
 
 @six.python_2_unicode_compatible
@@ -29,7 +33,22 @@ class Field(Expression):
 
     def evaluate(self, item):
         """ Pull the field off the item """
-        return item.get(self.field)
+        try:
+            for match in PATH_PATTERN.finditer(self.field):
+                path = match.group(0)
+                if path[0] == '[':
+                    # If we're selecting an item at a specific index of an
+                    # array, we will usually not get back the whole array from
+                    # Dynamo. It'll return an array with one element.
+                    try:
+                        item = item[int(match.group(1))]
+                    except IndexError:
+                        item = item[0]
+                else:
+                    item = item.get(path)
+        except (IndexError, TypeError, AttributeError):
+            return None
+        return item
 
 
 class Value(Expression):
