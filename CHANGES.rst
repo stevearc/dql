@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.18
+------
+* Bug fix: Correct name substitution/selection logic
+* Swapped out ``bin/run_dql.py`` for ``bin/install.py``. Similar concept, better execution.
+
 0.5.17
 ------
 * Bug fix: Can't display Binary data
