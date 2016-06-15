@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.19
+------
+* Locked in the version of pyparsing after 2.1.5 broke compatibility again.
+
 0.5.18
 ------
 * Bug fix: Correct name substitution/selection logic
