@@ -23,7 +23,7 @@ project = u'dql'
 copyright = u'2013, Steven Arcangeli'
 github_user = u'mathcamp'
 
-release = '0.5.18'
+release = '0.5.19'
 version = '.'.join(release.split('.')[:2])
 
 exclude_patterns = ['_build']
