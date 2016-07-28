@@ -31,10 +31,11 @@ LOG = logging.getLogger(__name__)
 def default(value):
     """ Default encoder for JSON """
     if isinstance(value, Decimal):
-        try:
-            return int(value)
-        except ValueError:
-            return float(value)
+        primative = float(value)
+        if int(primative) == primative:
+            return int(primative)
+        else:
+            return primative
     elif isinstance(value, set):
         return list(value)
     elif isinstance(value, Binary):

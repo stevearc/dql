@@ -3,11 +3,12 @@ import os
 
 import argparse
 import logging.config
+import six
 
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.19'
+__version__ = '0.5.20'
 
 
 LOG_CONFIG = {
@@ -53,7 +54,13 @@ def main():
     parse.add_argument('-p', '--port', default=8000, type=int,
                        help="Port to connect to "
                        "(default %(default)d)")
+    parse.add_argument('--version', action="store_true",
+                       help="Print the version and exit")
     args = parse.parse_args()
+
+    if args.version:
+        six.print_(__version__)
+        return
 
     logging.config.dictConfig(LOG_CONFIG)
     cli = DQLClient()
