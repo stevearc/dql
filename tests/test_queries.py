@@ -1115,3 +1115,15 @@ class TestDelete(BaseSystemTest):
         scan, update = ret
         self.assertEqual(scan[0], 'scan')
         self.assertEqual(update[0], 'delete_item')
+
+
+class TestRegressions(BaseSystemTest):
+    """ Regression tests """
+
+    def test_filter_banned_word(self):
+        """ Filtering with a banned word replaces the word """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', hash=1), (id='b', hash=4)")
+        results = self.query("SCAN * FROM foobar WHERE hash in (1, 2, 3)")
+        results = list(results)
+        self.assertItemsEqual(results, [{'id': 'a', 'hash': 1}])

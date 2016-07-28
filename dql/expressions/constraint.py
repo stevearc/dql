@@ -374,4 +374,5 @@ class InConstraint(ConstraintExpression):
 
     def build(self, visitor):
         values = (visitor.get_value(v) for v in self.values)
-        return self.field + ' IN (' + ', '.join(values) + ')'
+        field = visitor.get_field(self.field)
+        return field + ' IN (' + ', '.join(values) + ')'
