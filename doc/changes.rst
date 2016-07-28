@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.20
+------
+* Bug fix: When saving to JSON floats are no longer cast to ints
+* Bug fix: Reserved words are correctly substituted when using WHERE ... IN
+
 0.5.19
 ------
 * Locked in the version of pyparsing after 2.1.5 broke compatibility again.
