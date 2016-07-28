@@ -14,7 +14,13 @@ A simple, SQL-ish language for DynamoDB
 
 Getting Started
 ===============
-Install with pip::
+The easiest way to use DQL is to download and run the install script::
+
+    curl -o install.py https://raw.githubusercontent.com/mathcamp/dql/master/bin/install.py
+    python install.py
+
+This will create a standalone ``dql`` file that you can run. If you would
+instead like to install it with pip::
 
     pip install dql
 
