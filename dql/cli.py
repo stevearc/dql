@@ -382,14 +382,16 @@ class DQLClient(cmd.Cmd):
     @repl_command
     def do_watch(self, *args):
         """ Watch Dynamo tables consumed capacity """
-        tables = set()
+        tables = []
         if not self.engine.cached_descriptions:
             self.engine.describe_all()
         all_tables = list(self.engine.cached_descriptions)
         for arg in args:
-            for table in all_tables:
-                if fnmatch(table, arg):
-                    tables.add(table)
+            candidates = set((t for t in all_tables if fnmatch(t, arg)))
+            for t in sorted(candidates):
+                if t not in tables:
+                    tables.append(t)
+
         mon = Monitor(self.engine, tables)
         mon.start()
 
