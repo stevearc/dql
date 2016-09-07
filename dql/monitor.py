@@ -43,11 +43,28 @@ class Monitor(object):
         curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
         while True:
             self.refresh(True)
-            time.sleep(self._refresh_rate)
             now = time.time()
             while time.time() - now < self._refresh_rate:
-                time.sleep(2)
+                time.sleep(0.1)
                 self.refresh(False)
+
+    def _calc_min_width(self, table):
+        """ Calculate the minimum allowable width for a table """
+        width = len(table.name)
+        cap = table.consumed_capacity['__table__']
+        width = max(width, 4 + len("%.1f/%d" % (cap['read'],
+                                                table.read_throughput)))
+        width = max(width, 4 + len("%.1f/%d" % (cap['write'],
+                                                table.write_throughput)))
+        for index_name, cap in six.iteritems(table.consumed_capacity):
+            if index_name == '__table__':
+                continue
+            index = table.global_indexes[index_name]
+            width = max(width, 4 + len(index_name + "%.1f/%d" %
+                                       (cap['read'], index.read_throughput)))
+            width = max(width, 4 + len(index_name + "%.1f/%d" %
+                                       (cap['write'], index.write_throughput)))
+        return width
 
     def _progress_bar(self, width, percent, left='', right='', fill='|'):
         """ Get the green/yellow/red pieces of a text + bar display """
@@ -73,14 +90,20 @@ class Monitor(object):
         """ Write a single throughput measure to a row """
         percent = float(used) / available
         self.win.addstr(y, x, '[')
-        self.win.addstr(y, x + width - 1, ']')
+        # Because we have disabled scrolling, writing the lower right corner
+        # character in a terminal can throw an error (this is inside the curses
+        # implementation). If that happens (and it will only ever happen here),
+        # we should just catch it and continue.
+        try:
+            self.win.addstr(y, x + width - 1, ']')
+        except curses.error:
+            pass
         x += 1
         right = "%.1f/%d:%s" % (used, available, op)
         pieces = self._progress_bar(width - 2, percent, title, right)
         for color, text in pieces:
             self.win.addstr(y, x, text, curses.color_pair(color))
             x += len(text)
-        return y + 1
 
     def refresh(self, fetch_data):
         """ Redraw the display """
@@ -89,33 +112,66 @@ class Monitor(object):
         if curses.is_term_resized(height, width):
             self.win.clear()
             curses.resizeterm(height, width)
-        self.win.addstr(0, 0, datetime.now().strftime('%H:%M:%S'))
-        y = 1
+        y = 1  # Starts at 1 because of date string
         x = 0
+        columns = []
+        column = []
         for table in self._tables:
             desc = self.engine.describe(table, fetch_data, True)
-            cap = desc.consumed_capacity['__table__']
-            col_width = min(width - x, self._max_width)
-            rows = 2 * len(desc.consumed_capacity) + 1
-            if y + rows > height:
-                if x + 1 + 2 * col_width < width:
-                    x = col_width + 1
-                    y = 1
-                    col_width = min(width - x, self._max_width)
-                else:
-                    break
-            self.win.addstr(y, x, table, curses.color_pair(1))
-            y += 1
-            y = self._add_throughput(y, x, col_width, 'R', '',
-                                     desc.read_throughput, cap['read'])
-            y = self._add_throughput(y, x, col_width, 'W', '',
-                                     desc.write_throughput, cap['write'])
-            for index_name, cap in six.iteritems(desc.consumed_capacity):
-                if index_name == '__table__':
-                    continue
-                index = desc.global_indexes[index_name]
-                y = self._add_throughput(y, x, col_width, 'R', index_name,
+            line_count = 1 + 2 * len(desc.consumed_capacity)
+            if (column or columns) and line_count + y > height:
+                columns.append(column)
+                column = []
+                y = 1
+            y += line_count
+            column.append(desc)
+
+        columns.append(column)
+        y = 1
+
+        # Calculate the min width of each column
+        column_widths = []
+        for column in columns:
+            column_widths.append(max(map(self._calc_min_width, column)))
+        # Find how many columns we can support
+        while len(columns) > 1 and \
+                sum(column_widths) > width - len(columns) + 1:
+            columns.pop()
+            column_widths.pop()
+        effective_width = width - len(columns) + 1
+        # Iteratively expand columns until we fit the width or they are all max
+        while sum(column_widths) < effective_width and \
+                any((w < self._max_width for w in column_widths)):
+            smallest = min(column_widths)
+            i = column_widths.index(smallest)
+            column_widths[i] += 1
+
+        status = datetime.now().strftime('%H:%M:%S')
+        status += " %d tables" % len(self._tables)
+        num_displayed = sum(map(len, columns))
+        if num_displayed < len(self._tables):
+            status += " (%d visible)" % num_displayed
+        self.win.addstr(0, 0, status[:width])
+
+        for column, col_width in zip(columns, column_widths):
+            for table in column:
+                cap = table.consumed_capacity['__table__']
+                self.win.addstr(y, x, table.name, curses.color_pair(1))
+                self._add_throughput(y + 1, x, col_width, 'R', '',
+                                     table.read_throughput, cap['read'])
+                self._add_throughput(y + 2, x, col_width, 'W', '',
+                                     table.write_throughput, cap['write'])
+                y += 3
+                for index_name, cap in six.iteritems(table.consumed_capacity):
+                    if index_name == '__table__':
+                        continue
+                    index = table.global_indexes[index_name]
+                    self._add_throughput(y, x, col_width, 'R', index_name,
                                          index.read_throughput, cap['read'])
-                y = self._add_throughput(y, x, col_width, 'W', index_name,
+                    self._add_throughput(y + 1, x, col_width, 'W', index_name,
                                          index.write_throughput, cap['write'])
+                    y += 2
+            x += col_width + 1
+            y = 1
+
         self.win.refresh()
