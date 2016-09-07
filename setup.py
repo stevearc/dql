@@ -46,7 +46,7 @@ if __name__ == "__main__":
         ],
         author='Steven Arcangeli',
         author_email='stevearc@stevearc.com',
-        url='http://github.com/mathcamp/dql',
+        url='http://github.com/stevearc/dql',
         keywords='aws dynamo dynamodb sql',
         license='MIT',
         platforms='any',

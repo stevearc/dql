@@ -2,7 +2,7 @@ DQL - DynamoDB Query Language
 =============================
 A simple, SQL-ish language for DynamoDB
 
-Code lives here: https://github.com/mathcamp/dql
+Code lives here: https://github.com/stevearc/dql
 
 User Guide
 ----------

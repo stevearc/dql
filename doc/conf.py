@@ -21,7 +21,7 @@ extensions = ['sphinx.ext.autodoc', 'numpydoc', 'sphinx.ext.intersphinx',
 master_doc = 'index'
 project = u'dql'
 copyright = u'2013, Steven Arcangeli'
-github_user = u'mathcamp'
+github_user = u'stevearc'
 
 release = '0.5.21'
 version = '.'.join(release.split('.')[:2])

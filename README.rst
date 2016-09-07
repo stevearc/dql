@@ -3,12 +3,12 @@ DQL
 :Build: |build|_ |coverage|_
 :Documentation: http://dql.readthedocs.org/
 :Downloads: http://pypi.python.org/pypi/dql
-:Source: https://github.com/mathcamp/dql
+:Source: https://github.com/stevearc/dql
 
-.. |build| image:: https://travis-ci.org/mathcamp/dql.png?branch=master
-.. _build: https://travis-ci.org/mathcamp/dql
-.. |coverage| image:: https://coveralls.io/repos/mathcamp/dql/badge.png?branch=master
-.. _coverage: https://coveralls.io/r/mathcamp/dql?branch=master
+.. |build| image:: https://travis-ci.org/stevearc/dql.png?branch=master
+.. _build: https://travis-ci.org/stevearc/dql
+.. |coverage| image:: https://coveralls.io/repos/stevearc/dql/badge.png?branch=master
+.. _coverage: https://coveralls.io/r/stevearc/dql?branch=master
 
 A simple, SQL-ish language for DynamoDB
 
@@ -16,7 +16,7 @@ Getting Started
 ===============
 The easiest way to use DQL is to download and run the install script::
 
-    curl -o install.py https://raw.githubusercontent.com/mathcamp/dql/master/bin/install.py
+    curl -o install.py https://raw.githubusercontent.com/stevearc/dql/master/bin/install.py
     python install.py
 
 This will create a standalone ``dql`` file that you can run. If you would
