@@ -251,7 +251,9 @@ class Engine(object):
 
     def describe(self, tablename, refresh=False, metrics=False, require=False):
         """ Get the :class:`.TableMeta` for a table """
-        if refresh or tablename not in self.cached_descriptions:
+        table = self.cached_descriptions.get(tablename)
+        if refresh or table is None or \
+                (metrics and not table.consumed_capacity):
             desc = self.connection.describe_table(tablename)
             if desc is None:
                 if require:
@@ -273,7 +275,7 @@ class Engine(object):
                         'write': write,
                     }
 
-        return self.cached_descriptions[tablename]
+        return table
 
     def execute(self, commands, pretty_format=False):
         """
