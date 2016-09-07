@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.5.21
+------
+* Bug fix: Crash fix when resizing terminal with 'watch' command active
+* 'Watch' columns will dynamically resize to fit terminal width
+
 0.5.20
 ------
 * Bug fix: When saving to JSON floats are no longer cast to ints
