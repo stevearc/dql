@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.22
+------
+* Bug fix: Can now run any CLI command using ``-c "command"``
+
 0.5.21
 ------
 * Bug fix: Crash fix when resizing terminal with 'watch' command active

@@ -8,7 +8,7 @@ import six
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.21'
+__version__ = '0.5.22'
 
 
 LOG_CONFIG = {
@@ -68,10 +68,10 @@ def main():
 
     if args.command:
         command = args.command.strip()
-        if not command.endswith(';'):
-            command += ' ;'
         try:
             cli.run_command(command)
+            if cli.engine.partial:
+                cli.run_command(';')
         except KeyboardInterrupt:
             pass
     else:

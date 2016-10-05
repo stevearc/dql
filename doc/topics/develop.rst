@@ -2,8 +2,8 @@ Developing
 ==========
 To get started developing dql, run the following command::
 
-    wget https://raw.github.com/mathcamp/devbox/master/devbox/unbox.py && \
-    python unbox.py git@github.com:mathcamp/dql
+    wget https://raw.github.com/stevearc/devbox/master/devbox/unbox.py && \
+    python unbox.py git@github.com:stevearc/dql
 
 This will clone the repository and install the package into a virtualenv
 
