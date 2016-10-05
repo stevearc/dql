@@ -68,10 +68,10 @@ def main():
 
     if args.command:
         command = args.command.strip()
-        if not command.endswith(';'):
-            command += ' ;'
         try:
             cli.run_command(command)
+            if cli.engine.partial:
+                cli.run_command(';')
         except KeyboardInterrupt:
             pass
     else:
