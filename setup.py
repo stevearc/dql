@@ -11,7 +11,7 @@ CHANGES = open(os.path.join(HERE, 'CHANGES.rst')).read()
 
 REQUIREMENTS = [
     'dynamo3>=0.4.7',
-    'six',
+    'six>=1.10.0',
     'pyparsing==2.1.4',
     'python-dateutil',
 ]
