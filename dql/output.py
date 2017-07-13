@@ -286,7 +286,11 @@ class SmartBuffer(object):
 
     def __init__(self, buf):
         self._buffer = buf
-        self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
+        try:
+            self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
+        except ValueError:
+            self.encoding = 'utf-8'
+            
 
     def write(self, arg):
         """ Write a string or bytes object to the buffer """
