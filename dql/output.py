@@ -290,7 +290,6 @@ class SmartBuffer(object):
             self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
         except ValueError:
             self.encoding = 'utf-8'
-            
 
     def write(self, arg):
         """ Write a string or bytes object to the buffer """
