@@ -194,7 +194,7 @@ class ExpandedFormat(BaseFormat):
                     pass
                 else:
                     val = format_json(data, max_key + 3)
-            elif isinstance(val, dict) or isinstance(val, list):
+            elif isinstance(val, (dict, list)):
                 val = format_json(val, max_key + 3)
             else:
                 val = wrap(self.format_field(val), self.width - max_key - 3,
