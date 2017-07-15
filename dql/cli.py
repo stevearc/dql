@@ -10,6 +10,7 @@ import shlex
 import six
 import subprocess
 import traceback
+from collections import OrderedDict
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
@@ -20,11 +21,6 @@ from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      less_display, stdout_display)
 from .throttle import TableLimits
 
-
-try:
-    from collections import OrderedDict
-except ImportError:  # pragma: no cover
-    from ordereddict import OrderedDict  # pylint: disable=F0401
 
 # From http://docs.aws.amazon.com/general/latest/gr/rande.html#ddb_region
 REGIONS = [

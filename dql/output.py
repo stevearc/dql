@@ -12,18 +12,13 @@ import json
 import six
 import subprocess
 import tempfile
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from dynamo3 import Binary
 
 from .util import plural, getmaxyx
-
-
-try:
-    from collections import OrderedDict
-except ImportError:  # pragma: no cover
-    from ordereddict import OrderedDict  # pylint: disable=F0401
 
 
 def truncate(string, length, ellipsis='…'):
