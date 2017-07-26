@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.23
+------
+* Bug fix: Default encoding error on mac
+
+Dropping support for python 2.6
+
 0.5.22
 ------
 * Bug fix: Can now run any CLI command using ``-c "command"``
