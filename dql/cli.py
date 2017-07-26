@@ -10,6 +10,7 @@ import shlex
 import six
 import subprocess
 import traceback
+from collections import OrderedDict
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
@@ -20,11 +21,6 @@ from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
                      less_display, stdout_display)
 from .throttle import TableLimits
 
-
-try:
-    from collections import OrderedDict
-except ImportError:  # pragma: no cover
-    from ordereddict import OrderedDict  # pylint: disable=F0401
 
 # From http://docs.aws.amazon.com/general/latest/gr/rande.html#ddb_region
 REGIONS = [
@@ -89,7 +85,7 @@ def promptyn(msg, default=None):
             return True
         elif confirm in ('n', 'no'):
             return False
-        elif len(confirm) == 0 and default is not None:
+        elif not confirm and default is not None:
             return default
 
 
@@ -303,7 +299,7 @@ class DQLClient(cmd.Cmd):
                     if name.startswith('opt_' + text)]
         method = getattr(self, 'complete_opt_' + option, None)
         if method is not None:
-            return method(text, line, begidx, endidx)
+            return method(text, line, begidx, endidx)  # pylint: disable=E1102
 
     def opt_width(self, width):
         """ Set width of output ('auto' will auto-detect terminal width) """
@@ -446,9 +442,10 @@ class DQLClient(cmd.Cmd):
                 six.print_(title.ljust(size), end='')
             six.print_()
             # Print each table row
-            for table in tables:
+            for row_table in tables:
                 for size, field in zip(sizes, fields.values()):
-                    six.print_(str(getattr(table, field)).ljust(size), end='')
+                    six.print_(str(getattr(row_table, field)).ljust(size),
+                               end='')
                 six.print_()
         else:
             six.print_(self.engine.describe(table, refresh=True,
@@ -531,7 +528,7 @@ class DQLClient(cmd.Cmd):
                 self.throttle.set_total_limit(read, write)
             else:
                 self.throttle.set_table_limit(tablename, read, write)
-        elif len(args) == 0:
+        elif not args:
             self.throttle.set_total_limit(read, write)
         else:
             return self.onecmd('help throttle')
@@ -555,7 +552,7 @@ class DQLClient(cmd.Cmd):
         > unthrottle mytable myindex
 
         """
-        if len(args) == 0:
+        if not args:
             if promptyn("Are you sure you want to clear all throttles?"):
                 self.throttle.load({})
         elif len(args) == 1:
@@ -612,9 +609,9 @@ class DQLClient(cmd.Cmd):
                 formatter.display()
         print_count = 0
         total = None
-        for (command, capacity) in self.engine.consumed_capacities:
+        for (cmd_fragment, capacity) in self.engine.consumed_capacities:
             total += capacity
-            six.print_(command)
+            six.print_(cmd_fragment)
             six.print_(indent(str(capacity)))
             print_count += 1
         if print_count > 1:

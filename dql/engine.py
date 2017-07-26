@@ -226,7 +226,7 @@ class Engine(object):
             Dimensions=dimensions,
         )
         points = data['Datapoints']
-        if len(points) == 0:
+        if not points:
             return 0
         else:
             points.sort(key=lambda r: r['Timestamp'])
@@ -410,7 +410,7 @@ class Engine(object):
                 # See if we can find an index to query on
                 indexes = table.get_matching_indexes(possible_hash,
                                                      possible_range)
-                if len(indexes) == 0:
+                if not indexes:
                     action = 'scan'
                     kwargs['filter'] = constraints.build(visitor)
                     kwargs['expr_values'] = visitor.expression_values
@@ -634,7 +634,7 @@ class Engine(object):
                 try:
                     list(keys)
                 except ExplainSignal:
-                    keys = [{}]  # pylint: disable=R0204
+                    keys = [{}]
 
         method = getattr(self.connection, method_name + '2')
         count = 0

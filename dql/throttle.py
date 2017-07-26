@@ -121,9 +121,9 @@ class TableLimits(object):
             lines.append("Total: %(read)s, %(write)s" % self.total)
         if self.default:
             lines.append("Default: %(read)s, %(write)s" % self.default)
-        for tablename, limit in six.iteritems(self.tables):
-            lines.append("%s: %s, %s" % (tablename, limit['read'],
-                                         limit['write']))
+        for tablename, table_limit in six.iteritems(self.tables):
+            lines.append("%s: %s, %s" % (tablename, table_limit['read'],
+                                         table_limit['write']))
             indexes = self.indexes.get(tablename, {})
             for indexname, limit in six.iteritems(indexes):
                 lines.append("%s:%s: %s, %s" % (tablename, indexname,

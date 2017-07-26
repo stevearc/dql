@@ -204,7 +204,7 @@ class Conjunction(ConstraintExpression):
             query_constraints = query[0]
         else:
             query_constraints = Conjunction.and_(query)
-        if len(remainder) == 0:
+        if not remainder:
             filter_constraints = None
         elif len(remainder) == 1:
             filter_constraints = remainder[0]

@@ -12,18 +12,13 @@ import json
 import six
 import subprocess
 import tempfile
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from dynamo3 import Binary
 
 from .util import plural, getmaxyx
-
-
-try:
-    from collections import OrderedDict
-except ImportError:  # pragma: no cover
-    from ordereddict import OrderedDict  # pylint: disable=F0401
 
 
 def truncate(string, length, ellipsis='…'):
@@ -194,7 +189,7 @@ class ExpandedFormat(BaseFormat):
                     pass
                 else:
                     val = format_json(data, max_key + 3)
-            elif isinstance(val, dict) or isinstance(val, list):
+            elif isinstance(val, (dict, list)):
                 val = format_json(val, max_key + 3)
             else:
                 val = wrap(self.format_field(val), self.width - max_key - 3,
@@ -286,7 +281,10 @@ class SmartBuffer(object):
 
     def __init__(self, buf):
         self._buffer = buf
-        self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
+        try:
+            self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
+        except ValueError:
+            self.encoding = 'utf-8'
 
     def write(self, arg):
         """ Write a string or bytes object to the buffer """

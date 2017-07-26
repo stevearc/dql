@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import six
+from collections import OrderedDict
 from datetime import datetime
 from dateutil.parser import parse
 from dateutil.tz import tzlocal, tzutc
@@ -9,12 +10,6 @@ from dateutil.tz import tzlocal, tzutc
 from .base import Expression, Field, Value
 from .visitor import dummy_visitor
 from dql.util import resolve
-
-
-try:
-    from collections import OrderedDict
-except ImportError:  # pragma: no cover
-    from ordereddict import OrderedDict  # pylint: disable=F0401
 
 
 def add(a, b):
