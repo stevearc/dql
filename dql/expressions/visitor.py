@@ -2,7 +2,7 @@
 import re
 
 
-FIELD_RE = re.compile(r'\w+(?![^\[]*\])')
+FIELD_RE = re.compile(r'[\w\-]+(?![^\[]*\])', re.U)
 
 
 class Visitor(object):
@@ -39,10 +39,16 @@ class Visitor(object):
     def _maybe_replace_path(self, match):
         """ Regex replacement method that will sub paths when needed """
         path = match.group(0)
-        if self._reserved_words is None or path.upper() in self._reserved_words:
+        if self._should_replace(path):
             return self._replace_path(path)
         else:
             return path
+
+    def _should_replace(self, path):
+        """ True if should replace the path """
+        return self._reserved_words is None or \
+            path.upper() in self._reserved_words or \
+            '-' in path
 
     def _replace_path(self, path):
         """ Get the replacement value for a path """
