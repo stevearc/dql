@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.24
+------
+* Bug fix: Support key conditions where field has a ``-`` in the name
+
 0.5.23
 ------
 * Bug fix: Default encoding error on mac
