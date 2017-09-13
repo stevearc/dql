@@ -1127,3 +1127,11 @@ class TestRegressions(BaseSystemTest):
         results = self.query("SCAN * FROM foobar WHERE hash in (1, 2, 3)")
         results = list(results)
         self.assertItemsEqual(results, [{'id': 'a', 'hash': 1}])
+
+    def test_filter_with_dash(self):
+        """ Filtering on a field with a dash replaces the word """
+        self.make_table(range_key=None)
+        self.query("INSERT INTO foobar (id='a', my-field=1), (id='b', my-field=4)")
+        results = self.query("SCAN * FROM foobar WHERE my-field = 1")
+        results = list(results)
+        self.assertItemsEqual(results, [{'id': 'a', 'my-field': 1}])
