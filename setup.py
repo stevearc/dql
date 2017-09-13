@@ -23,7 +23,7 @@ TEST_REQUIREMENTS = [
 if __name__ == "__main__":
     setup(
         name='dql',
-        version='0.5.23',
+        version='0.5.24',
         description='DynamoDB Query Language',
         long_description=README + '\n\n' + CHANGES,
         classifiers=[
