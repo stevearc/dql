@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.25
+------
+* Bug fix: Compatibility errors with Python 3
+
 0.5.24
 ------
 * Bug fix: Support key conditions where field has a ``-`` in the name
