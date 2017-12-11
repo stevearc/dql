@@ -1,9 +1,10 @@
-pylint==1.7.4
-pycodestyle
 autopep8
-sphinx
-numpydoc
-sphinx_rtd_theme
-nose
-mock
 bumpversion
+mock
+nose
+numpydoc
+pycodestyle
+pylint==1.7.4
+sphinx
+sphinx_rtd_theme
+wheel
