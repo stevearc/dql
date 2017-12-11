@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """ Formatting and displaying output """
 from __future__ import unicode_literals
-from builtins import input
-from builtins import range
 
 import locale
 import os
@@ -19,6 +17,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from dynamo3 import Binary
+from six.moves import input, range
 
 from .util import plural, getmaxyx
 
