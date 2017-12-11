@@ -28,8 +28,8 @@ def function(name, *args, **kwargs):
     else:
         return name + Suppress('(') + fxn_args + Suppress(')')
 
-# pylint: disable=C0103
 
+# pylint: disable=C0103
 and_, or_, from_, into, table_key, null, not_ = \
     map(upkey, ['and', 'or', 'from', 'into', 'table', 'null', 'not'])
 and_or = and_ | or_
@@ -97,6 +97,8 @@ def make_interval(long_name, short_name):
                   upkey(short_name) |
                   Regex(short_name).setParseAction(upcaseTokens))) \
         .setResultsName(long_name)
+
+
 interval = (
     make_interval('year', 'y') |
     make_interval('month', 'month') |

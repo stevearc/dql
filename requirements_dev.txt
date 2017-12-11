@@ -1,5 +1,5 @@
-pylint==1.7.2
-pep8
+pylint==1.7.4
+pycodestyle
 autopep8
 sphinx
 numpydoc

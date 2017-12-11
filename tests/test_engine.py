@@ -133,7 +133,7 @@ class TestFragmentEngine(BaseSystemTest):
                 self.query(fragment)
         except ParseException as e:
             pretty = self.engine.pformat_exc(e)
-            self.assertEquals(
+            self.assertEqual(
                 pretty,
                 query +
                 '\n' +
@@ -147,4 +147,4 @@ class TestFragmentEngine(BaseSystemTest):
         query = "DUMP\nSCHEMA\n\n;"
         for fragment in query.split('\n'):
             self.query(fragment)
-        self.assertEquals(self.engine.last_query, query)
+        self.assertEqual(self.engine.last_query, query)

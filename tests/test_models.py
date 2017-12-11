@@ -13,5 +13,5 @@ class TestModels(BaseSystemTest):
             "GLOBAL INDEX ('idx', id, foo, THROUGHPUT(1, 1))"
         )
         desc = self.engine.describe('foobar', refresh=True)
-        self.assertEquals(desc.total_read_throughput, 2)
-        self.assertEquals(desc.total_write_throughput, 2)
+        self.assertEqual(desc.total_read_throughput, 2)
+        self.assertEqual(desc.total_write_throughput, 2)

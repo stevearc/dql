@@ -247,6 +247,7 @@ def create_parser():
     dql.ignore('--' + restOfLine)
     return dql
 
+
 # pylint: disable=C0103
 using = (upkey('using') + var).setResultsName('using')
 throughput = create_throughput()
