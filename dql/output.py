@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """ Formatting and displaying output """
 from __future__ import unicode_literals
+from builtins import input
+from builtins import range
 
 import locale
 import os
@@ -40,7 +42,7 @@ def wrap(string, length, indent):
     """ Wrap a string at a line length """
     newline = '\n' + ' ' * indent
     return newline.join((string[i:i + length]
-                         for i in xrange(0, len(string), length)))
+                         for i in range(0, len(string), length)))
 
 
 def serialize_json_var(obj):
@@ -128,7 +130,7 @@ class BaseFormat(object):
 
     def wait(self):
         """ Block for user input """
-        text = raw_input(
+        text = input(
             "Press return for next %d result%s (or type 'all'):"
             % (self.pagesize, plural(self.pagesize)))
         if text:
@@ -322,4 +324,7 @@ def less_display():
 @contextlib.contextmanager
 def stdout_display():
     """ Print results straight to stdout """
-    yield SmartBuffer(sys.stdout)
+    if six.PY2:
+        yield SmartBuffer(sys.stdout)
+    else:
+        yield SmartBuffer(sys.stdout.buffer)
