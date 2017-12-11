@@ -49,7 +49,7 @@ class TestQueries(BaseSystemTest):
         self.query("DROP TABLE test")
         self.query(schema)
         new = self.engine.describe('test', True)
-        self.assertEquals(original, new)
+        self.assertEqual(original, new)
 
     def test_dump_tables(self):
         """ DUMP SCHEMA generates 'create' statements for specific tables """
@@ -84,8 +84,8 @@ class TestAlter(BaseSystemTest):
             "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         desc = self.engine.describe('foobar', refresh=True)
-        self.assertEquals(desc.read_throughput, 2)
-        self.assertEquals(desc.write_throughput, 2)
+        self.assertEqual(desc.read_throughput, 2)
+        self.assertEqual(desc.write_throughput, 2)
 
     def test_alter_throughput_partial(self):
         """ Can alter just read or just write throughput of a table """
@@ -93,8 +93,8 @@ class TestAlter(BaseSystemTest):
             "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 0)")
         desc = self.engine.describe('foobar', refresh=True)
-        self.assertEquals(desc.read_throughput, 2)
-        self.assertEquals(desc.write_throughput, 1)
+        self.assertEqual(desc.read_throughput, 2)
+        self.assertEqual(desc.write_throughput, 1)
 
     def test_alter_throughput_partial_star(self):
         """ Can alter just read or just write throughput by passing in '*' """
@@ -102,8 +102,8 @@ class TestAlter(BaseSystemTest):
             "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, *)")
         desc = self.engine.describe('foobar', refresh=True)
-        self.assertEquals(desc.read_throughput, 2)
-        self.assertEquals(desc.write_throughput, 1)
+        self.assertEqual(desc.read_throughput, 2)
+        self.assertEqual(desc.write_throughput, 1)
 
     def test_alter_index_throughput(self):
         """ Can alter throughput of a global index """
@@ -113,8 +113,8 @@ class TestAlter(BaseSystemTest):
         self.query("ALTER TABLE foobar SET INDEX foo_index THROUGHPUT (2, 2)")
         desc = self.engine.describe('foobar', refresh=True)
         index = desc.global_indexes['foo_index']
-        self.assertEquals(index.read_throughput, 2)
-        self.assertEquals(index.write_throughput, 2)
+        self.assertEqual(index.read_throughput, 2)
+        self.assertEqual(index.write_throughput, 2)
 
     def test_alter_drop(self):
         """ ALTER can drop an index """
@@ -127,7 +127,7 @@ class TestAlter(BaseSystemTest):
             index = desc.global_indexes['foo_index']
             self.assertEqual(index.status, 'DELETING')
         else:
-            self.assertEquals(len(desc.global_indexes.keys()), 0)
+            self.assertEqual(len(desc.global_indexes.keys()), 0)
 
     def test_alter_create(self):
         """ ALTER can create an index """
@@ -139,8 +139,8 @@ class TestAlter(BaseSystemTest):
         index = desc.global_indexes['foo_index']
         self.assertEqual(index.hash_key.name, 'baz')
         self.assertIsNone(index.range_key)
-        self.assertEquals(index.read_throughput, 2)
-        self.assertEquals(index.write_throughput, 3)
+        self.assertEqual(index.read_throughput, 2)
+        self.assertEqual(index.write_throughput, 3)
 
     def test_explain_throughput(self):
         """ EXPLAIN ALTER """
@@ -265,7 +265,7 @@ class TestSelect(BaseSystemTest):
         rev_results = self.query("SELECT * FROM foobar WHERE id = 'a' DESC")
         results = list(results)
         rev_results = list(reversed(list(rev_results)))
-        self.assertEquals(results, rev_results)
+        self.assertEqual(results, rev_results)
 
     def test_hash_index(self):
         """ SELECT filters by indexes """
@@ -304,7 +304,7 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
                    "('a', 2, 200)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' LIMIT 1")
-        self.assertEquals(len(list(results)), 1)
+        self.assertEqual(len(list(results)), 1)
 
     def test_scan_item_limit(self):
         """ SELECT can provide a LIMIT and SCAN LIMIT """
@@ -313,7 +313,7 @@ class TestSelect(BaseSystemTest):
                    "('a', 2, 200), ('a', 3, 300)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' and "
                              "ts > 200 LIMIT 1 SCAN LIMIT 2")
-        self.assertEquals(len(list(results)), 0)
+        self.assertEqual(len(list(results)), 0)
 
     def test_attrs(self):
         """ SELECT can fetch only certain attrs """
@@ -383,8 +383,8 @@ class TestSelect(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), "
                    "('a', 2)")
         count = self.query("SELECT count(*) FROM foobar WHERE id = 'a'")
-        self.assertEquals(count, 2)
-        self.assertEquals(count.scanned_count, 2)
+        self.assertEqual(count, 2)
+        self.assertEqual(count.scanned_count, 2)
 
     def test_count_smart_index(self):
         """ SELECT count(*) auto-selects correct index name """
@@ -393,8 +393,8 @@ class TestSelect(BaseSystemTest):
                    "('a', 2, 200)")
         count = self.query("SELECT count(*) FROM foobar "
                            "WHERE id = 'a' and ts < 150")
-        self.assertEquals(count, 1)
-        self.assertEquals(count.scanned_count, 1)
+        self.assertEqual(count, 1)
+        self.assertEqual(count.scanned_count, 1)
 
     def test_count_filter(self):
         """ SELECT count(*) can use conditional filter on results """
@@ -720,8 +720,8 @@ class TestCreate(BaseSystemTest):
                                  ts NUMBER INDEX('ts-index'))
             """)
         desc = self.engine.describe('foobar')
-        self.assertEquals(desc.hash_key, TableField('owner', 'STRING', 'HASH'))
-        self.assertEquals(desc.range_key, TableField('id', 'BINARY', 'RANGE'))
+        self.assertEqual(desc.hash_key, TableField('owner', 'STRING', 'HASH'))
+        self.assertEqual(desc.range_key, TableField('id', 'BINARY', 'RANGE'))
         self.assertEqual(desc.attrs, {
             'owner': TableField('owner', 'STRING', 'HASH'),
             'id': TableField('id', 'BINARY', 'RANGE'),
@@ -733,8 +733,8 @@ class TestCreate(BaseSystemTest):
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 2))")
         desc = self.engine.describe('foobar')
-        self.assertEquals(desc.read_throughput, 1)
-        self.assertEquals(desc.write_throughput, 2)
+        self.assertEqual(desc.read_throughput, 1)
+        self.assertEqual(desc.write_throughput, 2)
 
     def test_create_if_not_exists(self):
         """ CREATE IF NOT EXISTS shouldn't fail if table exists """
@@ -776,7 +776,7 @@ class TestCreate(BaseSystemTest):
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         range_key = TableField('id', 'STRING', 'RANGE')
         gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, range_key, 1, 2, 0)
-        self.assertEquals(desc.global_indexes, {
+        self.assertEqual(desc.global_indexes, {
             'myindex': gindex,
         })
 
@@ -790,7 +790,7 @@ class TestCreate(BaseSystemTest):
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         range_key = TableField('baz', 'STRING', 'RANGE')
         gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, range_key, 1, 2, 0)
-        self.assertEquals(desc.global_indexes, {
+        self.assertEqual(desc.global_indexes, {
             'myindex': gindex,
         })
 
@@ -803,7 +803,7 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         gindex = GlobalIndex('myindex', 'ALL', 'ACTIVE', hash_key, None, 1, 2, 0)
-        self.assertEquals(desc.global_indexes, {
+        self.assertEqual(desc.global_indexes, {
             'myindex': gindex,
         })
 
@@ -816,7 +816,7 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         gindex = GlobalIndex('myindex', 'KEYS', 'ACTIVE', hash_key, None, 1, 2, 0)
-        self.assertEquals(desc.global_indexes, {
+        self.assertEqual(desc.global_indexes, {
             'myindex': gindex,
         })
 
@@ -829,7 +829,7 @@ class TestCreate(BaseSystemTest):
         desc = self.engine.describe('foobar')
         hash_key = TableField('foo', 'NUMBER', 'HASH')
         gindex = GlobalIndex('myindex', 'INCLUDE', 'ACTIVE', hash_key, None, 1, 2, 0, ['bar', 'baz'])
-        self.assertEquals(desc.global_indexes, {
+        self.assertEqual(desc.global_indexes, {
             'myindex': gindex,
         })
 

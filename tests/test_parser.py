@@ -120,7 +120,7 @@ class TestParser(TestCase):
                     assert False, ("Parsing '%s' should have failed.\nGot: %s"
                                    % (string, parse_result.asList()))
                 else:
-                    self.assertEquals(result, parse_result.asList())
+                    self.assertEqual(result, parse_result.asList())
             except ParseException as e:
                 if result != 'error':
                     six.print_(string)
@@ -167,6 +167,7 @@ class TestParser(TestCase):
     def test_variables(self):
         """ Run tests for parsing variables """
         self._run_tests('variables', value)
+
 
 CONSTRAINTS = [
     ('WHERE bar = 1',

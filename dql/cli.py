@@ -63,7 +63,7 @@ def indent(string, prefix='  '):
 def prompt(msg, default=NO_DEFAULT, validate=None):
     """ Prompt user for input """
     while True:
-        response = raw_input(msg + ' ').strip()
+        response = input(msg + ' ').strip()
         if not response:
             if default is NO_DEFAULT:
                 continue
@@ -195,7 +195,7 @@ class DQLClient(cmd.Cmd):
                 six.print_(e)
             except ParseException as e:
                 six.print_(self.engine.pformat_exc(e))
-            except:
+            except Exception:
                 traceback.print_exc()
             self.engine.reset()
 

@@ -1,10 +1,11 @@
-*.py[cod]
+*.py[code]
 
 # C extensions
 *.so
 
 # Packages
 *.egg
+.eggs
 *.egg-info
 dist
 build
