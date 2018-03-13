@@ -1,7 +1,9 @@
 """ Utilities for monitoring the consumed capacity of tables """
+from __future__ import print_function
+from future.utils import iteritems
+
 import time
 
-import six
 from datetime import datetime
 
 from .util import getmaxyx
@@ -29,8 +31,8 @@ class Monitor(object):
         if CURSES_SUPPORTED:
             curses.wrapper(self.run)
         else:
-            six.print_("Your system does not have curses installed. "
-                       "Cannot use 'watch'")
+            print("Your system does not have curses installed. "
+                  "Cannot use 'watch'")
 
     def run(self, stdscr):
         """ Initialize curses and refresh in a loop """
@@ -56,7 +58,7 @@ class Monitor(object):
                                                 table.read_throughput)))
         width = max(width, 4 + len("%.1f/%d" % (cap['write'],
                                                 table.write_throughput)))
-        for index_name, cap in six.iteritems(table.consumed_capacity):
+        for index_name, cap in iteritems(table.consumed_capacity):
             if index_name == '__table__':
                 continue
             index = table.global_indexes[index_name]
@@ -162,7 +164,7 @@ class Monitor(object):
                 self._add_throughput(y + 2, x, col_width, 'W', '',
                                      table.write_throughput, cap['write'])
                 y += 3
-                for index_name, cap in six.iteritems(table.consumed_capacity):
+                for index_name, cap in iteritems(table.consumed_capacity):
                     if index_name == '__table__':
                         continue
                     index = table.global_indexes[index_name]

@@ -1,7 +1,7 @@
 """ Data containers """
 from __future__ import unicode_literals
+from future.utils import python_2_unicode_compatible, iteritems, itervalues
 
-import six
 from decimal import Decimal
 from dynamo3 import TYPES_REV
 from dynamo3.fields import snake_to_camel
@@ -15,7 +15,7 @@ def format_throughput(available, used=None):
     return '{0:.0f}/{1:.0f} ({2:.0%})'.format(used, available, percent)
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class QueryIndex(object):
 
     """
@@ -339,7 +339,7 @@ class TableMeta(object):
         self.consumed_capacity = {}
         self.hash_key = None
         self.range_key = None
-        for field in six.itervalues(attrs):
+        for field in itervalues(attrs):
             if field.key_type == 'HASH':
                 self.hash_key = field
             elif field.key_type == 'RANGE':
@@ -483,7 +483,7 @@ class TableMeta(object):
     def total_read_throughput(self):
         """ Combined read throughput of table and global indexes """
         total = self.read_throughput
-        for index in six.itervalues(self.global_indexes):
+        for index in itervalues(self.global_indexes):
             total += index.read_throughput
         return total
 
@@ -491,7 +491,7 @@ class TableMeta(object):
     def total_write_throughput(self):
         """ Combined write throughput of table and global indexes """
         total = self.write_throughput
-        for index in six.itervalues(self.global_indexes):
+        for index in itervalues(self.global_indexes):
             total += index.write_throughput
         return total
 
@@ -530,12 +530,12 @@ class TableMeta(object):
             del attrs[self.range_key.name]
         if attrs:
             attr_def = ', '.join([attr.schema for attr in
-                                  six.itervalues(attrs)])
+                                  itervalues(attrs)])
             parts.append(attr_def + ',')
 
         parts.append("THROUGHPUT (%d, %d))" % (self.read_throughput,
                                                self.write_throughput))
-        parts.extend([g.schema for g in six.itervalues(self.global_indexes)])
+        parts.extend([g.schema for g in itervalues(self.global_indexes)])
         return ' '.join(parts) + ';'
 
     def pformat(self):
@@ -558,11 +558,11 @@ class TableMeta(object):
         else:
             lines.append("%s, %s" % (self.hash_key, self.range_key))
 
-        for field in six.itervalues(self.attrs):
+        for field in itervalues(self.attrs):
             if field.key_type == 'INDEX':
                 lines.append(str(field))
 
-        for index_name, gindex in six.iteritems(self.global_indexes):
+        for index_name, gindex in iteritems(self.global_indexes):
             cap = self.consumed_capacity.get(index_name)
             lines.append(gindex.pformat(cap))
 

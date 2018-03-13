@@ -1,9 +1,9 @@
 """ Simple SQL-like query language for dynamo. """
+from __future__ import print_function
 import os
 
 import argparse
 import logging.config
-import six
 
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
@@ -59,7 +59,7 @@ def main():
     args = parse.parse_args()
 
     if args.version:
-        six.print_(__version__)
+        print(__version__)
         return
 
     logging.config.dictConfig(LOG_CONFIG)

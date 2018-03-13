@@ -1,6 +1,6 @@
 """ Help text for the CLI """
 
-ALTER = """
+ALTER = u"""
     Alter a table's throughput or create/drop global indexes
 
     ALTER TABLE tablename
@@ -22,7 +22,7 @@ ALTER = """
     ALTER TABLE foobars CREATE GLOBAL INDEX ('ts-index', ts NUMBER) IF NOT EXISTS;
 """
 
-ANALYZE = """
+ANALYZE = u"""
     Run a query and print out the consumed capacity
 
     ANALYZE query
@@ -34,7 +34,7 @@ ANALYZE = """
     ANALYZE DELETE FROM foobars KEYS IN ('foo', 'bar'), ('baz', 'qux');
 """
 
-CREATE = """
+CREATE = u"""
     Create a new table
 
     CREATE TABLE
@@ -61,7 +61,7 @@ CREATE = """
                         GLOBAL INCLUDE INDEX ('baz-index', baz, ['bar'], THROUGHPUT (4, 2));
 """
 
-DELETE = """
+DELETE = u"""
     Delete items from a table
 
     DELETE FROM
@@ -83,7 +83,7 @@ DELETE = """
     http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#ConditionExpressionReference
 """
 
-DROP = """
+DROP = u"""
     Delete a table
 
     DROP TABLE
@@ -96,7 +96,7 @@ DROP = """
     DROP TABLE IF EXISTS foobars;
 """
 
-DUMP = """
+DUMP = u"""
     Print the schema creation statements for your tables
 
     DUMP SCHEMA [ tablename [, ...] ]
@@ -107,7 +107,7 @@ DUMP = """
     DUMP SCHEMA foobars, widgets;
 """
 
-EXPLAIN = """
+EXPLAIN = u"""
     Print out the DynamoDB queries that will be executed for a command
 
     EXPLAIN query
@@ -119,7 +119,7 @@ EXPLAIN = """
     EXPLAIN DELETE FROM foobars KEYS IN ('foo', 'bar'), ('baz', 'qux');
 """
 
-INSERT = """
+INSERT = u"""
     Insert data into a table
 
     INSERT INTO tablename
@@ -135,7 +135,7 @@ INSERT = """
     INSERT INTO foobars (id='foo'), (id='bar', baz=(1, 2, 3));
 """
 
-LOAD = """
+LOAD = u"""
     Load data from a file (saved with SELECT ... SAVE) into a table
 
     LOAD filename INTO tablename
@@ -146,7 +146,7 @@ LOAD = """
     LOAD dump.json.gz INTO mytable;
 """
 
-SCAN = SELECT = """
+SCAN = SELECT = u"""
     Select items from a table by querying an index
 
     SELECT
@@ -180,7 +180,7 @@ SCAN = SELECT = """
     http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#ConditionExpressionReference
 """
 
-UPDATE = """
+UPDATE = u"""
     Update items in a table
 
     UPDATE tablename
@@ -207,7 +207,7 @@ UPDATE = """
     http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#ConditionExpressionReference
 """
 
-OPTIONS = """
+OPTIONS = u"""
     Get or set options
 
     use 'opt <option>' to get the value of option, and 'opt <option> <value>'

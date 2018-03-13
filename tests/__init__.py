@@ -1,6 +1,4 @@
 """ Testing tools for DQL """
-import six
-
 from dql import Engine
 
 
@@ -10,7 +8,7 @@ except ImportError:
     import unittest
 
 
-if six.PY3:
+if not hasattr(unittest.TestCase, 'assertItemsEqual'):
     unittest.TestCase.assertItemsEqual = unittest.TestCase.assertCountEqual
 
 

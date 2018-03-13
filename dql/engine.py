@@ -1,4 +1,6 @@
 """ Execution engine """
+from builtins import int
+
 import gzip
 import os
 import time
@@ -8,7 +10,6 @@ import csv
 import json
 import pickle
 import logging
-import six
 from base64 import b64encode
 from botocore.exceptions import ClientError
 from decimal import Decimal
@@ -170,14 +171,14 @@ class Engine(object):
                     filename = unwrap(filename)
                 ret = "Saved %d record%s to %s" % (result, plural(result),
                                                    filename)
-            elif isinstance(result, six.integer_types):
+            elif isinstance(result, int):
                 if result == result.scanned_count:
                     ret = "%d" % result
                 else:
                     ret = "%d (scanned count: %d)" % (result,
                                                       result.scanned_count)
         elif statement.action == 'UPDATE':
-            if isinstance(result, six.integer_types):
+            if isinstance(result, int):
                 ret = "Updated %d item%s" % (result, plural(result))
         elif statement.action == 'DELETE':
             ret = "Deleted %d item%s" % (result, plural(result))

@@ -1,5 +1,5 @@
 """ Tests for the language parser """
-import six
+from __future__ import print_function
 from pyparsing import ParseException, StringEnd
 
 from dql.expressions import (ConstraintExpression, UpdateExpression,
@@ -123,13 +123,13 @@ class TestParser(TestCase):
                     self.assertEqual(result, parse_result.asList())
             except ParseException as e:
                 if result != 'error':
-                    six.print_(string)
-                    six.print_(' ' * e.loc + '^')
+                    print(string)
+                    print(' ' * e.loc + '^')
                     raise
             except AssertionError:
-                six.print_("Parsing : %s" % string)
-                six.print_("Expected: %s" % result)
-                six.print_("Got     : %s" % parse_result.asList())
+                print("Parsing : %s" % string)
+                print("Expected: %s" % result)
+                print("Got     : %s" % parse_result.asList())
                 raise
 
     def test_create(self):
@@ -290,17 +290,17 @@ class TestExpressions(TestCase):
             const = factory(parse_result[key])
             self.assertEqual(str(const), expected)
         except AssertionError:
-            six.print_("Expression: %s" % expression)
-            six.print_("Expected  : %s" % expected)
-            six.print_("Got       : %s" % const)
+            print("Expression: %s" % expression)
+            print("Expected  : %s" % expected)
+            print("Got       : %s" % const)
             raise
         except ParseException as e:
-            six.print_(expression)
-            six.print_(' ' * e.loc + '^')
+            print(expression)
+            print(' ' * e.loc + '^')
             raise
         except Exception:
-            six.print_("Expression: %s" % expression)
-            six.print_("Parsed    : %s" % parse_result.asList())
+            print("Expression: %s" % expression)
+            print("Parsed    : %s" % parse_result.asList())
             raise
 
     def test_constraints(self):

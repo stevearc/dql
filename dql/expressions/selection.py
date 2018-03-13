@@ -1,7 +1,8 @@
 """ Selection expressions """
 from __future__ import unicode_literals
+from future.utils import python_2_unicode_compatible
+from past.builtins import basestring
 
-import six
 from collections import OrderedDict
 from datetime import datetime
 from dateutil.parser import parse
@@ -83,7 +84,7 @@ def parse_expression(clause):
         return Field(clause[0])
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class SelectionExpression(Expression):
 
     """ Entry point for Selection expressions """
@@ -143,7 +144,7 @@ class SelectionExpression(Expression):
         return ' '.join(str(e) for e in self.expressions)
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class NamedExpression(Expression):
     """ Wrapper around AttributeSelection that holds the alias (if any) """
 
@@ -184,7 +185,7 @@ class NamedExpression(Expression):
         return base
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class AttributeSelection(Expression):
     """ A tree of select expressions """
 
@@ -255,7 +256,7 @@ class SelectFunction(Expression):
         raise NotImplementedError
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class NowFunction(SelectFunction):
     """ Function to grab the current time """
 
@@ -282,7 +283,7 @@ class NowFunction(SelectFunction):
             return datetime.now().replace(tzinfo=tzlocal())
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class TimestampFunction(SelectFunction):
     """ Function that parses a field or literal as a datetime """
 
@@ -310,7 +311,7 @@ class TimestampFunction(SelectFunction):
         base_value = self.expr.evaluate(item)
         if base_value is None:
             return None
-        elif isinstance(base_value, six.string_types):
+        elif isinstance(base_value, basestring):
             dt = parse(base_value)
         else:
             base_value = float(base_value)

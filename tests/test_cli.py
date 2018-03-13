@@ -1,9 +1,9 @@
 """ Tests for the CLI """
 import shutil
-import six
 import tempfile
+from future.moves.urllib.parse import urlparse
+from io import StringIO
 from mock import patch
-from six.moves.urllib.parse import urlparse  # pylint: disable=F0401,E0611
 
 from dql.cli import repl_command, DQLClient
 
@@ -32,7 +32,7 @@ class TestCli(unittest.TestCase):
 
     def assert_prints(self, command, message):
         """ Assert that a cli command will print a message to the console """
-        out = six.StringIO()
+        out = StringIO()
         with patch('sys.stdout', out):
             self.cli.onecmd(command)
         self.assertEqual(out.getvalue().strip(), message.strip())
