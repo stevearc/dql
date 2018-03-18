@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.26
+------
+* Use python-future instead of six as compatibility library
+* Now distributing a wheel package
+* Bug fix: Confirmation prompts crash on Python 2
+
 0.5.25
 ------
 * Bug fix: Compatibility errors with Python 3
