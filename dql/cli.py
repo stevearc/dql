@@ -1,4 +1,9 @@
 """ Interative DQL client """
+from __future__ import print_function
+from builtins import input
+from past.builtins import basestring
+from future.utils import iteritems
+
 import os
 from fnmatch import fnmatch
 
@@ -7,7 +12,6 @@ import cmd
 import functools
 import json
 import shlex
-import six
 import subprocess
 import traceback
 from collections import OrderedDict
@@ -176,7 +180,7 @@ class DQLClient(cmd.Cmd):
                             is_secure=(host is None))
 
         self.conf = self.load_config()
-        for key, value in six.iteritems(DEFAULT_CONFIG):
+        for key, value in iteritems(DEFAULT_CONFIG):
             self.conf.setdefault(key, value)
         self.display = DISPLAYS[self.conf['display']]
         self.throttle = TableLimits()
@@ -190,11 +194,11 @@ class DQLClient(cmd.Cmd):
             try:
                 self.cmdloop()
             except KeyboardInterrupt:
-                six.print_()
+                print()
             except botocore.exceptions.BotoCoreError as e:
-                six.print_(e)
+                print(e)
             except ParseException as e:
-                six.print_(self.engine.pformat_exc(e))
+                print(self.engine.pformat_exc(e))
             except Exception:
                 traceback.print_exc()
             self.engine.reset()
@@ -219,7 +223,7 @@ class DQLClient(cmd.Cmd):
         proc = subprocess.Popen(shlex.split(arglist),
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
-        six.print_(proc.communicate()[0])
+        print(proc.communicate()[0])
 
     def caution_callback(self, action):
         """
@@ -256,7 +260,7 @@ class DQLClient(cmd.Cmd):
             for key in keys:
                 largest = max(largest, len(key))
             for key in keys:
-                six.print_("%s : %s" % (key.rjust(largest), self.conf[key]))
+                print("%s : %s" % (key.rjust(largest), self.conf[key]))
             return
         option = args.pop(0)
         if not args and not kwargs:
@@ -268,21 +272,21 @@ class DQLClient(cmd.Cmd):
         else:
             method = getattr(self, "opt_" + option, None)
             if method is None:
-                six.print_("Unrecognized option %r" % option)
+                print("Unrecognized option %r" % option)
             else:
                 method(*args, **kwargs)
                 self.save_config()
 
     def help_opt(self):
         """ Print the help text for options """
-        six.print_(OPTIONS)
+        print(OPTIONS)
 
     def getopt_default(self, option):
         """ Default method to get an option """
         if option not in self.conf:
-            six.print_("Unrecognized option %r" % option)
+            print("Unrecognized option %r" % option)
             return
-        six.print_("%s: %s" % (option, self.conf[option]))
+        print("%s: %s" % (option, self.conf[option]))
 
     def complete_opt(self, text, line, begidx, endidx):
         """ Autocomplete for options """
@@ -325,9 +329,9 @@ class DQLClient(cmd.Cmd):
         """ Helper for enum options """
         for key in choices:
             if key == self.conf[option]:
-                six.print_('* %s' % key)
+                print('* %s' % key)
             else:
-                six.print_('  %s' % key)
+                print('  %s' % key)
 
     def opt_display(self, display):
         """ Set value for display option """
@@ -335,9 +339,9 @@ class DQLClient(cmd.Cmd):
         if key is not None:
             self.conf['display'] = key
             self.display = DISPLAYS[key]
-            six.print_("Set display %r" % key)
+            print("Set display %r" % key)
         else:
-            six.print_("Unknown display %r" % display)
+            print("Unknown display %r" % display)
 
     def getopt_display(self):
         """ Get value for display option """
@@ -352,9 +356,9 @@ class DQLClient(cmd.Cmd):
         key = get_enum_key(format, FORMATTERS)
         if key is not None:
             self.conf['format'] = key
-            six.print_("Set format %r" % key)
+            print("Set format %r" % key)
         else:
-            six.print_("Unknown format %r" % format)
+            print("Unknown format %r" % format)
 
     def getopt_format(self):
         """ Get value for format option """
@@ -436,20 +440,19 @@ class DQLClient(cmd.Cmd):
             # Calculate max width of all items for each column
             sizes = [1 +
                      max([len(str(getattr(t, f))) for t in tables] +
-                         [len(title)]) for title, f in six.iteritems(fields)]
+                         [len(title)]) for title, f in iteritems(fields)]
             # Print the header
             for size, title in zip(sizes, fields):
-                six.print_(title.ljust(size), end='')
-            six.print_()
+                print(title.ljust(size), end='')
+            print()
             # Print each table row
             for row_table in tables:
                 for size, field in zip(sizes, fields.values()):
-                    six.print_(str(getattr(row_table, field)).ljust(size),
-                               end='')
-                six.print_()
+                    print(str(getattr(row_table, field)).ljust(size), end='')
+                print()
         else:
-            six.print_(self.engine.describe(table, refresh=True,
-                                            metrics=True).pformat())
+            print(self.engine.describe(table, refresh=True,
+                                       metrics=True).pformat())
 
     def complete_ls(self, text, *_):
         """ Autocomplete for ls """
@@ -512,7 +515,7 @@ class DQLClient(cmd.Cmd):
         """
         args = list(args)
         if not args:
-            six.print_(self.throttle)
+            print(self.throttle)
             return
         if len(args) < 2:
             return self.onecmd("help throttle")
@@ -599,8 +602,8 @@ class DQLClient(cmd.Cmd):
         results = self.engine.execute(command)
         if results is None:
             pass
-        elif isinstance(results, six.string_types):
-            six.print_(results)
+        elif isinstance(results, basestring):
+            print(results)
         else:
             with self.display() as ostream:
                 formatter = FORMATTERS[self.conf['format']](
@@ -611,12 +614,12 @@ class DQLClient(cmd.Cmd):
         total = None
         for (cmd_fragment, capacity) in self.engine.consumed_capacities:
             total += capacity
-            six.print_(cmd_fragment)
-            six.print_(indent(str(capacity)))
+            print(cmd_fragment)
+            print(indent(str(capacity)))
             print_count += 1
         if print_count > 1:
-            six.print_('TOTAL')
-            six.print_(indent(str(total)))
+            print('TOTAL')
+            print(indent(str(total)))
 
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
@@ -627,7 +630,7 @@ class DQLClient(cmd.Cmd):
     def do_exit(self):
         """Exit"""
         self.running = False
-        six.print_()
+        print()
         return True
 
     def run_command(self, command):
@@ -641,52 +644,52 @@ class DQLClient(cmd.Cmd):
 
     def help_help(self):
         """Print the help text for help"""
-        six.print_("List commands or print details about a command")
+        print("List commands or print details about a command")
 
     def help_alter(self):
         """ Print the help text for ALTER """
-        six.print_(ALTER)
+        print(ALTER)
 
     def help_analyze(self):
         """ Print the help text for ALTER """
-        six.print_(ANALYZE)
+        print(ANALYZE)
 
     def help_create(self):
         """ Print the help text for CREATE """
-        six.print_(CREATE)
+        print(CREATE)
 
     def help_delete(self):
         """ Print the help text for DELETE """
-        six.print_(DELETE)
+        print(DELETE)
 
     def help_drop(self):
         """ Print the help text for DROP """
-        six.print_(DROP)
+        print(DROP)
 
     def help_dump(self):
         """ Print the help text for DUMP """
-        six.print_(DUMP)
+        print(DUMP)
 
     def help_explain(self):
         """ Print the help text for EXPLAIN """
-        six.print_(EXPLAIN)
+        print(EXPLAIN)
 
     def help_insert(self):
         """ Print the help text for INSERT """
-        six.print_(INSERT)
+        print(INSERT)
 
     def help_load(self):
         """ Print the help text for LOAD """
-        six.print_(LOAD)
+        print(LOAD)
 
     def help_scan(self):
         """ Print the help text for SCAN """
-        six.print_(SCAN)
+        print(SCAN)
 
     def help_select(self):
         """ Print the help text for SELECT """
-        six.print_(SELECT)
+        print(SELECT)
 
     def help_update(self):
         """ Print the help text for UPDATE """
-        six.print_(UPDATE)
+        print(UPDATE)

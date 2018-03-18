@@ -1,6 +1,7 @@
 """ Common utilities for all expressions """
+from future.utils import python_2_unicode_compatible
+
 import re
-import six
 
 from .visitor import dummy_visitor
 
@@ -8,7 +9,7 @@ from .visitor import dummy_visitor
 PATH_PATTERN = re.compile(r'\w+|\[(\d+)\]')
 
 
-@six.python_2_unicode_compatible
+@python_2_unicode_compatible
 class Expression(object):
 
     """ Base class for all expressions and expression fragments """

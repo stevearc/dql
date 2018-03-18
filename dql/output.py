@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """ Formatting and displaying output """
 from __future__ import unicode_literals
+from builtins import input, range, str
+from future.utils import iteritems, itervalues
+from past.builtins import basestring
 
 import locale
 import os
@@ -9,7 +12,6 @@ import sys
 
 import contextlib
 import json
-import six
 import subprocess
 import tempfile
 from collections import OrderedDict
@@ -17,7 +19,6 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from dynamo3 import Binary
-from six.moves import input, range
 
 from .util import plural, getmaxyx
 
@@ -150,8 +151,8 @@ class BaseFormat(object):
             return 'TypeError'
         elif isinstance(field, Decimal):
             if field % 1 == 0:
-                return six.text_type(int(field))
-            return six.text_type(float(field))
+                return str(int(field))
+            return str(float(field))
         elif isinstance(field, set):
             return '(' + ', '.join([self.format_field(v) for v in field]) + ')'
         elif isinstance(field, datetime):
@@ -183,7 +184,7 @@ class ExpandedFormat(BaseFormat):
         max_key = max((len(k) for k in result.keys()))
         for key, val in result.items():
             # If the value is json, try to unpack it and format it better.
-            if isinstance(val, six.string_types) and val.startswith("{"):
+            if isinstance(val, basestring) and val.startswith("{"):
                 try:
                     data = json.loads(val)
                 except ValueError:
@@ -205,11 +206,11 @@ class ColumnFormat(BaseFormat):
         super(ColumnFormat, self).__init__(*args, **kwargs)
         col_width = OrderedDict()
         for result in self._results:
-            for key, value in six.iteritems(result):
+            for key, value in iteritems(result):
                 col_width.setdefault(key, len(key))
                 col_width[key] = max(col_width[key], len(self.format_field(value)))
-        self._all_columns = six.viewkeys(col_width)
-        self.width_requested = 3 + len(col_width) + sum(six.itervalues(col_width))
+        self._all_columns = list(col_width)
+        self.width_requested = 3 + len(col_width) + sum(itervalues(col_width))
         if self.width_requested > self.width:
             even_width = int((self.width - 1) / len(self._all_columns)) - 3
             for key in col_width:
@@ -249,7 +250,7 @@ class ColumnFormat(BaseFormat):
 
     def write(self, result):
         self._ostream.write('|')
-        for col, width in six.iteritems(self._col_width):
+        for col, width in iteritems(self._col_width):
             self._ostream.write(' ')
             val = self.format_field(result.get(
                 col, None)).ljust(width)
@@ -289,7 +290,7 @@ class SmartBuffer(object):
 
     def write(self, arg):
         """ Write a string or bytes object to the buffer """
-        if isinstance(arg, six.text_type):
+        if isinstance(arg, str):
             arg = arg.encode(self.encoding)
         return self._buffer.write(arg)
 
@@ -323,7 +324,7 @@ def less_display():
 @contextlib.contextmanager
 def stdout_display():
     """ Print results straight to stdout """
-    if six.PY2:
+    if sys.version_info[0] == 2:
         yield SmartBuffer(sys.stdout)
     else:
         yield SmartBuffer(sys.stdout.buffer)
