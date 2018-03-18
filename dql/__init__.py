@@ -8,7 +8,7 @@ import logging.config
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = '0.5.25'
+__version__ = '0.5.26'
 
 
 LOG_CONFIG = {
