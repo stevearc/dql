@@ -103,11 +103,9 @@ class BaseFormat(object):
 
     def pre_write(self):
         """ Called once before writing the very first record """
-        pass
 
     def post_write(self):
         """ Called once after writing all records """
-        pass
 
     def display(self):
         """ Write results to an output stream """

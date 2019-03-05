@@ -46,7 +46,6 @@ def default(value):
 
 class ExplainSignal(Exception):
     """ Thrown to stop a query when we're doing an EXPLAIN """
-    pass
 
 
 def add_query_kwargs(kwargs, visitor, constraints, index):
