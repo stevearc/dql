@@ -23,10 +23,10 @@ from dynamo3 import Binary
 from .util import plural, getmaxyx
 
 
-def truncate(string, length, ellipsis='…'):
+def truncate(string, length, ellipsis="…"):
     """ Truncate a string to a length, ending with '...' if it overflows """
     if len(string) > length:
-        return string[:length - len(ellipsis)] + ellipsis
+        return string[: length - len(ellipsis)] + ellipsis
     return string
 
 
@@ -40,9 +40,8 @@ def make_list(obj):
 
 def wrap(string, length, indent):
     """ Wrap a string at a line length """
-    newline = '\n' + ' ' * indent
-    return newline.join((string[i:i + length]
-                         for i in range(0, len(string), length)))
+    newline = "\n" + " " * indent
+    return newline.join((string[i : i + length] for i in range(0, len(string), length)))
 
 
 def serialize_json_var(obj):
@@ -55,9 +54,9 @@ def serialize_json_var(obj):
 
 def format_json(json_object, indent):
     """ Pretty-format json data """
-    indent_str = '\n' + ' ' * indent
+    indent_str = "\n" + " " * indent
     json_str = json.dumps(json_object, indent=2, default=serialize_json_var)
-    return indent_str.join(json_str.split('\n'))
+    return indent_str.join(json_str.split("\n"))
 
 
 def delta_to_str(rd):
@@ -73,15 +72,15 @@ def delta_to_str(rd):
     if rd.seconds > 0 or rd.minutes > 0 or rd.hours > 0:
         clock_parts.append("%02d" % rd.seconds)
     if clock_parts:
-        parts.append(':'.join(clock_parts))
-    return ' '.join(parts)
+        parts.append(":".join(clock_parts))
+    return " ".join(parts)
 
 
 class BaseFormat(object):
 
     """ Base class for formatters """
 
-    def __init__(self, results, ostream, width='auto', pagesize='auto'):
+    def __init__(self, results, ostream, width="auto", pagesize="auto"):
         self._results = make_list(results)
         self._ostream = ostream
         self._width = width
@@ -90,14 +89,14 @@ class BaseFormat(object):
     @property
     def width(self):
         """ The display width """
-        if self._width == 'auto':
+        if self._width == "auto":
             return getmaxyx()[1]
         return self._width
 
     @property
     def pagesize(self):
         """ The number of results to display at a time """
-        if self._pagesize == 'auto':
+        if self._pagesize == "auto":
             return getmaxyx()[0] - 5
         return self._pagesize
 
@@ -117,12 +116,15 @@ class BaseFormat(object):
             self.write(result)
             count += 1
             total += 1
-            if (count >= self.pagesize and self.pagesize > 0 and
-                    i < len(self._results) - 1):
+            if (
+                count >= self.pagesize
+                and self.pagesize > 0
+                and i < len(self._results) - 1
+            ):
                 self.wait()
                 count = 0
         if total == 0:
-            self._ostream.write('No results\n')
+            self._ostream.write("No results\n")
         else:
             self.post_write()
 
@@ -130,9 +132,10 @@ class BaseFormat(object):
         """ Block for user input """
         text = input(
             "Press return for next %d result%s (or type 'all'):"
-            % (self.pagesize, plural(self.pagesize)))
+            % (self.pagesize, plural(self.pagesize))
+        )
         if text:
-            if text.lower() in ['a', 'all']:
+            if text.lower() in ["a", "all"]:
                 self._pagesize = 0
             elif text.isdigit():
                 self._pagesize = int(text)
@@ -144,20 +147,21 @@ class BaseFormat(object):
     def format_field(self, field):
         """ Format a single Dynamo value """
         if field is None:
-            return 'NULL'
+            return "NULL"
         elif isinstance(field, TypeError):
-            return 'TypeError'
+            return "TypeError"
         elif isinstance(field, Decimal):
             if field % 1 == 0:
                 return str(int(field))
             return str(float(field))
         elif isinstance(field, set):
-            return '(' + ', '.join([self.format_field(v) for v in field]) + ')'
+            return "(" + ", ".join([self.format_field(v) for v in field]) + ")"
         elif isinstance(field, datetime):
             return field.isoformat()
         elif isinstance(field, timedelta):
-            rd = relativedelta(seconds=int(field.total_seconds()),
-                               microseconds=field.microseconds)
+            rd = relativedelta(
+                seconds=int(field.total_seconds()), microseconds=field.microseconds
+            )
             return delta_to_str(rd)
         elif isinstance(field, Binary):
             return "<Binary %d>" % len(field.value)
@@ -173,12 +177,12 @@ class ExpandedFormat(BaseFormat):
 
     @property
     def pagesize(self):
-        if self._pagesize == 'auto':
+        if self._pagesize == "auto":
             return 1
         return self._pagesize
 
     def write(self, result):
-        self._ostream.write(self.width * '-' + '\n')
+        self._ostream.write(self.width * "-" + "\n")
         max_key = max((len(k) for k in result.keys()))
         for key, val in result.items():
             # If the value is json, try to unpack it and format it better.
@@ -192,14 +196,16 @@ class ExpandedFormat(BaseFormat):
             elif isinstance(val, (dict, list)):
                 val = format_json(val, max_key + 3)
             else:
-                val = wrap(self.format_field(val), self.width - max_key - 3,
-                           max_key + 3)
+                val = wrap(
+                    self.format_field(val), self.width - max_key - 3, max_key + 3
+                )
             self._ostream.write("{0} : {1}\n".format(key.rjust(max_key), val))
 
 
 class ColumnFormat(BaseFormat):
 
     """ A layout that puts item attributes in columns """
+
     def __init__(self, *args, **kwargs):
         super(ColumnFormat, self).__init__(*args, **kwargs)
         col_width = OrderedDict()
@@ -215,24 +221,24 @@ class ColumnFormat(BaseFormat):
                 col_width[key] = even_width
         self._col_width = col_width
 
-        header = '|'
+        header = "|"
         for col in self._all_columns:
             width = self._col_width[col]
-            header += ' '
+            header += " "
             header += truncate(col.center(width), width)
-            header += ' |'
+            header += " |"
         self._header = header
 
     def _write_header(self):
         """ Write out the table header """
-        self._ostream.write(len(self._header) * '-' + '\n')
+        self._ostream.write(len(self._header) * "-" + "\n")
         self._ostream.write(self._header)
-        self._ostream.write('\n')
-        self._ostream.write(len(self._header) * '-' + '\n')
+        self._ostream.write("\n")
+        self._ostream.write(len(self._header) * "-" + "\n")
 
     def _write_footer(self):
         """ Write out the table footer """
-        self._ostream.write(len(self._header) * '-' + '\n')
+        self._ostream.write(len(self._header) * "-" + "\n")
 
     def pre_write(self):
         self._write_header()
@@ -247,14 +253,13 @@ class ColumnFormat(BaseFormat):
         self._write_header()
 
     def write(self, result):
-        self._ostream.write('|')
+        self._ostream.write("|")
         for col, width in iteritems(self._col_width):
-            self._ostream.write(' ')
-            val = self.format_field(result.get(
-                col, None)).ljust(width)
+            self._ostream.write(" ")
+            val = self.format_field(result.get(col, None)).ljust(width)
             self._ostream.write(truncate(val, width))
-            self._ostream.write(' |')
-        self._ostream.write('\n')
+            self._ostream.write(" |")
+        self._ostream.write("\n")
 
 
 class SmartFormat(object):
@@ -265,8 +270,7 @@ class SmartFormat(object):
         results = make_list(results)
         fmt = ColumnFormat(results, ostream, *args, **kwargs)
         if fmt.width_requested > fmt.width:
-            self._sub_formatter = ExpandedFormat(results, ostream, *args,
-                                                 **kwargs)
+            self._sub_formatter = ExpandedFormat(results, ostream, *args, **kwargs)
         else:
             self._sub_formatter = fmt
 
@@ -282,9 +286,9 @@ class SmartBuffer(object):
     def __init__(self, buf):
         self._buffer = buf
         try:
-            self.encoding = locale.getdefaultlocale()[1] or 'utf-8'
+            self.encoding = locale.getdefaultlocale()[1] or "utf-8"
         except ValueError:
-            self.encoding = 'utf-8'
+            self.encoding = "utf-8"
 
     def write(self, arg):
         """ Write a string or bytes object to the buffer """
@@ -306,12 +310,11 @@ def less_display():
     _, filename = tempfile.mkstemp()
     mode = stat.S_IRUSR | stat.S_IWUSR
     outfile = None
-    outfile = os.fdopen(os.open(filename,
-                                os.O_WRONLY | os.O_CREAT, mode), 'wb')
+    outfile = os.fdopen(os.open(filename, os.O_WRONLY | os.O_CREAT, mode), "wb")
     try:
         yield SmartBuffer(outfile)
         outfile.flush()
-        subprocess.call(['less', '-FXR', filename])
+        subprocess.call(["less", "-FXR", filename])
     finally:
         if outfile is not None:
             outfile.close()

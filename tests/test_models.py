@@ -12,6 +12,6 @@ class TestModels(BaseSystemTest):
             "(id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1))"
             "GLOBAL INDEX ('idx', id, foo, THROUGHPUT(1, 1))"
         )
-        desc = self.engine.describe('foobar', refresh=True)
+        desc = self.engine.describe("foobar", refresh=True)
         self.assertEqual(desc.total_read_throughput, 2)
         self.assertEqual(desc.total_write_throughput, 2)

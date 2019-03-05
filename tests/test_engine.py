@@ -22,79 +22,78 @@ class TestDataTypes(BaseSystemTest):
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id) VALUES ('a')")
         result = list(self.dynamo.scan(table))
-        self.assertItemsEqual(result, [{'id': 'a'}])
+        self.assertItemsEqual(result, [{"id": "a"}])
 
     def test_int(self):
         """ Can insert integer literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], 5)
+        self.assertEqual(result["bar"], 5)
 
     def test_float(self):
         """ Can insert float literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1.2345)")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], Decimal('1.2345'))
+        self.assertEqual(result["bar"], Decimal("1.2345"))
 
     def test_bool(self):
         """ Can insert boolean literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', false)")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], False)
+        self.assertEqual(result["bar"], False)
 
     def test_binary(self):
         """ Can insert binary literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', b'abc')")
         result = list(self.dynamo.scan(table))[0]
-        self.assertTrue(isinstance(result['bar'], Binary))
-        self.assertEqual(result['bar'], b'abc')
+        self.assertTrue(isinstance(result["bar"], Binary))
+        self.assertEqual(result["bar"], b"abc")
 
     def test_list(self):
         """ Can insert list literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1, null, 'a'])")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], [1, None, 'a'])
+        self.assertEqual(result["bar"], [1, None, "a"])
 
     def test_empty_list(self):
         """ Can insert empty list literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', [])")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], [])
+        self.assertEqual(result["bar"], [])
 
     def test_nested_list(self):
         """ Can insert nested list literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1, [2, 3]])")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], [1, [2, 3]])
+        self.assertEqual(result["bar"], [1, [2, 3]])
 
     def test_dict(self):
         """ Can insert dict literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', {'a': 2})")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], {'a': 2})
+        self.assertEqual(result["bar"], {"a": 2})
 
     def test_empty_dict(self):
         """ Can insert empty dict literals """
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', {})")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], {})
+        self.assertEqual(result["bar"], {})
 
     def test_nested_dict(self):
         """ Can insert nested dict literals """
         table = self.make_table(range_key=None)
-        self.query(
-            "INSERT INTO foobar (id, bar) VALUES ('a', {'a': {'b': null}})")
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', {'a': {'b': null}})")
         result = list(self.dynamo.scan(table))[0]
-        self.assertEqual(result['bar'], {'a': {'b': None}})
+        self.assertEqual(result["bar"], {"a": {"b": None}})
 
 
 class TestFragmentEngine(BaseSystemTest):
@@ -122,29 +121,30 @@ class TestFragmentEngine(BaseSystemTest):
         self.query("(id STRING ")
         result = self.query("HASH KEY);")
         self.assertIsNotNone(result)
-        desc = self.engine.describe('test')
+        desc = self.engine.describe("test")
         self.assertIsNotNone(desc)
 
     def test_format_exc(self):
         """ Fragment engine can pretty-format a parse error """
         query = "SELECT * FROM\n\ntable\nWHERE;"
         try:
-            for fragment in query.split('\n'):
+            for fragment in query.split("\n"):
                 self.query(fragment)
         except ParseException as e:
             pretty = self.engine.pformat_exc(e)
             self.assertEqual(
                 pretty,
-                query +
-                '\n' +
-                '^\n' +
-                "Expected {\";\" | StringEnd} (at char 21), (line:4, col:1)")
+                query
+                + "\n"
+                + "^\n"
+                + 'Expected {";" | StringEnd} (at char 21), (line:4, col:1)',
+            )
         else:
             assert False, "Engine should raise exception if parsing fails"
 
     def test_preserve_whitespace(self):
         """ The engine should preserve the whitespace between fragments """
         query = "DUMP\nSCHEMA\n\n;"
-        for fragment in query.split('\n'):
+        for fragment in query.split("\n"):
             self.query(fragment)
         self.assertEqual(self.engine.last_query, query)

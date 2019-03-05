@@ -11,7 +11,7 @@ def field_or_value(clause):
     create the right one and return it
 
     """
-    if hasattr(clause, 'getName') and clause.getName() != 'field':
+    if hasattr(clause, "getName") and clause.getName() != "field":
         return Value(resolve(clause))
     else:
         return Field(clause)
@@ -38,17 +38,17 @@ class ConstraintExpression(Expression):
     def from_clause(cls, clause):
         """ Factory method """
         name = clause.getName()
-        if name == 'not':
+        if name == "not":
             cond = Invert(cls.from_clause(clause[1]))
-        elif name == 'operator':
+        elif name == "operator":
             cond = OperatorConstraint.from_clause(clause)
-        elif name == 'conjunction' or clause.conjunction:
+        elif name == "conjunction" or clause.conjunction:
             cond = Conjunction.from_clause(clause)
-        elif name == 'function':
+        elif name == "function":
             cond = FunctionConstraint.from_clause(clause)
-        elif name == 'between':
+        elif name == "between":
             cond = BetweenConstraint.from_clause(clause)
-        elif name == 'in':
+        elif name == "in":
             cond = InConstraint.from_clause(clause)
         else:
             raise SyntaxError("Unknown constraint type %r" % name)
@@ -105,7 +105,7 @@ class Invert(ConstraintExpression):
         self.constraint = constraint
 
     def build(self, visitor):
-        return 'NOT ' + self.constraint.build(visitor)
+        return "NOT " + self.constraint.build(visitor)
 
 
 class Conjunction(ConstraintExpression):
@@ -120,12 +120,12 @@ class Conjunction(ConstraintExpression):
     @classmethod
     def and_(cls, constraints):
         """ Factory for a group AND """
-        return cls._factory(constraints, 'AND')
+        return cls._factory(constraints, "AND")
 
     @classmethod
     def or_(cls, constraints):
         """ Factory for a group OR """
-        return cls._factory(constraints, 'OR')
+        return cls._factory(constraints, "OR")
 
     @classmethod
     def _factory(cls, constraints, op):
@@ -155,12 +155,12 @@ class Conjunction(ConstraintExpression):
                 strings.append(part)
             else:
                 strings.append(part.build(visitor))
-        return '(' + ' '.join(strings) + ')'
+        return "(" + " ".join(strings) + ")"
 
     def _get_fields(self, attr):
         """ Get the hash/range fields of all joined constraints """
         ret = set()
-        if 'OR' in self.pieces:
+        if "OR" in self.pieces:
             return ret
         for i in range(0, len(self.pieces), 2):
             const = self.pieces[i]
@@ -170,10 +170,10 @@ class Conjunction(ConstraintExpression):
         return ret
 
     def possible_hash_fields(self):
-        return self._get_fields('hash_field')
+        return self._get_fields("hash_field")
 
     def possible_range_fields(self):
-        return self._get_fields('range_field')
+        return self._get_fields("range_field")
 
     def __bool__(self):
         return bool(self.pieces)
@@ -195,8 +195,7 @@ class Conjunction(ConstraintExpression):
             const = self.pieces[i]
             if const.hash_field == index.hash_key:
                 query.append(const)
-            elif (index.range_key is not None and
-                  const.range_field == index.range_key):
+            elif index.range_key is not None and const.range_field == index.range_key:
                 query.append(const)
             else:
                 remainder.append(const)
@@ -210,10 +209,7 @@ class Conjunction(ConstraintExpression):
             filter_constraints = remainder[0]
         else:
             filter_constraints = Conjunction.and_(remainder)
-        return (
-            query_constraints,
-            filter_constraints
-        )
+        return (query_constraints, filter_constraints)
 
 
 class OperatorConstraint(ConstraintExpression):
@@ -224,8 +220,8 @@ class OperatorConstraint(ConstraintExpression):
         self.field = field
         self.operator = operator
         self.value = value
-        if self.operator == '!=':
-            self.operator = '<>'
+        if self.operator == "!=":
+            self.operator = "<>"
 
     @classmethod
     def from_clause(cls, clause):
@@ -236,16 +232,16 @@ class OperatorConstraint(ConstraintExpression):
     def build(self, visitor):
         field = visitor.get_field(self.field)
         val = self.value.build(visitor)
-        return field + ' ' + self.operator + ' ' + val
+        return field + " " + self.operator + " " + val
 
     @property
     def hash_field(self):
-        if self.operator == '=' and isinstance(self.value, Value):
+        if self.operator == "=" and isinstance(self.value, Value):
             return self.field
 
     @property
     def range_field(self):
-        if self.operator != '<>' and isinstance(self.value, Value):
+        if self.operator != "<>" and isinstance(self.value, Value):
             return self.field
 
     def remove_index(self, index):
@@ -273,9 +269,9 @@ class FunctionConstraint(ConstraintExpression):
     def from_clause(cls, clause):
         """ Factory method """
         fn_name = clause[0]
-        if fn_name == 'size':
+        if fn_name == "size":
             return SizeConstraint.from_clause(clause)
-        elif fn_name == 'attribute_type':
+        elif fn_name == "attribute_type":
             return TypeConstraint.from_clause(clause)
         else:
             fn_name = clause[0]
@@ -287,15 +283,15 @@ class FunctionConstraint(ConstraintExpression):
 
     def build(self, visitor):
         field = visitor.get_field(self.field)
-        string = self.fn_name + '(' + field
+        string = self.fn_name + "(" + field
         if self.operand is not None:
             val = visitor.get_value(self.operand)
-            string += ', ' + val
-        return string + ')'
+            string += ", " + val
+        return string + ")"
 
     @property
     def range_field(self):
-        if self.fn_name == 'begins_with':
+        if self.fn_name == "begins_with":
             return self.field
 
 
@@ -317,8 +313,8 @@ class SizeConstraint(ConstraintExpression):
         self.field = field
         self.operator = operator
         self.value = value
-        if self.operator == '!=':
-            self.operator = '<>'
+        if self.operator == "!=":
+            self.operator = "<>"
 
     @classmethod
     def from_clause(cls, clause):
@@ -329,7 +325,7 @@ class SizeConstraint(ConstraintExpression):
     def build(self, visitor):
         field = visitor.get_field(self.field)
         val = visitor.get_value(self.value)
-        return 'size(' + field + ') ' + self.operator + ' ' + val
+        return "size(" + field + ") " + self.operator + " " + val
 
 
 class BetweenConstraint(ConstraintExpression):
@@ -351,7 +347,7 @@ class BetweenConstraint(ConstraintExpression):
         field = visitor.get_field(self.field)
         low = visitor.get_value(self.low)
         high = visitor.get_value(self.high)
-        return field + ' BETWEEN ' + low + ' AND ' + high
+        return field + " BETWEEN " + low + " AND " + high
 
     @property
     def range_field(self):
@@ -375,4 +371,4 @@ class InConstraint(ConstraintExpression):
     def build(self, visitor):
         values = (visitor.get_value(v) for v in self.values)
         field = visitor.get_field(self.field)
-        return field + ' IN (' + ', '.join(values) + ')'
+        return field + " IN (" + ", ".join(values) + ")"
