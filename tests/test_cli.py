@@ -17,6 +17,7 @@ except ImportError:
 class TestCli(unittest.TestCase):
 
     """ Tests for the CLI """
+
     dynamo = None
 
     def setUp(self):
@@ -24,7 +25,7 @@ class TestCli(unittest.TestCase):
         self.confdir = tempfile.mkdtemp()
         self.cli = DQLClient()
         host = urlparse(self.dynamo.host)
-        self.cli.initialize('local', port=host.port, config_dir=self.confdir)
+        self.cli.initialize("local", port=host.port, config_dir=self.confdir)
 
     def tearDown(self):
         super(TestCli, self).tearDown()
@@ -33,36 +34,41 @@ class TestCli(unittest.TestCase):
     def assert_prints(self, command, message):
         """ Assert that a cli command will print a message to the console """
         out = StringIO()
-        with patch('sys.stdout', out):
+        with patch("sys.stdout", out):
             self.cli.onecmd(command)
         self.assertEqual(out.getvalue().strip(), message.strip())
 
     def test_repl_command_args(self):
         """ The @repl_command decorator parses arguments and passes them in """
+
         @repl_command
         def testfunc(zelf, first, second):
             """ Test cli command """
             self.assertEqual(zelf, self)
-            self.assertEqual(first, 'a')
-            self.assertEqual(second, 'b')
-        testfunc(self, 'a b')  # pylint: disable=E1120
+            self.assertEqual(first, "a")
+            self.assertEqual(second, "b")
+
+        testfunc(self, "a b")  # pylint: disable=E1120
 
     def test_repl_command_kwargs(self):
         """ The @repl_command decorator parses kwargs and passes them in """
+
         @repl_command
         def testfunc(zelf, first, second=None):
             """ Test cli command """
             self.assertEqual(zelf, self)
-            self.assertEqual(first, 'a')
-            self.assertEqual(second, 'b')
-        testfunc(self, 'a second=b')
+            self.assertEqual(first, "a")
+            self.assertEqual(second, "b")
+
+        testfunc(self, "a second=b")
 
     def test_help_docs(self):
         """ There is a help command for every DQL query type """
         import dql.help
+
         for name in dir(dql.help):
             # Options is not a query type
-            if name == 'OPTIONS':
+            if name == "OPTIONS":
                 continue
-            if not name.startswith('_'):
-                self.assert_prints('help %s' % name.lower(), getattr(dql.help, name))
+            if not name.startswith("_"):
+                self.assert_prints("help %s" % name.lower(), getattr(dql.help, name))

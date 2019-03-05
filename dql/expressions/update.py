@@ -11,8 +11,8 @@ def field_or_value(clause):
     create the right one and return it
 
     """
-    if hasattr(clause, 'getName') and clause.getName() != 'field':
-        if clause.getName() == 'set_function':
+    if hasattr(clause, "getName") and clause.getName() != "field":
+        if clause.getName() == "set_function":
             return SetFunction.from_clause(clause)
         else:
             return Value(resolve(clause))
@@ -42,7 +42,7 @@ class UpdateExpression(Expression):
         return cls(expressions)
 
     def build(self, visitor):
-        return ' '.join(e.build(visitor) for e in self.expressions)
+        return " ".join(e.build(visitor) for e in self.expressions)
 
 
 class UpdateSetMany(Expression):
@@ -60,7 +60,7 @@ class UpdateSetMany(Expression):
         return cls(updates)
 
     def build(self, visitor):
-        return 'SET ' + ', '.join([u.build(visitor) for u in self.updates])
+        return "SET " + ", ".join([u.build(visitor) for u in self.updates])
 
 
 class SetFunction(Expression):
@@ -80,12 +80,17 @@ class SetFunction(Expression):
     @classmethod
     def from_clause(cls, clause):
         """ Factory method """
-        return cls(clause[0], field_or_value(clause[1]),
-                   field_or_value(clause[2]))
+        return cls(clause[0], field_or_value(clause[1]), field_or_value(clause[2]))
 
     def build(self, visitor):
-        return (self.fn_name + '(' + self.value1.build(visitor) + ', ' +
-                self.value2.build(visitor) + ')')
+        return (
+            self.fn_name
+            + "("
+            + self.value1.build(visitor)
+            + ", "
+            + self.value2.build(visitor)
+            + ")"
+        )
 
 
 class UpdateSetOne(Expression):
@@ -112,9 +117,9 @@ class UpdateSetOne(Expression):
 
     def build(self, visitor):
         field = visitor.get_field(self.field)
-        ret = field + ' = ' + self.value1.build(visitor)
+        ret = field + " = " + self.value1.build(visitor)
         if self.value2 is not None:
-            ret += ' ' + self.op + ' ' + self.value2.build(visitor)
+            ret += " " + self.op + " " + self.value2.build(visitor)
         return ret
 
 
@@ -131,8 +136,8 @@ class UpdateRemove(Expression):
         return cls(clause.asList())
 
     def build(self, visitor):
-        fields = ', '.join([visitor.get_field(f) for f in self.fields])
-        return 'REMOVE ' + fields
+        fields = ", ".join([visitor.get_field(f) for f in self.fields])
+        return "REMOVE " + fields
 
 
 class UpdateAdd(Expression):
@@ -148,8 +153,8 @@ class UpdateAdd(Expression):
         return cls([FieldValue.from_clause(c) for c in clause])
 
     def build(self, visitor):
-        fields = ', '.join([u.build(visitor) for u in self.updates])
-        return 'ADD ' + fields
+        fields = ", ".join([u.build(visitor) for u in self.updates])
+        return "ADD " + fields
 
 
 class UpdateDelete(Expression):
@@ -165,8 +170,8 @@ class UpdateDelete(Expression):
         return cls([FieldValue.from_clause(c) for c in clause])
 
     def build(self, visitor):
-        fields = ', '.join([u.build(visitor) for u in self.updates])
-        return 'DELETE ' + fields
+        fields = ", ".join([u.build(visitor) for u in self.updates])
+        return "DELETE " + fields
 
 
 class FieldValue(Expression):
@@ -183,5 +188,4 @@ class FieldValue(Expression):
         return cls(clause[0], resolve(clause[1]))
 
     def build(self, visitor):
-        return (visitor.get_field(self.field) + ' ' +
-                visitor.get_value(self.value))
+        return visitor.get_field(self.field) + " " + visitor.get_value(self.value)

@@ -6,7 +6,7 @@ import re
 from .visitor import dummy_visitor
 
 
-PATH_PATTERN = re.compile(r'\w+|\[(\d+)\]')
+PATH_PATTERN = re.compile(r"\w+|\[(\d+)\]")
 
 
 @python_2_unicode_compatible
@@ -37,7 +37,7 @@ class Field(Expression):
         try:
             for match in PATH_PATTERN.finditer(self.field):
                 path = match.group(0)
-                if path[0] == '[':
+                if path[0] == "[":
                     # If we're selecting an item at a specific index of an
                     # array, we will usually not get back the whole array from
                     # Dynamo. It'll return an array with one element.

@@ -2,7 +2,7 @@
 import re
 
 
-FIELD_RE = re.compile(r'[\w\-]+(?![^\[]*\])', re.U)
+FIELD_RE = re.compile(r"[\w\-]+(?![^\[]*\])", re.U)
 
 
 class Visitor(object):
@@ -46,15 +46,17 @@ class Visitor(object):
 
     def _should_replace(self, path):
         """ True if should replace the path """
-        return self._reserved_words is None or \
-            path.upper() in self._reserved_words or \
-            '-' in path
+        return (
+            self._reserved_words is None
+            or path.upper() in self._reserved_words
+            or "-" in path
+        )
 
     def _replace_path(self, path):
         """ Get the replacement value for a path """
         if path in self._field_to_key:
             return self._field_to_key[path]
-        next_key = '#f%d' % self._next_field
+        next_key = "#f%d" % self._next_field
         self._next_field += 1
         self._field_to_key[path] = next_key
         self._fields[next_key] = path
@@ -62,7 +64,7 @@ class Visitor(object):
 
     def get_value(self, value):
         """ Replace variable names with placeholders (e.g. ':v1') """
-        next_key = ':v%d' % self._next_value
+        next_key = ":v%d" % self._next_value
         self._next_value += 1
         self._values[next_key] = value
         return next_key

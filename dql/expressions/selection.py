@@ -61,22 +61,17 @@ def div(a, b):
     return a / b
 
 
-OP_MAP = {
-    '+': add,
-    '-': sub,
-    '*': mul,
-    '/': div,
-}
+OP_MAP = {"+": add, "-": sub, "*": mul, "/": div}
 
 
 def parse_expression(clause):
     """ For a clause that could be a field, value, or expression """
     if isinstance(clause, Expression):
         return clause
-    elif hasattr(clause, 'getName') and clause.getName() != 'field':
-        if clause.getName() == 'nested':
+    elif hasattr(clause, "getName") and clause.getName() != "field":
+        if clause.getName() == "nested":
             return AttributeSelection.from_statement(clause)
-        elif clause.getName() == 'function':
+        elif clause.getName() == "function":
             return SelectFunction.from_statement(clause)
         else:
             return Value(resolve(clause[0]))
@@ -108,13 +103,13 @@ class SelectionExpression(Expression):
         """ Factory for creating a Selection expression """
         expressions = []
         # Have to special case the '*' and 'COUNT(*)' selections
-        if selection[0] == '*':
+        if selection[0] == "*":
             return cls(expressions)
-        elif selection[0] == 'COUNT(*)':
+        elif selection[0] == "COUNT(*)":
             return cls(expressions, True)
         for attr in selection:
             name = attr.getName()
-            if name == 'selection':
+            if name == "selection":
                 expr = NamedExpression.from_statement(attr)
             else:
                 raise SyntaxError("Unknown selection name: %r for %s" % (name, attr))
@@ -141,7 +136,7 @@ class SelectionExpression(Expression):
         return [e.key for e in self.expressions]
 
     def __str__(self):
-        return ' '.join(str(e) for e in self.expressions)
+        return " ".join(str(e) for e in self.expressions)
 
 
 @python_2_unicode_compatible
@@ -203,13 +198,19 @@ class AttributeSelection(Expression):
         while len(components) > 3:
             replaced = False
             for i in range(1, len(components), 2):
-                if components[i] in ['/', '*']:
-                    components[i - 1:i + 2] = [AttributeSelection.from_statement(components[i - 1:i + 2])]
+                if components[i] in ["/", "*"]:
+                    components[i - 1 : i + 2] = [
+                        AttributeSelection.from_statement(components[i - 1 : i + 2])
+                    ]
                     replaced = True
                     break
             if not replaced:
                 components[:3] = [AttributeSelection.from_statement(components[:3])]
-        return cls(parse_expression(components[0]), components[1], parse_expression(components[2]))
+        return cls(
+            parse_expression(components[0]),
+            components[1],
+            parse_expression(components[2]),
+        )
 
     def build(self, visitor):
         fields = set()
@@ -244,9 +245,9 @@ class SelectFunction(Expression):
     @classmethod
     def from_statement(cls, statement):
         """ Create a selection function from a statement """
-        if statement[0] in ['TS', 'TIMESTAMP', 'UTCTIMESTAMP', 'UTCTS']:
+        if statement[0] in ["TS", "TIMESTAMP", "UTCTIMESTAMP", "UTCTS"]:
             return TimestampFunction.from_statement(statement)
-        elif statement[0] in ['NOW', 'UTCNOW']:
+        elif statement[0] in ["NOW", "UTCNOW"]:
             return NowFunction.from_statement(statement)
         else:
             raise SyntaxError("Unknown function %r" % statement[0])
@@ -265,13 +266,13 @@ class NowFunction(SelectFunction):
 
     @classmethod
     def from_statement(cls, statement):
-        return cls(statement[0] == 'UTCNOW')
+        return cls(statement[0] == "UTCNOW")
 
     def __str__(self):
         if self.utc:
-            return 'UTCNOW()'
+            return "UTCNOW()"
         else:
-            return 'NOW()'
+            return "NOW()"
 
     def build(self, visitor):
         return []
@@ -294,14 +295,14 @@ class TimestampFunction(SelectFunction):
     @classmethod
     def from_statement(cls, statement):
         expr = AttributeSelection.from_statement(statement[1])
-        utc = statement[0] in ['UTCTIMESTAMP', 'UTCTS']
+        utc = statement[0] in ["UTCTIMESTAMP", "UTCTS"]
         return cls(expr, utc)
 
     def __str__(self):
         if self.utc:
-            base = 'UTCTIMESTAMP'
+            base = "UTCTIMESTAMP"
         else:
-            base = 'TIMESTAMP'
+            base = "TIMESTAMP"
         return base + "(%s)" % self.expr
 
     def build(self, visitor):

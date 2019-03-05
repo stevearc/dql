@@ -13,15 +13,31 @@ import logging
 from base64 import b64encode
 from botocore.exceptions import ClientError
 from decimal import Decimal
-from dynamo3 import (TYPES, DynamoDBConnection, DynamoKey, LocalIndex,
-                     GlobalIndex, DynamoDBError, Throughput, CheckFailed,
-                     IndexUpdate, Limit, RateLimit, Capacity, Binary)
+from dynamo3 import (
+    TYPES,
+    DynamoDBConnection,
+    DynamoKey,
+    LocalIndex,
+    GlobalIndex,
+    DynamoDBError,
+    Throughput,
+    CheckFailed,
+    IndexUpdate,
+    Limit,
+    RateLimit,
+    Capacity,
+    Binary,
+)
 from dynamo3.constants import RESERVED_WORDS
 from pprint import pformat
 from pyparsing import ParseException
 
-from .expressions import (ConstraintExpression, UpdateExpression, Visitor,
-                          SelectionExpression)
+from .expressions import (
+    ConstraintExpression,
+    UpdateExpression,
+    Visitor,
+    SelectionExpression,
+)
 from .grammar import parser, line_parser
 from .models import TableMeta
 from .util import resolve, unwrap, plural
@@ -51,11 +67,11 @@ class ExplainSignal(Exception):
 def add_query_kwargs(kwargs, visitor, constraints, index):
     """ Construct KeyConditionExpression and FilterExpression """
     (query_const, filter_const) = constraints.remove_index(index)
-    kwargs['key_condition_expr'] = query_const.build(visitor)
+    kwargs["key_condition_expr"] = query_const.build(visitor)
     if filter_const:
-        kwargs['filter'] = filter_const.build(visitor)
-    if index.name != 'TABLE':
-        kwargs['index'] = index.name
+        kwargs["filter"] = filter_const.build(visitor)
+    if index.name != "TABLE":
+        kwargs["index"] = index.name
 
 
 def iter_insert_items(tree):
@@ -64,8 +80,9 @@ def iter_insert_items(tree):
         keys = tree.attrs
         for values in tree.list_values:
             if len(keys) != len(values):
-                raise SyntaxError("Values '%s' do not match attributes "
-                                  "'%s'" % (values, keys))
+                raise SyntaxError(
+                    "Values '%s' do not match attributes " "'%s'" % (values, keys)
+                )
             yield dict(zip(keys, map(resolve, values)))
     elif tree.map_values:
         for item in tree.map_values:
@@ -109,14 +126,13 @@ class Engine(object):
         self._analyzing = False
         self._query_rate_limit = None
         self.rate_limit = None
-        self._encoder = json.JSONEncoder(separators=(',', ':'),
-                                         default=default)
+        self._encoder = json.JSONEncoder(separators=(",", ":"), default=default)
         self.caution_callback = None
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
         self.connection = DynamoDBConnection.connect(*args, **kwargs)
-        self._session = kwargs.get('session')
+        self._session = kwargs.get("session")
         if self._session is None:
             self._session = botocore.session.get_session()
 
@@ -134,10 +150,10 @@ class Engine(object):
     def connection(self, connection):
         """ Change the dynamo connection """
         if connection is not None:
-            connection.subscribe('capacity', self._on_capacity_data)
+            connection.subscribe("capacity", self._on_capacity_data)
             connection.default_return_capacity = True
         if self._connection is not None:
-            connection.unsubscribe('capacity', self._on_capacity_data)
+            connection.unsubscribe("capacity", self._on_capacity_data)
         self._connection = connection
         self._cloudwatch_connection = None
         self.cached_descriptions = {}
@@ -146,8 +162,7 @@ class Engine(object):
     def cloudwatch_connection(self):
         """ Lazy create a connection to cloudwatch """
         if self._cloudwatch_connection is None:
-            conn = self._session.create_client('cloudwatch',
-                                               self.connection.region)
+            conn = self._session.create_client("cloudwatch", self.connection.region)
             self._cloudwatch_connection = conn
         return self._cloudwatch_connection
 
@@ -155,47 +170,45 @@ class Engine(object):
         """ Format the results of an EXPLAIN """
         lines = []
         for (command, kwargs) in self._call_list:
-            lines.append(command + ' ' + pformat(kwargs))
-        return '\n'.join(lines)
+            lines.append(command + " " + pformat(kwargs))
+        return "\n".join(lines)
 
     def _pretty_format(self, statement, result):
         """ Format the return value of a query for humans """
         if result is None:
-            return 'Success'
+            return "Success"
         ret = result
-        if statement.action in ('SELECT', 'SCAN'):
+        if statement.action in ("SELECT", "SCAN"):
             if statement.save_file:
                 filename = statement.save_file[0]
                 if filename[0] in ['"', "'"]:
                     filename = unwrap(filename)
-                ret = "Saved %d record%s to %s" % (result, plural(result),
-                                                   filename)
+                ret = "Saved %d record%s to %s" % (result, plural(result), filename)
             elif isinstance(result, int):
                 if result == result.scanned_count:
                     ret = "%d" % result
                 else:
-                    ret = "%d (scanned count: %d)" % (result,
-                                                      result.scanned_count)
-        elif statement.action == 'UPDATE':
+                    ret = "%d (scanned count: %d)" % (result, result.scanned_count)
+        elif statement.action == "UPDATE":
             if isinstance(result, int):
                 ret = "Updated %d item%s" % (result, plural(result))
-        elif statement.action == 'DELETE':
+        elif statement.action == "DELETE":
             ret = "Deleted %d item%s" % (result, plural(result))
-        elif statement.action == 'CREATE':
+        elif statement.action == "CREATE":
             if result:
                 ret = "Created table %r" % statement.table
             else:
                 ret = "Table %r already exists" % statement.table
-        elif statement.action == 'INSERT':
+        elif statement.action == "INSERT":
             ret = "Inserted %d item%s" % (result, plural(result))
-        elif statement.action == 'DROP':
+        elif statement.action == "DROP":
             if result:
                 ret = "Dropped table %r" % statement.table
             else:
                 ret = "Table %r does not exist" % statement.table
-        elif statement.action == 'ANALYZE':
+        elif statement.action == "ANALYZE":
             ret = self._pretty_format(statement[1], result)
-        elif statement.action == 'LOAD':
+        elif statement.action == "LOAD":
             ret = "Loaded %d item%s" % (result, plural(result))
         return ret
 
@@ -211,40 +224,37 @@ class Engine(object):
         """ Fetch a read/write capacity metric """
         end = time.time()
         begin = end - 3 * 60  # 3 minute window
-        dimensions = [{'Name': 'TableName', 'Value': tablename}]
+        dimensions = [{"Name": "TableName", "Value": tablename}]
         if index_name is not None:
-            dimensions.append({'Name': 'GlobalSecondaryIndexName',
-                               'Value': index_name})
+            dimensions.append({"Name": "GlobalSecondaryIndexName", "Value": index_name})
         period = 60
         data = self.cloudwatch_connection.get_metric_statistics(
             Period=period,
             StartTime=begin,
             EndTime=end,
             MetricName=metric,
-            Namespace='AWS/DynamoDB',
-            Statistics=['Sum'],
+            Namespace="AWS/DynamoDB",
+            Statistics=["Sum"],
             Dimensions=dimensions,
         )
-        points = data['Datapoints']
+        points = data["Datapoints"]
         if not points:
             return 0
         else:
-            points.sort(key=lambda r: r['Timestamp'])
-            return float(points[-1]['Sum']) / period
+            points.sort(key=lambda r: r["Timestamp"])
+            return float(points[-1]["Sum"]) / period
 
     def get_capacity(self, tablename, index_name=None):
         """ Get the consumed read/write capacity """
         # If we're connected to a DynamoDB Local instance, don't connect to the
         # actual cloudwatch endpoint
-        if self.connection.region == 'local':
+        if self.connection.region == "local":
             return 0, 0
         # Gracefully fail if we get exceptions from CloudWatch
         try:
             return (
-                self._get_metric('ConsumedReadCapacityUnits', tablename,
-                                 index_name),
-                self._get_metric('ConsumedWriteCapacityUnits', tablename,
-                                 index_name),
+                self._get_metric("ConsumedReadCapacityUnits", tablename, index_name),
+                self._get_metric("ConsumedWriteCapacityUnits", tablename, index_name),
             )
         except ClientError:
             return 0, 0
@@ -252,8 +262,7 @@ class Engine(object):
     def describe(self, tablename, refresh=False, metrics=False, require=False):
         """ Get the :class:`.TableMeta` for a table """
         table = self.cached_descriptions.get(tablename)
-        if refresh or table is None or \
-                (metrics and not table.consumed_capacity):
+        if refresh or table is None or (metrics and not table.consumed_capacity):
             desc = self.connection.describe_table(tablename)
             if desc is None:
                 if require:
@@ -264,16 +273,10 @@ class Engine(object):
             self.cached_descriptions[tablename] = table
             if metrics:
                 read, write = self.get_capacity(tablename)
-                table.consumed_capacity['__table__'] = {
-                    'read': read,
-                    'write': write,
-                }
+                table.consumed_capacity["__table__"] = {"read": read, "write": write}
                 for index_name in table.global_indexes:
                     read, write = self.get_capacity(tablename, index_name)
-                    table.consumed_capacity[index_name] = {
-                        'read': read,
-                        'write': write,
-                    }
+                    table.consumed_capacity[index_name] = {"read": read, "write": write}
 
         return table
 
@@ -307,31 +310,31 @@ class Engine(object):
         if tree.throttle:
             limiter = self._parse_throttle(tree.table, tree.throttle)
             self._query_rate_limit = limiter
-            del tree['throttle']
+            del tree["throttle"]
             return self._run(tree)
-        if tree.action == 'SELECT':
+        if tree.action == "SELECT":
             return self._select(tree, self.allow_select_scan)
-        elif tree.action == 'SCAN':
+        elif tree.action == "SCAN":
             return self._scan(tree)
-        elif tree.action == 'DELETE':
+        elif tree.action == "DELETE":
             return self._delete(tree)
-        elif tree.action == 'UPDATE':
+        elif tree.action == "UPDATE":
             return self._update(tree)
-        elif tree.action == 'CREATE':
+        elif tree.action == "CREATE":
             return self._create(tree)
-        elif tree.action == 'INSERT':
+        elif tree.action == "INSERT":
             return self._insert(tree)
-        elif tree.action == 'DROP':
+        elif tree.action == "DROP":
             return self._drop(tree)
-        elif tree.action == 'ALTER':
+        elif tree.action == "ALTER":
             return self._alter(tree)
-        elif tree.action == 'DUMP':
+        elif tree.action == "DUMP":
             return self._dump(tree)
-        elif tree.action == 'LOAD':
+        elif tree.action == "LOAD":
             return self._load(tree)
-        elif tree.action == 'EXPLAIN':
+        elif tree.action == "EXPLAIN":
             return self._explain(tree)
-        elif tree.action == 'ANALYZE':
+        elif tree.action == "ANALYZE":
             self._analyzing = True
             self.connection.default_return_capacity = True
             return self._run(tree[1])
@@ -344,10 +347,10 @@ class Engine(object):
         desc = self.describe(tablename)
         throughputs = [desc.read_throughput, desc.write_throughput]
         for value, throughput in zip(throttle[1:], throughputs):
-            if value == '*':
+            if value == "*":
                 amount.append(0)
-            elif value[-1] == '%':
-                amount.append(throughput * float(value[:-1]) / 100.)
+            elif value[-1] == "%":
+                amount.append(throughput * float(value[:-1]) / 100.0)
             else:
                 amount.append(float(value))
         cap = Capacity(*amount)  # pylint: disable=E1120
@@ -358,18 +361,21 @@ class Engine(object):
         if self._analyzing:
             self.consumed_capacities.append((command, capacity))
         if self._query_rate_limit is not None:
-            self._query_rate_limit.on_capacity(conn, command, kwargs, response,
-                                               capacity)
+            self._query_rate_limit.on_capacity(
+                conn, command, kwargs, response, capacity
+            )
         elif self.rate_limit is not None:
             self.rate_limit.callback = self._on_throttle
-            self.rate_limit.on_capacity(conn, command, kwargs, response,
-                                        capacity)
+            self.rate_limit.on_capacity(conn, command, kwargs, response, capacity)
 
     def _on_throttle(self, conn, command, kwargs, response, capacity, seconds):
         """ Print out a message when the query is throttled """
-        LOG.info("Throughput limit exceeded during %s. "
-                 "Sleeping for %d second%s",
-                 command, seconds, plural(seconds))
+        LOG.info(
+            "Throughput limit exceeded during %s. " "Sleeping for %d second%s",
+            command,
+            seconds,
+            plural(seconds),
+        )
 
     def _explain(self, tree):
         """ Set up the engine to do a dry run of a query """
@@ -379,7 +385,7 @@ class Engine(object):
 
         def fake_call(command, **kwargs):
             """ Replacement for connection.call that logs args """
-            if command == 'describe_table':
+            if command == "describe_table":
                 return old_call(command, **kwargs)
             self._call_list.append((command, kwargs))
             raise ExplainSignal
@@ -400,7 +406,7 @@ class Engine(object):
         kwargs = {}
         index = None
         if tree.using:
-            index_name = kwargs['index'] = tree.using[1]
+            index_name = kwargs["index"] = tree.using[1]
             index = table.get_index(index_name)
         if tree.where:
             constraints = ConstraintExpression.from_where(tree.where)
@@ -408,36 +414,36 @@ class Engine(object):
             possible_range = constraints.possible_range_fields()
             if index is None:
                 # See if we can find an index to query on
-                indexes = table.get_matching_indexes(possible_hash,
-                                                     possible_range)
+                indexes = table.get_matching_indexes(possible_hash, possible_range)
                 if not indexes:
-                    action = 'scan'
-                    kwargs['filter'] = constraints.build(visitor)
-                    kwargs['expr_values'] = visitor.expression_values
-                    kwargs['alias'] = visitor.attribute_names
+                    action = "scan"
+                    kwargs["filter"] = constraints.build(visitor)
+                    kwargs["expr_values"] = visitor.expression_values
+                    kwargs["alias"] = visitor.attribute_names
                 elif len(indexes) == 1:
                     index = indexes[0]
-                    action = 'query'
+                    action = "query"
                     add_query_kwargs(kwargs, visitor, constraints, index)
                 else:
-                    names = ', '.join([index.name for index in indexes])
-                    raise SyntaxError("No index specified with USING <index>, "
-                                      "but multiple possibilities for query: "
-                                      "%s" % names)
+                    names = ", ".join([index.name for index in indexes])
+                    raise SyntaxError(
+                        "No index specified with USING <index>, "
+                        "but multiple possibilities for query: "
+                        "%s" % names
+                    )
             else:
                 if index.hash_key in possible_hash:
-                    action = 'query'
+                    action = "query"
                     add_query_kwargs(kwargs, visitor, constraints, index)
                 else:
-                    action = 'scan'
+                    action = "scan"
                     if not index.scannable:
-                        raise SyntaxError("Cannot scan local index %r" %
-                                          index_name)
-                    kwargs['filter'] = constraints.build(visitor)
-                    kwargs['expr_values'] = visitor.expression_values
-                    kwargs['alias'] = visitor.attribute_names
+                        raise SyntaxError("Cannot scan local index %r" % index_name)
+                    kwargs["filter"] = constraints.build(visitor)
+                    kwargs["expr_values"] = visitor.expression_values
+                    kwargs["alias"] = visitor.attribute_names
         else:
-            action = 'scan'
+            action = "scan"
         return [action, kwargs, index]
 
     def _iter_where_in(self, tree):
@@ -452,13 +458,13 @@ class Engine(object):
         desc = self.describe(tablename, require=True)
         kwargs = {}
         if tree.consistent:
-            kwargs['consistent'] = True
+            kwargs["consistent"] = True
 
         visitor = Visitor(self.reserved_words)
 
         selection = SelectionExpression.from_selection(tree.attrs)
         if selection.is_count:
-            kwargs['select'] = 'COUNT'
+            kwargs["select"] = "COUNT"
 
         if tree.keys_in:
             if tree.limit:
@@ -470,38 +476,42 @@ class Engine(object):
             elif tree.where:
                 raise SyntaxError("Cannot use WHERE with KEYS IN")
             keys = list(self._iter_where_in(tree))
-            kwargs['attributes'] = selection.build(visitor)
-            kwargs['alias'] = visitor.attribute_names
+            kwargs["attributes"] = selection.build(visitor)
+            kwargs["alias"] = visitor.attribute_names
             return self.connection.batch_get(tablename, keys=keys, **kwargs)
 
         if tree.limit:
             if tree.scan_limit:
-                kwargs['limit'] = Limit(scan_limit=resolve(tree.scan_limit[2]),
-                                        item_limit=resolve(tree.limit[1]),
-                                        strict=True)
+                kwargs["limit"] = Limit(
+                    scan_limit=resolve(tree.scan_limit[2]),
+                    item_limit=resolve(tree.limit[1]),
+                    strict=True,
+                )
             else:
-                kwargs['limit'] = Limit(item_limit=resolve(tree.limit[1]),
-                                        strict=True)
+                kwargs["limit"] = Limit(item_limit=resolve(tree.limit[1]), strict=True)
         elif tree.scan_limit:
-            kwargs['limit'] = Limit(scan_limit=resolve(tree.scan_limit[2]))
+            kwargs["limit"] = Limit(scan_limit=resolve(tree.scan_limit[2]))
 
         (action, query_kwargs, index) = self._build_query(desc, tree, visitor)
-        if action == 'scan' and not allow_select_scan:
+        if action == "scan" and not allow_select_scan:
             raise SyntaxError(
                 "No index found for query. Please use a SCAN query, or "
-                "set allow_select_scan=True\nopt allow_select_scan true")
+                "set allow_select_scan=True\nopt allow_select_scan true"
+            )
         order_by = None
         if tree.order_by:
             order_by = tree.order_by[0]
-        reverse = tree.order == 'DESC'
+        reverse = tree.order == "DESC"
         if tree.order:
-            if action == 'scan' and not tree.order_by:
-                raise SyntaxError("No index found for query, "
-                                  "cannot use ASC or DESC without "
-                                  "ORDER BY <field>")
-            if action == 'query':
+            if action == "scan" and not tree.order_by:
+                raise SyntaxError(
+                    "No index found for query, "
+                    "cannot use ASC or DESC without "
+                    "ORDER BY <field>"
+                )
+            if action == "query":
                 if order_by is None or order_by == index.range_key:
-                    kwargs['desc'] = reverse
+                    kwargs["desc"] = reverse
 
         kwargs.update(query_kwargs)
 
@@ -510,17 +520,19 @@ class Engine(object):
         # We will change the query to only fetch the primary keys, and then
         # fill in the selected attributes after the fact.
         fetch_attrs_after = False
-        if (index is not None and
-                not index.projects_all_attributes(selection.all_fields)):
-            kwargs['attributes'] = [visitor.get_field(a) for a in
-                                    desc.primary_key_attributes]
+        if index is not None and not index.projects_all_attributes(
+            selection.all_fields
+        ):
+            kwargs["attributes"] = [
+                visitor.get_field(a) for a in desc.primary_key_attributes
+            ]
             fetch_attrs_after = True
         else:
-            kwargs['attributes'] = selection.build(visitor)
-        kwargs['expr_values'] = visitor.expression_values
-        kwargs['alias'] = visitor.attribute_names
+            kwargs["attributes"] = selection.build(visitor)
+        kwargs["expr_values"] = visitor.expression_values
+        kwargs["alias"] = visitor.attribute_names
 
-        method = getattr(self.connection, action + '2')
+        method = getattr(self.connection, action + "2")
         result = method(tablename, **kwargs)
 
         # If the queried index didn't project the selected attributes, we need
@@ -532,11 +544,9 @@ class Engine(object):
             if not result:
                 return result
             visitor = Visitor(self.reserved_words)
-            kwargs = {
-                'keys': [desc.primary_key(item) for item in result],
-            }
-            kwargs['attributes'] = selection.build(visitor)
-            kwargs['alias'] = visitor.attribute_names
+            kwargs = {"keys": [desc.primary_key(item) for item in result]}
+            kwargs["attributes"] = selection.build(visitor)
+            kwargs["alias"] = visitor.attribute_names
             result = self.connection.batch_get(tablename, **kwargs)
 
         def order(items):
@@ -563,12 +573,12 @@ class Engine(object):
             if not isinstance(result, list):
                 result = list(result)
             remainder, ext = os.path.splitext(filename)
-            if ext.lower() in ['.gz', '.gzip']:
+            if ext.lower() in [".gz", ".gzip"]:
                 ext = os.path.splitext(remainder)[1]
-                opened = gzip.open(filename, 'wb')
+                opened = gzip.open(filename, "wb")
             else:
-                opened = open(filename, 'wb')
-            if ext.lower() == '.csv':
+                opened = open(filename, "wb")
+            if ext.lower() == ".csv":
                 if selection.all_keys:
                     headers = selection.all_keys
                 else:
@@ -579,18 +589,19 @@ class Engine(object):
                         all_headers.update(item.keys())
                     headers = list(all_headers)
                 with opened as ofile:
-                    writer = csv.DictWriter(ofile, fieldnames=headers,
-                                            extrasaction='ignore')
+                    writer = csv.DictWriter(
+                        ofile, fieldnames=headers, extrasaction="ignore"
+                    )
                     writer.writeheader()
                     for item in result:
                         count += 1
                         writer.writerow(item)
-            elif ext.lower() == '.json':
+            elif ext.lower() == ".json":
                 with opened as ofile:
                     for item in result:
                         count += 1
                         ofile.write(self._encoder.encode(item))
-                        ofile.write('\n')
+                        ofile.write("\n")
             else:
                 with opened as ofile:
                     for item in result:
@@ -619,16 +630,18 @@ class Engine(object):
             attrs = [visitor.get_field(table.hash_key.name)]
             if table.range_key is not None:
                 attrs.append(visitor.get_field(table.range_key.name))
-            kwargs['attributes'] = attrs
-            kwargs['expr_values'] = visitor.expression_values
-            kwargs['alias'] = visitor.attribute_names
+            kwargs["attributes"] = attrs
+            kwargs["expr_values"] = visitor.expression_values
+            kwargs["alias"] = visitor.attribute_names
             # If there is no 'where' on this update/delete, check with the
             # caution_callback before proceeding.
-            if visitor.expression_values is None and \
-                    callable(self.caution_callback) and \
-                    not self.caution_callback(method_name):  # pylint: disable=E1102
+            if (
+                visitor.expression_values is None
+                and callable(self.caution_callback)
+                and not self.caution_callback(method_name)  # pylint: disable=E1102
+            ):
                 return False
-            method = getattr(self.connection, action + '2')
+            method = getattr(self.connection, action + "2")
             keys = method(table.name, **kwargs)
             if self._explaining:
                 try:
@@ -636,7 +649,7 @@ class Engine(object):
                 except ExplainSignal:
                     keys = [{}]
 
-        method = getattr(self.connection, method_name + '2')
+        method = getattr(self.connection, method_name + "2")
         count = 0
         for key in keys:
             try:
@@ -659,10 +672,10 @@ class Engine(object):
         visitor = Visitor(self.reserved_words)
         if tree.where:
             constraints = ConstraintExpression.from_where(tree.where)
-            kwargs['condition'] = constraints.build(visitor)
-        kwargs['expr_values'] = visitor.expression_values
-        kwargs['alias'] = visitor.attribute_names
-        return self._query_and_op(tree, table, 'delete_item', kwargs)
+            kwargs["condition"] = constraints.build(visitor)
+        kwargs["expr_values"] = visitor.expression_values
+        kwargs["alias"] = visitor.attribute_names
+        return self._query_and_op(tree, table, "delete_item", kwargs)
 
     def _update(self, tree):
         """ Run an UPDATE statement """
@@ -671,19 +684,19 @@ class Engine(object):
         kwargs = {}
 
         if tree.returns:
-            kwargs['returns'] = '_'.join(tree.returns)
+            kwargs["returns"] = "_".join(tree.returns)
         else:
-            kwargs['returns'] = 'NONE'
+            kwargs["returns"] = "NONE"
 
         visitor = Visitor(self.reserved_words)
         updates = UpdateExpression.from_update(tree.update)
-        kwargs['expression'] = updates.build(visitor)
+        kwargs["expression"] = updates.build(visitor)
         if tree.where:
             constraints = ConstraintExpression.from_where(tree.where)
-            kwargs['condition'] = constraints.build(visitor)
-        kwargs['expr_values'] = visitor.expression_values
-        kwargs['alias'] = visitor.attribute_names
-        return self._query_and_op(tree, table, 'update_item', kwargs)
+            kwargs["condition"] = constraints.build(visitor)
+        kwargs["expr_values"] = visitor.expression_values
+        kwargs["alias"] = visitor.attribute_names
+        return self._query_and_op(tree, table, "update_item", kwargs)
 
     def _create(self, tree):
         """ Run a SELECT statement """
@@ -700,20 +713,20 @@ class Engine(object):
             else:
                 index = None
             if index is not None:
-                if index[0] == 'HASH':
+                if index[0] == "HASH":
                     field = hash_key = DynamoKey(name, data_type=TYPES[type_])
-                elif index[0] == 'RANGE':
+                elif index[0] == "RANGE":
                     field = range_key = DynamoKey(name, data_type=TYPES[type_])
                 else:
                     index_type = index[0]
                     kwargs = {}
-                    if index_type[0] in ('ALL', 'INDEX'):
+                    if index_type[0] in ("ALL", "INDEX"):
                         factory = LocalIndex.all
-                    elif index_type[0] == 'KEYS':
+                    elif index_type[0] == "KEYS":
                         factory = LocalIndex.keys
-                    elif index_type[0] == 'INCLUDE':
+                    elif index_type[0] == "INCLUDE":
                         factory = LocalIndex.include
-                        kwargs['includes'] = [resolve(v) for v in index.include_vars]
+                        kwargs["includes"] = [resolve(v) for v in index.include_vars]
                     index_name = resolve(index[1])
                     field = DynamoKey(name, data_type=TYPES[type_])
                     idx = factory(index_name, field, **kwargs)
@@ -731,10 +744,15 @@ class Engine(object):
 
         try:
             ret = self.connection.create_table(
-                tablename, hash_key, range_key, indexes=indexes,
-                global_indexes=global_indexes, throughput=throughput)
+                tablename,
+                hash_key,
+                range_key,
+                indexes=indexes,
+                global_indexes=global_indexes,
+                throughput=throughput,
+            )
         except DynamoDBError as e:
-            if e.kwargs['Code'] == 'ResourceInUseException' or tree.not_exists:
+            if e.kwargs["Code"] == "ResourceInUseException" or tree.not_exists:
                 return False
             raise
         return True
@@ -751,14 +769,17 @@ class Engine(object):
                 if data_type is not None:
                     if TYPES[data_type] != key.data_type:
                         raise SyntaxError(
-                            "Key %r %s already declared with type %s" %
-                            field, data_type, key.data_type)
+                            "Key %r %s already declared with type %s" % field,
+                            data_type,
+                            key.data_type,
+                        )
             else:
                 if data_type is None:
                     raise SyntaxError("Missing data type for %r" % field)
                 key = DynamoKey(field, data_type=TYPES[data_type])
                 attrs[field] = key
             return key
+
         g_hash_key = get_key(*clause.hash_key)
         g_range_key = None
         # For some reason I can't get the throughput section to have a name
@@ -772,18 +793,17 @@ class Engine(object):
         kwargs = {}
         if tp_index < len(clause):
             throughput = clause[tp_index]
-            kwargs['throughput'] = Throughput(*map(resolve, throughput))
+            kwargs["throughput"] = Throughput(*map(resolve, throughput))
         index_type = clause.index_type[0]
-        if index_type in ('ALL', 'INDEX'):
+        if index_type in ("ALL", "INDEX"):
             factory = GlobalIndex.all
-        elif index_type == 'KEYS':
+        elif index_type == "KEYS":
             factory = GlobalIndex.keys
-        elif index_type == 'INCLUDE':
+        elif index_type == "INCLUDE":
             factory = GlobalIndex.include
             if not clause.include_vars:
-                raise SyntaxError("Include index %r missing include fields" %
-                                  name)
-            kwargs['includes'] = [resolve(v) for v in clause.include_vars]
+                raise SyntaxError("Include index %r missing include fields" % name)
+            kwargs["includes"] = [resolve(v) for v in clause.include_vars]
         return factory(name, g_hash_key, g_range_key, **kwargs)
 
     def _insert(self, tree):
@@ -805,24 +825,27 @@ class Engine(object):
         try:
             ret = self.connection.delete_table(tablename, **kwargs)
         except DynamoDBError as e:
-            if e.kwargs['Code'] == 'ResourceNotFoundException' and tree.exists:
+            if e.kwargs["Code"] == "ResourceNotFoundException" and tree.exists:
                 return False
             raise
         return True
 
     def _update_throughput(self, tablename, read, write, index):
         """ Update the throughput on a table or index """
+
         def get_desc():
             """ Get the table or global index description """
             desc = self.describe(tablename, refresh=True, require=True)
             if index is not None:
                 return desc.global_indexes[index]
             return desc
+
         desc = get_desc()
 
         def num_or_star(value):
             """ Convert * to 0, otherwise resolve a number """
-            return 0 if value == '*' else resolve(value)
+            return 0 if value == "*" else resolve(value)
+
         read = num_or_star(read)
         write = num_or_star(write)
         if read <= 0:
@@ -833,14 +856,12 @@ class Engine(object):
         throughput = Throughput(read, write)
         kwargs = {}
         if index:
-            kwargs['global_indexes'] = {
-                index: throughput,
-            }
+            kwargs["global_indexes"] = {index: throughput}
         else:
-            kwargs['throughput'] = throughput
+            kwargs["throughput"] = throughput
         self.connection.update_table(tablename, **kwargs)
         desc = get_desc()
-        while desc.status == 'UPDATING':  # pragma: no cover
+        while desc.status == "UPDATING":  # pragma: no cover
             time.sleep(5)
             desc = get_desc()
 
@@ -855,10 +876,9 @@ class Engine(object):
         elif tree.drop_index:
             updates = [IndexUpdate.delete(tree.drop_index[0])]
             try:
-                self.connection.update_table(tree.table,
-                                             index_updates=updates)
+                self.connection.update_table(tree.table, index_updates=updates)
             except DynamoDBError as e:
-                if tree.exists and e.kwargs['Code'] == 'ResourceNotFoundException':
+                if tree.exists and e.kwargs["Code"] == "ResourceNotFoundException":
                     pass
                 else:
                     raise
@@ -868,12 +888,13 @@ class Engine(object):
             index = self._parse_global_index(tree.create_index, attrs)
             updates = [IndexUpdate.create(index)]
             try:
-                self.connection.update_table(tree.table,
-                                             index_updates=updates)
+                self.connection.update_table(tree.table, index_updates=updates)
             except DynamoDBError as e:
-                if (tree.not_exists and
-                        e.kwargs['Code'] == 'ValidationException' and
-                        'already exists' in e.kwargs['Message']):
+                if (
+                    tree.not_exists
+                    and e.kwargs["Code"] == "ValidationException"
+                    and "already exists" in e.kwargs["Message"]
+                ):
                     pass
                 else:
                     raise
@@ -891,7 +912,7 @@ class Engine(object):
             for table in self.describe_all():
                 schema.append(table.schema)
 
-        return '\n\n'.join(schema)
+        return "\n\n".join(schema)
 
     def _load(self, tree):
         """ Run a LOAD statement """
@@ -904,18 +925,18 @@ class Engine(object):
         count = 0
         with batch:
             remainder, ext = os.path.splitext(filename)
-            if ext.lower() in ['.gz', '.gzip']:
+            if ext.lower() in [".gz", ".gzip"]:
                 ext = os.path.splitext(remainder)[1]
-                opened = gzip.open(filename, 'rb')
+                opened = gzip.open(filename, "rb")
             else:
-                opened = open(filename, 'r')
+                opened = open(filename, "r")
             with opened as ifile:
-                if ext.lower() == '.csv':
+                if ext.lower() == ".csv":
                     reader = csv.DictReader(ifile)
                     for row in reader:
                         batch.put(row)
                         count += 1
-                elif ext.lower() == '.json':
+                elif ext.lower() == ".json":
                     for row in ifile:
                         batch.put(json.loads(row))
                         count += 1
@@ -938,8 +959,8 @@ class FragmentEngine(Engine):
 
     def __init__(self, connection=None):
         super(FragmentEngine, self).__init__(connection)
-        self.fragments = ''
-        self.last_query = ''
+        self.fragments = ""
+        self.last_query = ""
 
     @property
     def partial(self):
@@ -948,7 +969,7 @@ class FragmentEngine(Engine):
 
     def reset(self):
         """ Clear any query fragments from the engine """
-        self.fragments = ''
+        self.fragments = ""
 
     def execute(self, fragment, pretty_format=True):
         """
@@ -959,30 +980,29 @@ class FragmentEngine(Engine):
         None.
 
         """
-        self.fragments = (self.fragments + '\n' + fragment).lstrip()
+        self.fragments = (self.fragments + "\n" + fragment).lstrip()
         try:
             line_parser.parseString(self.fragments)
         except ParseException:
             pass
         else:
             self.last_query = self.fragments.strip()
-            self.fragments = ''
-            return super(FragmentEngine, self).execute(self.last_query,
-                                                       pretty_format)
+            self.fragments = ""
+            return super(FragmentEngine, self).execute(self.last_query, pretty_format)
         return None
 
     def pformat_exc(self, exc):
         """ Format an exception message for the last query's parse error """
         lines = []
         try:
-            pre_nl = self.last_query.rindex('\n', 0, exc.loc) + 1
+            pre_nl = self.last_query.rindex("\n", 0, exc.loc) + 1
         except ValueError:
             pre_nl = 0
         try:
-            post_nl = self.last_query.index('\n', exc.loc)
+            post_nl = self.last_query.index("\n", exc.loc)
         except ValueError:
             post_nl = len(self.last_query)
         lines.append(self.last_query[:post_nl])
-        lines.append(' ' * (exc.loc - pre_nl) + '^')
+        lines.append(" " * (exc.loc - pre_nl) + "^")
         lines.append(str(exc))
-        return '\n'.join(lines)
+        return "\n".join(lines)

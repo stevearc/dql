@@ -18,56 +18,67 @@ from collections import OrderedDict
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
-from .help import (ALTER, ANALYZE, CREATE, DELETE, DROP, DUMP, INSERT, LOAD,
-                   SCAN, SELECT, UPDATE, OPTIONS, EXPLAIN)
+from .help import (
+    ALTER,
+    ANALYZE,
+    CREATE,
+    DELETE,
+    DROP,
+    DUMP,
+    INSERT,
+    LOAD,
+    SCAN,
+    SELECT,
+    UPDATE,
+    OPTIONS,
+    EXPLAIN,
+)
 from .monitor import Monitor
-from .output import (ColumnFormat, ExpandedFormat, SmartFormat,
-                     less_display, stdout_display)
+from .output import (
+    ColumnFormat,
+    ExpandedFormat,
+    SmartFormat,
+    less_display,
+    stdout_display,
+)
 from .throttle import TableLimits
 
 
 # From http://docs.aws.amazon.com/general/latest/gr/rande.html#ddb_region
 REGIONS = [
-    'us-east-1',
-    'us-west-2',
-    'us-west-1',
-    'eu-west-1',
-    'eu-central-1',
-    'ap-southeast-1',
-    'ap-southeast-2',
-    'ap-northeast-1',
-    'sa-east-1',
+    "us-east-1",
+    "us-west-2",
+    "us-west-1",
+    "eu-west-1",
+    "eu-central-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ap-northeast-1",
+    "sa-east-1",
 ]
 NO_DEFAULT = object()
 
-DISPLAYS = {
-    'stdout': stdout_display,
-    'less': less_display,
-}
-FORMATTERS = {
-    'smart': SmartFormat,
-    'expanded': ExpandedFormat,
-    'column': ColumnFormat,
-}
+DISPLAYS = {"stdout": stdout_display, "less": less_display}
+FORMATTERS = {"smart": SmartFormat, "expanded": ExpandedFormat, "column": ColumnFormat}
 DEFAULT_CONFIG = {
-    'width': 'auto',
-    'pagesize': 'auto',
-    'display': 'stdout',
-    'format': 'smart',
-    'allow_select_scan': False,
-    '_throttle': {},
+    "width": "auto",
+    "pagesize": "auto",
+    "display": "stdout",
+    "format": "smart",
+    "allow_select_scan": False,
+    "_throttle": {},
 }
 
 
-def indent(string, prefix='  '):
+def indent(string, prefix="  "):
     """ Indent a paragraph of text """
-    return '\n'.join([prefix + line for line in string.split('\n')])
+    return "\n".join([prefix + line for line in string.split("\n")])
 
 
 def prompt(msg, default=NO_DEFAULT, validate=None):
     """ Prompt user for input """
     while True:
-        response = input(msg + ' ').strip()
+        response = input(msg + " ").strip()
         if not response:
             if default is NO_DEFAULT:
                 continue
@@ -84,10 +95,10 @@ def promptyn(msg, default=None):
             no = "n"
         else:
             no = "N"
-        confirm = prompt("%s [%s/%s]" % (msg, yes, no), '').lower()
-        if confirm in ('y', 'yes'):
+        confirm = prompt("%s [%s/%s]" % (msg, yes, no), "").lower()
+        if confirm in ("y", "yes"):
             return True
-        elif confirm in ('n', 'no'):
+        elif confirm in ("n", "no"):
             return False
         elif not confirm and default is not None:
             return default
@@ -101,6 +112,7 @@ def repl_command(fxn):
     and **kwargs.
 
     """
+
     @functools.wraps(fxn)
     def wrapper(self, arglist):
         """Wraps the command method"""
@@ -108,12 +120,13 @@ def repl_command(fxn):
         kwargs = {}
         if arglist:
             for arg in shlex.split(arglist):
-                if '=' in arg:
-                    split = arg.split('=', 1)
+                if "=" in arg:
+                    split = arg.split("=", 1)
                     kwargs[split[0]] = split[1]
                 else:
                     args.append(arg)
         return fxn(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -149,8 +162,9 @@ class DQLClient(cmd.Cmd):
     _local_endpoint = None
     throttle = None
 
-    def initialize(self, region='us-west-1', host=None, port=8000,
-                   config_dir=None, session=None):
+    def initialize(
+        self, region="us-west-1", host=None, port=8000, config_dir=None, session=None
+    ):
         """ Set up the repl for execution. """
         try:
             import readline
@@ -160,32 +174,34 @@ class DQLClient(cmd.Cmd):
             pass
         else:
             # Mac OS X readline compatibility from http://stackoverflow.com/a/7116997
-            if 'libedit' in readline.__doc__:
+            if "libedit" in readline.__doc__:
                 readline.parse_and_bind("bind ^I rl_complete")
             else:
                 readline.parse_and_bind("tab: complete")
             # Tab-complete names with a '-' in them
             delims = set(readline.get_completer_delims())
-            if '-' in delims:
-                delims.remove('-')
-                readline.set_completer_delims(''.join(delims))
+            if "-" in delims:
+                delims.remove("-")
+                readline.set_completer_delims("".join(delims))
 
-        self._conf_dir = (config_dir or
-                          os.path.join(os.environ.get('HOME', '.'), '.config'))
+        self._conf_dir = config_dir or os.path.join(
+            os.environ.get("HOME", "."), ".config"
+        )
         self.session = session or botocore.session.get_session()
         self.engine = FragmentEngine()
         self.engine.caution_callback = self.caution_callback
         if host is not None:
             self._local_endpoint = (host, port)
-        self.engine.connect(region, session=self.session, host=host, port=port,
-                            is_secure=(host is None))
+        self.engine.connect(
+            region, session=self.session, host=host, port=port, is_secure=(host is None)
+        )
 
         self.conf = self.load_config()
         for key, value in iteritems(DEFAULT_CONFIG):
             self.conf.setdefault(key, value)
-        self.display = DISPLAYS[self.conf['display']]
+        self.display = DISPLAYS[self.conf["display"]]
         self.throttle = TableLimits()
-        self.throttle.load(self.conf['_throttle'])
+        self.throttle.load(self.conf["_throttle"])
 
     def start(self):
         """ Start running the interactive session (blocking) """
@@ -210,20 +226,20 @@ class DQLClient(cmd.Cmd):
 
     def update_prompt(self):
         """ Update the prompt """
-        prefix = ''
+        prefix = ""
         if self._local_endpoint is not None:
             prefix += "(%s:%d) " % self._local_endpoint
         prefix += self.engine.region
         if self.engine.partial:
-            self.prompt = len(prefix) * ' ' + '> '
+            self.prompt = len(prefix) * " " + "> "
         else:
-            self.prompt = prefix + '> '
+            self.prompt = prefix + "> "
 
     def do_shell(self, arglist):
         """ Run a shell command """
-        proc = subprocess.Popen(shlex.split(arglist),
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT)
+        proc = subprocess.Popen(
+            shlex.split(arglist), stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
         print(proc.communicate()[0])
 
     def caution_callback(self, action):
@@ -239,16 +255,16 @@ class DQLClient(cmd.Cmd):
         """ Save the conf file """
         if not os.path.exists(self._conf_dir):
             os.makedirs(self._conf_dir)
-        conf_file = os.path.join(self._conf_dir, 'dql.json')
-        with open(conf_file, 'w') as ofile:
+        conf_file = os.path.join(self._conf_dir, "dql.json")
+        with open(conf_file, "w") as ofile:
             json.dump(self.conf, ofile, indent=2)
 
     def load_config(self):
         """ Load your configuration settings from a file """
-        conf_file = os.path.join(self._conf_dir, 'dql.json')
+        conf_file = os.path.join(self._conf_dir, "dql.json")
         if not os.path.exists(conf_file):
             return {}
-        with open(conf_file, 'r') as ifile:
+        with open(conf_file, "r") as ifile:
             return json.load(ifile)
 
     @repl_command
@@ -257,7 +273,7 @@ class DQLClient(cmd.Cmd):
         args = list(args)
         if not args:
             largest = 0
-            keys = [key for key in self.conf if not key.startswith('_')]
+            keys = [key for key in self.conf if not key.startswith("_")]
             for key in keys:
                 largest = max(largest, len(key))
             for key in keys:
@@ -296,49 +312,50 @@ class DQLClient(cmd.Cmd):
             if text:
                 return
             else:
-                option = ''
+                option = ""
         else:
             option = tokens[1]
         if len(tokens) == 1 or (len(tokens) == 2 and text):
-            return [name[4:] + ' ' for name in dir(self)
-                    if name.startswith('opt_' + text)]
-        method = getattr(self, 'complete_opt_' + option, None)
+            return [
+                name[4:] + " " for name in dir(self) if name.startswith("opt_" + text)
+            ]
+        method = getattr(self, "complete_opt_" + option, None)
         if method is not None:
             return method(text, line, begidx, endidx)  # pylint: disable=E1102
 
     def opt_width(self, width):
         """ Set width of output ('auto' will auto-detect terminal width) """
-        if width != 'auto':
+        if width != "auto":
             width = int(width)
-        self.conf['width'] = width
+        self.conf["width"] = width
 
     def complete_opt_width(self, *_):
         """ Autocomplete for width option """
-        return ['auto']
+        return ["auto"]
 
     def opt_pagesize(self, pagesize):
         """ Get or set the page size of the query output """
-        if pagesize != 'auto':
+        if pagesize != "auto":
             pagesize = int(pagesize)
-        self.conf['pagesize'] = pagesize
+        self.conf["pagesize"] = pagesize
 
     def complete_opt_pagesize(self, *_):
         """ Autocomplete for pagesize option """
-        return ['auto']
+        return ["auto"]
 
     def _print_enum_opt(self, option, choices):
         """ Helper for enum options """
         for key in choices:
             if key == self.conf[option]:
-                print('* %s' % key)
+                print("* %s" % key)
             else:
-                print('  %s' % key)
+                print("  %s" % key)
 
     def opt_display(self, display):
         """ Set value for display option """
         key = get_enum_key(display, DISPLAYS)
         if key is not None:
-            self.conf['display'] = key
+            self.conf["display"] = key
             self.display = DISPLAYS[key]
             print("Set display %r" % key)
         else:
@@ -346,39 +363,38 @@ class DQLClient(cmd.Cmd):
 
     def getopt_display(self):
         """ Get value for display option """
-        self._print_enum_opt('display', DISPLAYS)
+        self._print_enum_opt("display", DISPLAYS)
 
     def complete_opt_display(self, text, *_):
         """ Autocomplete for display option """
-        return [t + ' ' for t in DISPLAYS if t.startswith(text)]
+        return [t + " " for t in DISPLAYS if t.startswith(text)]
 
     def opt_format(self, fmt):
         """ Set value for format option """
         key = get_enum_key(fmt, FORMATTERS)
         if key is not None:
-            self.conf['format'] = key
+            self.conf["format"] = key
             print("Set format %r" % key)
         else:
             print("Unknown format %r" % fmt)
 
     def getopt_format(self):
         """ Get value for format option """
-        self._print_enum_opt('format', FORMATTERS)
+        self._print_enum_opt("format", FORMATTERS)
 
     def complete_opt_format(self, text, *_):
         """ Autocomplete for format option """
-        return [t + ' ' for t in FORMATTERS if t.startswith(text)]
+        return [t + " " for t in FORMATTERS if t.startswith(text)]
 
     def opt_allow_select_scan(self, allow):
         """ Set option allow_select_scan """
-        allow = allow.lower() in ('true', 't', 'yes', 'y')
-        self.conf['allow_select_scan'] = allow
+        allow = allow.lower() in ("true", "t", "yes", "y")
+        self.conf["allow_select_scan"] = allow
         self.engine.allow_select_scan = allow
 
     def complete_opt_allow_select_scan(self, text, *_):
         """ Autocomplete for allow_select_scan option """
-        return [t for t in ('true', 'false', 'yes', 'no')
-                if t.startswith(text.lower())]
+        return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
 
     @repl_command
     def do_watch(self, *args):
@@ -398,70 +414,77 @@ class DQLClient(cmd.Cmd):
 
     def complete_watch(self, text, *_):
         """ Autocomplete for watch """
-        return [t + ' ' for t in self.engine.cached_descriptions if
-                t.startswith(text)]
+        return [t + " " for t in self.engine.cached_descriptions if t.startswith(text)]
 
     @repl_command
     def do_file(self, filename):
         """ Read and execute a .dql file """
-        with open(filename, 'r') as infile:
+        with open(filename, "r") as infile:
             self._run_cmd(infile.read())
 
     def complete_file(self, text, line, *_):
         """ Autocomplete DQL file lookup """
-        leading = line[len('file '):]
+        leading = line[len("file ") :]
         curpath = os.path.join(os.path.curdir, leading)
 
         def isdql(parent, filename):
             """ Check if a file is .dql or a dir """
-            return (not filename.startswith('.') and
-                    (os.path.isdir(os.path.join(parent, filename)) or
-                     filename.lower().endswith('.dql')))
+            return not filename.startswith(".") and (
+                os.path.isdir(os.path.join(parent, filename))
+                or filename.lower().endswith(".dql")
+            )
 
         def addslash(path):
             """ Append a slash if a file is a directory """
-            if path.lower().endswith('.dql'):
-                return path + ' '
+            if path.lower().endswith(".dql"):
+                return path + " "
             else:
-                return path + '/'
+                return path + "/"
+
         if not os.path.exists(curpath) or not os.path.isdir(curpath):
             curpath = os.path.dirname(curpath)
-        return [addslash(f) for f in os.listdir(curpath)
-                if f.startswith(text) and isdql(curpath, f)]
+        return [
+            addslash(f)
+            for f in os.listdir(curpath)
+            if f.startswith(text) and isdql(curpath, f)
+        ]
 
     @repl_command
     def do_ls(self, table=None):
         """ List all tables or print details of one table """
         if table is None:
-            fields = OrderedDict([('Name', 'name'),
-                                  ('Status', 'status'),
-                                  ('Read', 'total_read_throughput'),
-                                  ('Write', 'total_write_throughput')])
+            fields = OrderedDict(
+                [
+                    ("Name", "name"),
+                    ("Status", "status"),
+                    ("Read", "total_read_throughput"),
+                    ("Write", "total_write_throughput"),
+                ]
+            )
             tables = self.engine.describe_all()
             # Calculate max width of all items for each column
-            sizes = [1 +
-                     max([len(str(getattr(t, f))) for t in tables] +
-                         [len(title)]) for title, f in iteritems(fields)]
+            sizes = [
+                1 + max([len(str(getattr(t, f))) for t in tables] + [len(title)])
+                for title, f in iteritems(fields)
+            ]
             # Print the header
             for size, title in zip(sizes, fields):
-                print(title.ljust(size), end='')
+                print(title.ljust(size), end="")
             print()
             # Print each table row
             for row_table in tables:
                 for size, field in zip(sizes, fields.values()):
-                    print(str(getattr(row_table, field)).ljust(size), end='')
+                    print(str(getattr(row_table, field)).ljust(size), end="")
                 print()
         else:
-            print(self.engine.describe(table, refresh=True,
-                                       metrics=True).pformat())
+            print(self.engine.describe(table, refresh=True, metrics=True).pformat())
 
     def complete_ls(self, text, *_):
         """ Autocomplete for ls """
-        return [t + ' ' for t in self.engine.cached_descriptions if
-                t.startswith(text)]
+        return [t + " " for t in self.engine.cached_descriptions if t.startswith(text)]
 
     @repl_command
-    def do_local(self, host='localhost', port=8000):
+    def do_local(self, host="localhost", port=8000):
         """
         Connect to a local DynamoDB instance. Use 'local off' to disable.
 
@@ -471,11 +494,11 @@ class DQLClient(cmd.Cmd):
 
         """
         port = int(port)
-        if host == 'off':
+        if host == "off":
             self._local_endpoint = None
         else:
             self._local_endpoint = (host, port)
-        self.onecmd('use %s' % self.engine.region)
+        self.onecmd("use %s" % self.engine.region)
 
     @repl_command
     def do_use(self, region):
@@ -488,14 +511,15 @@ class DQLClient(cmd.Cmd):
         """
         if self._local_endpoint is not None:
             host, port = self._local_endpoint  # pylint: disable=W0633
-            self.engine.connect(region, session=self.session, host=host,
-                                port=port, is_secure=False)
+            self.engine.connect(
+                region, session=self.session, host=host, port=port, is_secure=False
+            )
         else:
             self.engine.connect(region, session=self.session)
 
     def complete_use(self, text, *_):
         """ Autocomplete for use """
-        return [t + ' ' for t in REGIONS if t.startswith(text)]
+        return [t + " " for t in REGIONS if t.startswith(text)]
 
     @repl_command
     def do_throttle(self, *args):
@@ -526,17 +550,17 @@ class DQLClient(cmd.Cmd):
             self.throttle.set_index_limit(tablename, indexname, read, write)
         elif len(args) == 1:
             tablename = args[0]
-            if tablename == 'default':
+            if tablename == "default":
                 self.throttle.set_default_limit(read, write)
-            elif tablename == 'total':
+            elif tablename == "total":
                 self.throttle.set_total_limit(read, write)
             else:
                 self.throttle.set_table_limit(tablename, read, write)
         elif not args:
             self.throttle.set_total_limit(read, write)
         else:
-            return self.onecmd('help throttle')
-        self.conf['_throttle'] = self.throttle.save()
+            return self.onecmd("help throttle")
+        self.conf["_throttle"] = self.throttle.save()
         self.save_config()
 
     @repl_command
@@ -561,9 +585,9 @@ class DQLClient(cmd.Cmd):
                 self.throttle.load({})
         elif len(args) == 1:
             tablename = args[0]
-            if tablename == 'total':
+            if tablename == "total":
                 self.throttle.set_total_limit()
-            elif tablename == 'default':
+            elif tablename == "default":
                 self.throttle.set_default_limit()
             else:
                 self.throttle.set_table_limit(tablename)
@@ -572,7 +596,7 @@ class DQLClient(cmd.Cmd):
             self.throttle.set_index_limit(tablename, indexname)
         else:
             self.onecmd("help unthrottle")
-        self.conf['_throttle'] = self.throttle.save()
+        self.conf["_throttle"] = self.throttle.save()
         self.save_config()
 
     def default(self, command):
@@ -583,12 +607,15 @@ class DQLClient(cmd.Cmd):
         tokens = line.split()
         try:
             before = tokens[-2]
-            complete = before.lower() in ('from', 'update', 'table', 'into')
-            if tokens[0].lower() == 'dump':
+            complete = before.lower() in ("from", "update", "table", "into")
+            if tokens[0].lower() == "dump":
                 complete = True
             if complete:
-                return [t + ' ' for t in self.engine.cached_descriptions if
-                        t.startswith(text)]
+                return [
+                    t + " "
+                    for t in self.engine.cached_descriptions
+                    if t.startswith(text)
+                ]
         except KeyError:
             pass
 
@@ -607,9 +634,12 @@ class DQLClient(cmd.Cmd):
             print(results)
         else:
             with self.display() as ostream:
-                formatter = FORMATTERS[self.conf['format']](
-                    results, ostream, pagesize=self.conf['pagesize'],
-                    width=self.conf['width'])
+                formatter = FORMATTERS[self.conf["format"]](
+                    results,
+                    ostream,
+                    pagesize=self.conf["pagesize"],
+                    width=self.conf["width"],
+                )
                 formatter.display()
         print_count = 0
         total = None
@@ -619,13 +649,13 @@ class DQLClient(cmd.Cmd):
             print(indent(str(capacity)))
             print_count += 1
         if print_count > 1:
-            print('TOTAL')
+            print("TOTAL")
             print(indent(str(total)))
 
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
         """Exit"""
-        return self.onecmd('exit')
+        return self.onecmd("exit")
 
     @repl_command
     def do_exit(self):
@@ -636,12 +666,12 @@ class DQLClient(cmd.Cmd):
 
     def run_command(self, command):
         """ Run a command passed in from the command line with -c """
-        self.display = DISPLAYS['stdout']
-        self.conf['pagesize'] = 0
+        self.display = DISPLAYS["stdout"]
+        self.conf["pagesize"] = 0
         self.onecmd(command)
 
     def emptyline(self):
-        self.default('')
+        self.default("")
 
     def help_help(self):
         """Print the help text for help"""
