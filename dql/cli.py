@@ -147,6 +147,7 @@ class DQLClient(cmd.Cmd):
     session = None
     _conf_dir = None
     _local_endpoint = None
+    throttle = None
 
     def initialize(self, region='us-west-1', host=None, port=8000,
                    config_dir=None, session=None):
@@ -351,14 +352,14 @@ class DQLClient(cmd.Cmd):
         """ Autocomplete for display option """
         return [t + ' ' for t in DISPLAYS if t.startswith(text)]
 
-    def opt_format(self, format):
+    def opt_format(self, fmt):
         """ Set value for format option """
-        key = get_enum_key(format, FORMATTERS)
+        key = get_enum_key(fmt, FORMATTERS)
         if key is not None:
             self.conf['format'] = key
             print("Set format %r" % key)
         else:
-            print("Unknown format %r" % format)
+            print("Unknown format %r" % fmt)
 
     def getopt_format(self):
         """ Get value for format option """

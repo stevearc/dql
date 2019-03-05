@@ -15,10 +15,20 @@ REQUIREMENTS = [
     'python-dateutil<2.7.0',
 ]
 
-TEST_REQUIREMENTS = [
-    'nose',
-    'mock',
-]
+EXTRAS = {
+    'test': [
+        'nose',
+        'mock',
+    ],
+    'lint': [
+        'pylint==2.3.1',
+    ],
+    'doc': [
+        'numpydoc',
+        'sphinx',
+        'sphinx_rtd_theme',
+    ],
+}
 
 if __name__ == "__main__":
     setup(
@@ -53,5 +63,6 @@ if __name__ == "__main__":
             ],
         },
         install_requires=REQUIREMENTS,
-        tests_require=REQUIREMENTS + TEST_REQUIREMENTS,
+        tests_require=REQUIREMENTS + EXTRAS["test"],
+        extras_require=EXTRAS,
     )
