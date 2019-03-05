@@ -1,11 +1,18 @@
 Developing
 ==========
-To get started developing dql, run the following command::
+To get started developing dql, clone the repo::
 
-    wget https://raw.github.com/stevearc/devbox/master/devbox/unbox.py && \
-    python unbox.py git@github.com:stevearc/dql
+    git clone https://github.com/stevearc/dql.git
 
-This will clone the repository and install the package into a virtualenv
+It is recommended that you create a virtualenv to develop::
+
+    # python 3
+    python3 -m venv dql_env
+    # python 2
+    virtualenv dql_env
+
+    source ./dql_env/bin/activate
+    pip install -e .
 
 Running Tests
 -------------
