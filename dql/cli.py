@@ -66,6 +66,7 @@ DEFAULT_CONFIG = {
     "display": "stdout",
     "format": "smart",
     "allow_select_scan": False,
+    "output_json_as_list": False,
     "_throttle": {},
 }
 
@@ -394,6 +395,16 @@ class DQLClient(cmd.Cmd):
 
     def complete_opt_allow_select_scan(self, text, *_):
         """ Autocomplete for allow_select_scan option """
+        return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
+
+    def opt_output_json_as_list(self, output):
+        """ Set option output_json_as_list """
+        output = output.lower() in ("true", "t", "yes", "y")
+        self.conf["output_json_as_list"] = output
+        self.engine.output_json_as_list = output
+
+    def complete_opt_output_json_as_list(self, text, *_):
+        """ Autocomplete for output_json_as_list option """
         return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
 
     @repl_command

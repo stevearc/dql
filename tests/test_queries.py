@@ -495,6 +495,59 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(list(ret), [{"bar": 2}])
 
 
+class TestSaveJson(BaseSystemTest):
+
+    """ Tests that involve saving the results into a JSON file """
+
+    def setUp(self):
+        super(TestSaveJson, self).setUp()
+        self.test_file_name = 'out.json'
+        self.engine.output_json_as_list = True
+
+    def test_no_results(self):
+        """ JSON output with no results """
+        self.make_table()
+        self.query("SCAN * FROM foobar SAVE " + self.test_file_name)
+        contents = self._get_file_contents()
+        self.assertEqual(contents, "[]\n")
+
+    def test_one_result(self):
+        """ JSON output with one result """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1)")
+        self.query("SCAN * FROM foobar SAVE " + self.test_file_name)
+        contents = self._get_file_contents()
+        self.assertEqual(contents, '[{"bar":1,"id":"a"}]\n')
+
+    def test_two_results(self):
+        """ JSON output with two results """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
+        self.query("SCAN * FROM foobar SAVE " + self.test_file_name)
+        contents = self._get_file_contents()
+        self.assertEqual(
+            contents,
+            '[{"bar":2,"id":"b"},\n{"bar":1,"id":"a"}]\n'
+        )
+
+    def test_three_results(self):
+        """ JSON output with three results """
+        self.make_table()
+        self.query(
+            "INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2), ('c', 3)"
+        )
+        self.query("SCAN * FROM foobar SAVE " + self.test_file_name)
+        contents = self._get_file_contents()
+        self.assertEqual(
+            contents,
+            '[{"bar":2,"id":"b"},\n{"bar":3,"id":"c"},\n{"bar":1,"id":"a"}]\n'
+        )
+
+    def _get_file_contents(self):
+        with open(self.test_file_name, 'r') as f:
+            return f.read()
+
+
 class TestSelectScan(BaseSystemTest):
 
     """ Tests for SELECT that involve doing a table scan """

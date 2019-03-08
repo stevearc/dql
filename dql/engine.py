@@ -128,6 +128,7 @@ class Engine(object):
         self.rate_limit = None
         self._encoder = json.JSONEncoder(separators=(",", ":"), default=default)
         self.caution_callback = None
+        self.output_json_as_list = False
 
     def connect(self, *args, **kwargs):
         """ Proxy to DynamoDBConnection.connect. """
@@ -598,10 +599,17 @@ class Engine(object):
                         writer.writerow(item)
             elif ext.lower() == ".json":
                 with opened as ofile:
-                    for item in result:
+                    (start, delim, end) = ("[", ",\n", "]\n")\
+                      if self.output_json_as_list else ("", "\n", "\n")
+                    ofile.write(start)
+                    for item in result[:-1]:
                         count += 1
                         ofile.write(self._encoder.encode(item))
-                        ofile.write("\n")
+                        ofile.write(delim)
+                    if len(result) > 0:
+                        count += 1
+                        ofile.write(self._encoder.encode(result[-1]))
+                    ofile.write(end)
             else:
                 with opened as ofile:
                     for item in result:
