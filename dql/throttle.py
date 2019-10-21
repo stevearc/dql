@@ -64,7 +64,7 @@ class TableLimits(object):
         )
 
     __nonzero__ = __bool__
-    
+
     def _set_limit(self, data, key, read, write):
         """ Set a limit or delete if non provided """
         if read != "0" or write != "0":
