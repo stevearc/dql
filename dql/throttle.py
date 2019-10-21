@@ -55,7 +55,7 @@ class TableLimits(object):
             kwargs["total_write"] = float(self.total["write"])
         return RateLimit(**kwargs)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return (
             bool(self.tables)
             or bool(self.indexes)
@@ -63,6 +63,8 @@ class TableLimits(object):
             or bool(self.total)
         )
 
+    __nonzero__ = __bool__
+    
     def _set_limit(self, data, key, read, write):
         """ Set a limit or delete if non provided """
         if read != "0" or write != "0":
