@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.27
+------
+* Bug fix: Proper throttling in Python 3
+
+Dropping support for python 3.4
+
 0.5.26
 ------
 * Use python-future instead of six as compatibility library
