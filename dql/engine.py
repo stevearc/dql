@@ -3,7 +3,10 @@ from builtins import int
 
 import gzip
 import os
+import io
+import sys
 import time
+import contextlib
 
 import botocore
 import csv
@@ -573,11 +576,25 @@ class Engine(object):
             if not isinstance(result, list):
                 result = list(result)
             remainder, ext = os.path.splitext(filename)
-            if ext.lower() in [".gz", ".gzip"]:
+            is_gzip = ext.lower() in [".gz", ".gzip"]
+            if is_gzip:
                 ext = os.path.splitext(remainder)[1]
-                opened = gzip.open(filename, "wb")
-            else:
-                opened = open(filename, "wb")
+
+            @contextlib.contextmanager
+            def open_file(mode):
+                if is_gzip:
+                    with gzip.open(filename, "wb") as gzip_file:
+                        if "b" in mode or sys.version_info[0] < 3:
+                            yield gzip_file
+                        else:
+                            with io.TextIOWrapper(
+                                gzip_file, encoding="utf-8"
+                            ) as text_file:
+                                yield text_file
+                else:
+                    with open(filename, mode) as ofile:
+                        yield ofile
+
             if ext.lower() == ".csv":
                 if selection.all_keys:
                     headers = selection.all_keys
@@ -588,7 +605,7 @@ class Engine(object):
                     for item in result:
                         all_headers.update(item.keys())
                     headers = list(all_headers)
-                with opened as ofile:
+                with open_file("w") as ofile:
                     writer = csv.DictWriter(
                         ofile, fieldnames=headers, extrasaction="ignore"
                     )
@@ -597,13 +614,13 @@ class Engine(object):
                         count += 1
                         writer.writerow(item)
             elif ext.lower() == ".json":
-                with opened as ofile:
+                with open_file("w") as ofile:
                     for item in result:
                         count += 1
                         ofile.write(self._encoder.encode(item))
                         ofile.write("\n")
             else:
-                with opened as ofile:
+                with open_file("wb") as ofile:
                     for item in result:
                         count += 1
                         pickle.dump(item, ofile)

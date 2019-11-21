@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.5.28
+------
+* Bug fix: Encoding errors for some SAVE file formats
+
 0.5.27
 ------
 * Bug fix: Proper throttling in Python 3
