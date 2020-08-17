@@ -38,6 +38,7 @@ nosetests.xml
 dql_env
 .ropeproject
 *.db
+.vscode
 
 # docs
 _build
