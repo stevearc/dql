@@ -1,8 +1,7 @@
 """ Setup file """
 import os
 
-from setuptools import setup, find_packages
-
+from setuptools import find_packages, setup
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(HERE, "README.rst")).read()
@@ -17,7 +16,7 @@ REQUIREMENTS = [
 
 EXTRAS = {
     "test": ["nose", "mock"],
-    "lint": ["black", "pylint==2.3.1"],
+    "lint": ["black", "pylint==2.3.1", "isort>=4.2.5,<5",],
     "doc": ["numpydoc", "sphinx", "sphinx_rtd_theme"],
 }
 
