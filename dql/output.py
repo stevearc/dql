@@ -1,26 +1,26 @@
 # -*- coding: utf-8 -*-
 """ Formatting and displaying output """
 from __future__ import unicode_literals
-from builtins import input, range, str
-from future.utils import iteritems, itervalues
-from past.builtins import basestring
-
-import locale
-import os
-import stat
-import sys
 
 import contextlib
 import json
+import locale
+import os
+import stat
 import subprocess
+import sys
 import tempfile
+from builtins import input, range, str
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 from decimal import Decimal
-from dynamo3 import Binary
 
-from .util import plural, getmaxyx
+from dateutil.relativedelta import relativedelta
+from dynamo3 import Binary
+from future.utils import iteritems, itervalues
+from past.builtins import basestring
+
+from .util import getmaxyx, plural
 
 
 def truncate(string, length, ellipsis="…"):

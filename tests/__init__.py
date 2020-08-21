@@ -1,7 +1,6 @@
 """ Testing tools for DQL """
 from dql import Engine
 
-
 try:
     import unittest2 as unittest  # pylint: disable=F0401
 except ImportError:

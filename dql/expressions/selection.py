@@ -1,16 +1,18 @@
 """ Selection expressions """
 from __future__ import unicode_literals
-from future.utils import python_2_unicode_compatible
-from past.builtins import basestring
 
 from collections import OrderedDict
 from datetime import datetime
+
 from dateutil.parser import parse
 from dateutil.tz import tzlocal, tzutc
+from future.utils import python_2_unicode_compatible
+from past.builtins import basestring
+
+from dql.util import resolve
 
 from .base import Expression, Field, Value
 from .visitor import dummy_visitor
-from dql.util import resolve
 
 
 def add(a, b):

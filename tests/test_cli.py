@@ -1,12 +1,12 @@
 """ Tests for the CLI """
 import shutil
 import tempfile
-from future.moves.urllib.parse import urlparse
 from io import StringIO
+
+from future.moves.urllib.parse import urlparse
 from mock import patch
 
-from dql.cli import repl_command, DQLClient
-
+from dql.cli import DQLClient, repl_command
 
 try:
     import unittest2 as unittest  # pylint: disable=F0401

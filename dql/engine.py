@@ -1,49 +1,48 @@
 """ Execution engine """
-from builtins import int
-
+import contextlib
+import csv
 import gzip
-import os
 import io
+import json
+import logging
+import os
+import pickle
 import sys
 import time
-import contextlib
+from base64 import b64encode
+from builtins import int
+from decimal import Decimal
+from pprint import pformat
 
 import botocore
-import csv
-import json
-import pickle
-import logging
-from base64 import b64encode
 from botocore.exceptions import ClientError
-from decimal import Decimal
 from dynamo3 import (
     TYPES,
-    DynamoDBConnection,
-    DynamoKey,
-    LocalIndex,
-    GlobalIndex,
-    DynamoDBError,
-    Throughput,
+    Binary,
+    Capacity,
     CheckFailed,
+    DynamoDBConnection,
+    DynamoDBError,
+    DynamoKey,
+    GlobalIndex,
     IndexUpdate,
     Limit,
+    LocalIndex,
     RateLimit,
-    Capacity,
-    Binary,
+    Throughput,
 )
 from dynamo3.constants import RESERVED_WORDS
-from pprint import pformat
 from pyparsing import ParseException
 
 from .expressions import (
     ConstraintExpression,
+    SelectionExpression,
     UpdateExpression,
     Visitor,
-    SelectionExpression,
 )
-from .grammar import parser, line_parser
+from .grammar import line_parser, parser
 from .models import TableMeta
-from .util import resolve, unwrap, plural
+from .util import plural, resolve, unwrap
 
 LOG = logging.getLogger(__name__)
 

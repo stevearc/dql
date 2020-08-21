@@ -1,6 +1,6 @@
 """ Tests for saving data to files """
-import tempfile
 import os
+import tempfile
 
 from . import BaseSystemTest
 

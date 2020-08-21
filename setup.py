@@ -16,7 +16,7 @@ REQUIREMENTS = [
 
 EXTRAS = {
     "test": ["nose", "mock"],
-    "lint": ["black", "pylint==2.3.1", "isort>=4.2.5,<5",],
+    "lint": ["black", "pylint==2.3.1", "isort>=4.2.5,<5"],
     "doc": ["numpydoc", "sphinx", "sphinx_rtd_theme"],
 }
 

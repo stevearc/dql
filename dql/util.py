@@ -1,12 +1,12 @@
 """ Utility methods """
 import calendar
 from datetime import datetime
+from decimal import Decimal
+
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from dateutil.tz import tzlocal, tzutc
-from decimal import Decimal
 from dynamo3 import Binary
-
 
 try:
     from shutil import get_terminal_size  # pylint: disable=E0611

@@ -1,20 +1,20 @@
 """ Interative DQL client """
 from __future__ import print_function
-from builtins import input
-from past.builtins import basestring
-from future.utils import iteritems
 
-import os
-from fnmatch import fnmatch
-
-import botocore
 import cmd
 import functools
 import json
+import os
 import shlex
 import subprocess
 import traceback
+from builtins import input
 from collections import OrderedDict
+from fnmatch import fnmatch
+
+import botocore
+from future.utils import iteritems
+from past.builtins import basestring
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
@@ -25,13 +25,13 @@ from .help import (
     DELETE,
     DROP,
     DUMP,
+    EXPLAIN,
     INSERT,
     LOAD,
+    OPTIONS,
     SCAN,
     SELECT,
     UPDATE,
-    OPTIONS,
-    EXPLAIN,
 )
 from .monitor import Monitor
 from .output import (
@@ -42,7 +42,6 @@ from .output import (
     stdout_display,
 )
 from .throttle import TableLimits
-
 
 # From http://docs.aws.amazon.com/general/latest/gr/rande.html#ddb_region
 REGIONS = [

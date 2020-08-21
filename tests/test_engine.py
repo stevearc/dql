@@ -1,11 +1,12 @@
 """ Tests for the query engine """
 from decimal import Decimal
+
 from dynamo3 import Binary
 from pyparsing import ParseException
 
-from . import BaseSystemTest
 from dql.engine import FragmentEngine
 
+from . import BaseSystemTest
 
 try:
     import unittest2 as unittest  # pylint: disable=F0401

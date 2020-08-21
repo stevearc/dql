@@ -1,8 +1,9 @@
 """ Constraint expressions for selecting """
 from __future__ import unicode_literals
 
-from .base import Expression, Field, Value
 from dql.util import resolve
+
+from .base import Expression, Field, Value
 
 
 def field_or_value(clause):

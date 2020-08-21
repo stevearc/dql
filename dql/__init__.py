@@ -1,9 +1,9 @@
 """ Simple SQL-like query language for dynamo. """
 from __future__ import print_function
-import os
 
 import argparse
 import logging.config
+import os
 
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine

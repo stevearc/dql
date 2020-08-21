@@ -1,29 +1,29 @@
 """ Grammars for parsing query strings """
 from pyparsing import (
+    Forward,
     Group,
+    Keyword,
     OneOrMore,
+    Optional,
+    Suppress,
     ZeroOrMore,
     delimitedList,
-    Suppress,
-    Optional,
     oneOf,
-    Forward,
-    Keyword,
 )
 
 from .common import (
-    var,
-    value,
     and_,
     and_or,
-    upkey,
-    set_,
-    not_,
-    types,
-    string,
-    var_val,
-    integer,
     function,
+    integer,
+    not_,
+    set_,
+    string,
+    types,
+    upkey,
+    value,
+    var,
+    var_val,
 )
 
 

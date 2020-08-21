@@ -1,7 +1,6 @@
 """ Wrapper around the dynamo3 RateLimit class """
-from future.utils import python_2_unicode_compatible, iteritems, itervalues
-
 from dynamo3 import RateLimit
+from future.utils import iteritems, itervalues, python_2_unicode_compatible
 
 
 @python_2_unicode_compatible

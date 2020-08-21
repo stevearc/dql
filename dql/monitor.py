@@ -1,13 +1,12 @@
 """ Utilities for monitoring the consumed capacity of tables """
 from __future__ import print_function
-from future.utils import iteritems
 
 import time
-
 from datetime import datetime
 
-from .util import getmaxyx
+from future.utils import iteritems
 
+from .util import getmaxyx
 
 try:
     import curses

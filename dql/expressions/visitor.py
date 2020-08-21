@@ -1,7 +1,6 @@
 """ Visitor classes for traversing expressions """
 import re
 
-
 FIELD_RE = re.compile(r"[\w\-]+(?![^\[]*\])", re.U)
 
 

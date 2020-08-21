@@ -1,10 +1,9 @@
 """ Common utilities for all expressions """
-from future.utils import python_2_unicode_compatible
-
 import re
 
-from .visitor import dummy_visitor
+from future.utils import python_2_unicode_compatible
 
+from .visitor import dummy_visitor
 
 PATH_PATTERN = re.compile(r"\w+|\[(\d+)\]")
 

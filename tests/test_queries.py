@@ -1,8 +1,10 @@
 """ Tests for queries """
-from datetime import datetime, timedelta
 import time
+from datetime import datetime, timedelta
+
 from dynamo3 import Binary
-from dql.models import TableField, IndexField, GlobalIndex
+
+from dql.models import GlobalIndex, IndexField, TableField
 
 from . import BaseSystemTest
 

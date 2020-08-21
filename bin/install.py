@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """ Script for building a standalone dql executable """
 import os
-import tempfile
-import sys
 import shutil
 import subprocess
+import sys
+import tempfile
 from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
 
 # Python 2 & 3

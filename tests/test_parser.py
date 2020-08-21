@@ -1,11 +1,11 @@
 """ Tests for the language parser """
 from __future__ import print_function
+
 from pyparsing import ParseException, StringEnd
 
-from dql.expressions import ConstraintExpression, UpdateExpression, SelectionExpression
-from dql.grammar import statement_parser, parser, update_expr
-from dql.grammar.query import where, value, selection
-
+from dql.expressions import ConstraintExpression, SelectionExpression, UpdateExpression
+from dql.grammar import parser, statement_parser, update_expr
+from dql.grammar.query import selection, value, where
 
 try:
     from unittest2 import TestCase  # pylint: disable=F0401

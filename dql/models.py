@@ -1,10 +1,11 @@
 """ Data containers """
 from __future__ import unicode_literals
-from future.utils import python_2_unicode_compatible, iteritems, itervalues
 
 from decimal import Decimal
+
 from dynamo3 import TYPES_REV
 from dynamo3.fields import snake_to_camel
+from future.utils import iteritems, itervalues, python_2_unicode_compatible
 
 
 def format_throughput(available, used=None):
