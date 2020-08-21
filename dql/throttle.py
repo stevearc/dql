@@ -1,9 +1,7 @@
 """ Wrapper around the dynamo3 RateLimit class """
 from dynamo3 import RateLimit
-from future.utils import iteritems, itervalues, python_2_unicode_compatible
 
 
-@python_2_unicode_compatible
 class TableLimits(object):
     """ Wrapper around :class:`dynamo3.RateLimit` """
 
@@ -36,7 +34,7 @@ class TableLimits(object):
             if table.name not in self.indexes:
                 continue
             # Add the global index limits
-            for index in itervalues(table.global_indexes):
+            for index in table.global_indexes.values():
                 limit = self.indexes[table.name].get(index.name) or self.default
                 if limit:
                     cap = table_caps.setdefault(table.name, {})
@@ -104,10 +102,10 @@ class TableLimits(object):
         self.default = data.get("default", {})
         self.tables = {}
         self.indexes = {}
-        for tablename, limit in iteritems(data.get("tables", {})):
+        for tablename, limit in data.get("tables", {}).items():
             self.set_table_limit(tablename, **limit)
-        for tablename, index_data in iteritems(data.get("indexes", {})):
-            for indexname, limit in iteritems(index_data):
+        for tablename, index_data in data.get("indexes", {}).items():
+            for indexname, limit in index_data.items():
                 self.set_index_limit(tablename, indexname, **limit)
 
     def __str__(self):
@@ -116,22 +114,22 @@ class TableLimits(object):
             lines.append("Total: %(read)s, %(write)s" % self.total)
         if self.default:
             lines.append("Default: %(read)s, %(write)s" % self.default)
-        for tablename, table_limit in iteritems(self.tables):
+        for tablename, table_limit in self.tables.items():
             lines.append(
                 "%s: %s, %s" % (tablename, table_limit["read"], table_limit["write"])
             )
             indexes = self.indexes.get(tablename, {})
-            for indexname, limit in iteritems(indexes):
+            for indexname, limit in indexes.items():
                 lines.append(
                     "%s:%s: %s, %s"
                     % (tablename, indexname, limit["read"], limit["write"])
                 )
 
         # Add all the throttled indexes that don't have their table throttled.
-        for tablename, data in iteritems(self.indexes):
+        for tablename, data in self.indexes.items():
             if tablename in self.tables:
                 continue
-            for indexname, limit in iteritems(data):
+            for indexname, limit in data.items():
                 lines.append(
                     "%s:%s: %s, %s"
                     % (tablename, indexname, limit["read"], limit["write"])

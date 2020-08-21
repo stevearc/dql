@@ -1,6 +1,4 @@
 """ Interative DQL client """
-from __future__ import print_function
-
 import cmd
 import functools
 import json
@@ -13,8 +11,6 @@ from collections import OrderedDict
 from fnmatch import fnmatch
 
 import botocore
-from future.utils import iteritems
-from past.builtins import basestring
 from pyparsing import ParseException
 
 from .engine import FragmentEngine
@@ -196,7 +192,7 @@ class DQLClient(cmd.Cmd):
         )
 
         self.conf = self.load_config()
-        for key, value in iteritems(DEFAULT_CONFIG):
+        for key, value in DEFAULT_CONFIG.items():
             self.conf.setdefault(key, value)
         self.display = DISPLAYS[self.conf["display"]]
         self.throttle = TableLimits()
@@ -464,7 +460,7 @@ class DQLClient(cmd.Cmd):
             # Calculate max width of all items for each column
             sizes = [
                 1 + max([len(str(getattr(t, f))) for t in tables] + [len(title)])
-                for title, f in iteritems(fields)
+                for title, f in fields.items()
             ]
             # Print the header
             for size, title in zip(sizes, fields):
@@ -629,7 +625,7 @@ class DQLClient(cmd.Cmd):
         results = self.engine.execute(command)
         if results is None:
             pass
-        elif isinstance(results, basestring):
+        elif isinstance(results, str):
             print(results)
         else:
             with self.display() as ostream:

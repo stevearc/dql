@@ -1,13 +1,9 @@
 """ Selection expressions """
-from __future__ import unicode_literals
-
 from collections import OrderedDict
 from datetime import datetime
 
 from dateutil.parser import parse
 from dateutil.tz import tzlocal, tzutc
-from future.utils import python_2_unicode_compatible
-from past.builtins import basestring
 
 from dql.util import resolve
 
@@ -81,7 +77,6 @@ def parse_expression(clause):
         return Field(clause[0])
 
 
-@python_2_unicode_compatible
 class SelectionExpression(Expression):
 
     """ Entry point for Selection expressions """
@@ -141,7 +136,6 @@ class SelectionExpression(Expression):
         return " ".join(str(e) for e in self.expressions)
 
 
-@python_2_unicode_compatible
 class NamedExpression(Expression):
     """ Wrapper around AttributeSelection that holds the alias (if any) """
 
@@ -182,7 +176,6 @@ class NamedExpression(Expression):
         return base
 
 
-@python_2_unicode_compatible
 class AttributeSelection(Expression):
     """ A tree of select expressions """
 
@@ -259,7 +252,6 @@ class SelectFunction(Expression):
         raise NotImplementedError
 
 
-@python_2_unicode_compatible
 class NowFunction(SelectFunction):
     """ Function to grab the current time """
 
@@ -286,7 +278,6 @@ class NowFunction(SelectFunction):
             return datetime.now().replace(tzinfo=tzlocal())
 
 
-@python_2_unicode_compatible
 class TimestampFunction(SelectFunction):
     """ Function that parses a field or literal as a datetime """
 
@@ -314,7 +305,7 @@ class TimestampFunction(SelectFunction):
         base_value = self.expr.evaluate(item)
         if base_value is None:
             return None
-        elif isinstance(base_value, basestring):
+        elif isinstance(base_value, str):
             dt = parse(base_value)
         else:
             base_value = float(base_value)

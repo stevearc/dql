@@ -1,6 +1,4 @@
 """ Simple SQL-like query language for dynamo. """
-from __future__ import print_function
-
 import argparse
 import logging.config
 import os

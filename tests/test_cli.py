@@ -1,17 +1,13 @@
 """ Tests for the CLI """
 import shutil
 import tempfile
+import unittest
 from io import StringIO
+from urllib.parse import urlparse
 
-from future.moves.urllib.parse import urlparse
 from mock import patch
 
 from dql.cli import DQLClient, repl_command
-
-try:
-    import unittest2 as unittest  # pylint: disable=F0401
-except ImportError:
-    import unittest
 
 
 class TestCli(unittest.TestCase):

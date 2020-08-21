@@ -1,14 +1,11 @@
 """ Common utilities for all expressions """
 import re
 
-from future.utils import python_2_unicode_compatible
-
 from .visitor import dummy_visitor
 
 PATH_PATTERN = re.compile(r"\w+|\[(\d+)\]")
 
 
-@python_2_unicode_compatible
 class Expression(object):
 
     """ Base class for all expressions and expression fragments """

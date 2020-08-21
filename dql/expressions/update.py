@@ -1,6 +1,4 @@
 """ Update expressions """
-from __future__ import unicode_literals
-
 from dql.util import resolve
 
 from .base import Expression, Field, Value

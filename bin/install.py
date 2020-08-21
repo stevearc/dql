@@ -6,12 +6,7 @@ import subprocess
 import sys
 import tempfile
 from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
-
-# Python 2 & 3
-try:
-    from urllib import urlretrieve
-except ImportError:
-    from urllib.request import urlretrieve  # pylint: disable=E0611,F0401
+from urllib.request import urlretrieve
 
 VENV_VERSION = "15.0.1"
 VENV_URL = (

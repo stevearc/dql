@@ -1,10 +1,6 @@
 """ Utilities for monitoring the consumed capacity of tables """
-from __future__ import print_function
-
 import time
 from datetime import datetime
-
-from future.utils import iteritems
 
 from .util import getmaxyx
 
@@ -55,7 +51,7 @@ class Monitor(object):
         cap = table.consumed_capacity["__table__"]
         width = max(width, 4 + len("%.1f/%d" % (cap["read"], table.read_throughput)))
         width = max(width, 4 + len("%.1f/%d" % (cap["write"], table.write_throughput)))
-        for index_name, cap in iteritems(table.consumed_capacity):
+        for index_name, cap in table.consumed_capacity.items():
             if index_name == "__table__":
                 continue
             index = table.global_indexes[index_name]
@@ -168,7 +164,7 @@ class Monitor(object):
                     y + 2, x, col_width, "W", "", table.write_throughput, cap["write"]
                 )
                 y += 3
-                for index_name, cap in iteritems(table.consumed_capacity):
+                for index_name, cap in table.consumed_capacity.items():
                     if index_name == "__table__":
                         continue
                     index = table.global_indexes[index_name]
