@@ -39,7 +39,7 @@ in order to have any local indexes.
 Parameters
 ----------
 **IF NOT EXISTS**
-    If present, do not through an exception if the table already exists.
+    If present, do not throw an exception if the table already exists.
 
 **tablename**
     The name of the table that you want to alter
