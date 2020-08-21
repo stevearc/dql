@@ -5,30 +5,17 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from distutils.spawn import find_executable  # pylint: disable=E0611,F0401
+from distutils.spawn import find_executable
 from urllib.request import urlretrieve
-
-VENV_VERSION = "15.0.1"
-VENV_URL = (
-    "https://pypi.python.org/packages/source/v/"
-    "virtualenv/virtualenv-%s.tar.gz" % VENV_VERSION
-)
 
 
 def make_virtualenv(env):
     """ Create a virtualenv """
     if find_executable("virtualenv") is not None:
-        cmd = ["virtualenv"] + [env]
-        subprocess.check_call(cmd)
+        cmd = ["virtualenv", env]
     else:
-        # Otherwise, download virtualenv from pypi
-        path = urlretrieve(VENV_URL)[0]
-        subprocess.check_call(["tar", "xzf", path])
-        subprocess.check_call(
-            [sys.executable, "virtualenv-%s/virtualenv.py" % VENV_VERSION, env]
-        )
-        os.unlink(path)
-        shutil.rmtree("virtualenv-%s" % VENV_VERSION)
+        cmd = ["python", "-m", "venv", env]
+    subprocess.check_call(cmd)
 
 
 def main():
