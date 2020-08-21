@@ -11,7 +11,7 @@ REQUIREMENTS = [
     "dynamo3>=0.4.7",
     "future>=0.15.0",
     "pyparsing==2.1.4",
-    "python-dateutil<2.7.0",
+    "python-dateutil",
 ]
 
 EXTRAS = {
