@@ -33,7 +33,9 @@ Pre-requisites:
 - `pyenv <https://github.com/pyenv/pyenv>`__
     - `Intro to pyenv <https://realpython.com/intro-to-pyenv/#what-about-a-package-manager>`__
 - `pyenv-virtualenv <https://github.com/pyenv/pyenv-virtualenv#installing-with-homebrew-for-macos-users>`__
-
+- Java: Recomend using `sdkman <https://sdkman.io/install>`__ to manage your java installations.
+    - I use java version 8.0.265.j9-adpt
+    - sdk install java 8.0.265.j9-adpt
 
 Setting up local envs::
 
