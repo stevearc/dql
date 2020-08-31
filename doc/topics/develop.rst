@@ -28,35 +28,36 @@ installed.
 Local dev Using ``pyenv pyenv-virtualenv tox tox-pyenv``
 --------------------------------------------------------
 
-Pre-requisites:
+Pre-requisites
 
-- `pyenv <https://github.com/pyenv/pyenv>`__
-    - `Intro to pyenv <https://realpython.com/intro-to-pyenv/#what-about-a-package-manager>`__
-- `pyenv-virtualenv <https://github.com/pyenv/pyenv-virtualenv#installing-with-homebrew-for-macos-users>`__
-- Java: Recomend using `sdkman <https://sdkman.io/install>`__ to manage your java installations.
+- Install `pyenv <https://github.com/pyenv/pyenv>`_
+    - Why use pyenv? `Intro to pyenv <https://realpython.com/intro-to-pyenv/#what-about-a-package-manager>`_
+- Install `pyenv-virtualenv <https://github.com/pyenv/pyenv-virtualenv#installing-with-homebrew-for-macos-users>`_ so that you can manage virtualenvs from pyenv.
+- Install Java: I recomend using `sdkman <https://sdkman.io/install>`_ to manage your java installations.
     - I use java version 8.0.265.j9-adpt
-    - sdk install java 8.0.265.j9-adpt
+    - ``sdk install java 8.0.265.j9-adpt``
 
 Setting up local envs::
 
-    # see installed python versions
+    # See installed python versions
     pyenv versions
 
-    # see which python you are currently using. This will also show missing versions required by .python-version file.
+    # See which python you are currently using. This will also show missing versions
+    # required by .python-version file.
     pyenv which python
 
     # Install the required python versions using pyenv.
     pyenv install <version-number>
 
-    # create a virtual env named "dql-local-env" with python version 3.7.7
+    # Create a virtual env named "dql-local-env" with python version 3.7.7
     pyenv virtualenv 3.7.7 dql-local-env
 
-    # look at the virtual envs. dql-local-env should have a * next to it indicating that it is selected.
+    # Look at the virtual envs. dql-local-env should have a * next to it indicating
+    # that it is selected.
     pyenv virtualenvs
 
-    # you should be currently using "~/.pyenv/versions/dql-local-env/bin/python"
+    # You should be currently using "~/.pyenv/versions/dql-local-env/bin/python"
     pyenv which python
-
 
     # install dependencies
     pip install -r requirements_dev.txt
