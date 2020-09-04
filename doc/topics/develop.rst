@@ -49,6 +49,11 @@ Setting up local envs::
     # Install the required python versions using pyenv.
     pyenv install <version-number>
 
+        # Version numbers are listed in the .python-version file.
+        pyenv install 3.8.2
+        pyenv install 3.7.7
+        pyenv install 3.6.10
+
     # Create a virtual env named "dql-local-env" with python version 3.7.7
     pyenv virtualenv 3.7.7 dql-local-env
 
@@ -62,6 +67,25 @@ Setting up local envs::
     # install dependencies
     pip install -r requirements_dev.txt
 
+    # running tests with tox
+    tox
+
+        # running specific tox env
+        tox -e format
+        tox -e py38-lint
+        tox -e package
+
+After setting up your local env, you can install the executable of dql::
+
+    pip install -e .
+
+    # In case you have a global dql already installed for your day to day use,
+    # I recommend bumping the patch number so that you know which version you
+    # are currently executing.
+    bump2version patch
+
+    # check the version
+    dql --version
 
 Versioning
 ----------
