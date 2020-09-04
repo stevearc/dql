@@ -1,5 +1,5 @@
 autopep8
-bumpversion
+bump2version
 mock
 nose
 numpydoc

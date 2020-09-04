@@ -61,3 +61,24 @@ Setting up local envs::
 
     # install dependencies
     pip install -r requirements_dev.txt
+
+
+Versioning
+----------
+Use `bump2version` instead of `bumpversion` because `bump2version` is actively maintained. This advise comes from `bumpversion` project itself. See `bumpversion`'s pypi page for details.
+
+Config based on: `<https://medium.com/@williamhayes/versioning-using-bumpversion-4d13c914e9b8>`_
+
+Usage::
+
+    # will update the relevant part and start a new `x.x.x-dev0` build version
+    $> bump2version patch
+    $> bump2version minor
+    $> bump2version major
+
+    # update the build number from `x.x.x-dev0` to `x.x.x-dev1`
+    $> bump2version build
+
+    # release when ready, will convert the version to `x.x.x`, commit and tag it.
+    $> bump2version --tag release
+
