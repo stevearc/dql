@@ -39,6 +39,7 @@ dql_env
 .ropeproject
 *.db
 .vscode
+.idea
 
 # docs
 _build
