@@ -4,7 +4,7 @@ python: "3.8"
 dist: xenial
 env:
   - TOXENV=py38
-  - TOXENV=lint
+  - TOXENV=py38-lint
 matrix:
   include:
   - python: "3.6"
