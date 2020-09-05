@@ -1,16 +1,18 @@
 sudo: required
 language: python
 python: "3.8"
-dist: xenial
+dist: focal
 env:
   - TOXENV=py38
-  - TOXENV=lint
+  - TOXENV=py38-lint
 matrix:
   include:
   - python: "3.6"
     env: TOXENV=py36
   - python: "3.7"
     env: TOXENV=py37
+before_install:
+  - source travisci/java_install.sh
 install:
   - pip install tox coveralls
 script: tox
