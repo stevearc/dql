@@ -14,7 +14,7 @@ matrix:
 before_install:
   - java -version
   - echo "sai-was-here"
-  - jdk_switcher use oraclejdk8
+  - jdk_switcher use openjdk8
   - java -version
 install:
   - pip install tox coveralls
