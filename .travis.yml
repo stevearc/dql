@@ -12,7 +12,8 @@ matrix:
   - python: "3.7"
     env: TOXENV=py37
 before_install:
-  - source travisci/java_install.sh
+  # - source travisci/java_install.sh
+  - source travisci/sdkman_java_8.sh
 install:
   - pip install tox coveralls
 script: tox
