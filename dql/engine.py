@@ -497,8 +497,8 @@ class Engine(object):
         (action, query_kwargs, index) = self._build_query(desc, tree, visitor)
         if action == "scan" and not allow_select_scan:
             raise SyntaxError(
-                "No index found for query. Please use a SCAN query, or "
-                "set allow_select_scan=True\nopt allow_select_scan true"
+                "No index found for query. Please use a 'SCAN' query, or "
+                "set the option allow_select_scan=True.\nRun command 'help opt' for info on options."
             )
         order_by = None
         if tree.order_by:
