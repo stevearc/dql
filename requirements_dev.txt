@@ -1,5 +1,5 @@
 autopep8
-bumpversion
+bump2version
 mock
 nose
 numpydoc
@@ -8,3 +8,5 @@ pylint==1.7.4
 sphinx
 sphinx_rtd_theme
 wheel
+tox
+tox-pyenv
