@@ -5,7 +5,6 @@ import json
 import os
 import shlex
 import subprocess
-import traceback
 from builtins import input
 from collections import OrderedDict
 from fnmatch import fnmatch
