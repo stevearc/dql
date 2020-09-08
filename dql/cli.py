@@ -12,6 +12,7 @@ from fnmatch import fnmatch
 import botocore
 from pyparsing import ParseException
 from rich.panel import Panel
+from rich.syntax import Syntax
 from rich.traceback import install
 
 from .engine import FragmentEngine
@@ -203,28 +204,37 @@ class DQLClient(cmd.Cmd):
         self.throttle = TableLimits()
         self.throttle.load(self.conf["_throttle"])
 
+    def with_exception_handling(self, func_name, *args, **kwargs):
+        """ Will run the given function with the supplied args and kwargs and handle any exceptions. """
+        try:
+            func = getattr(self, func_name)
+            # console.log("Running a function: " + func_name + "() with *args, **kwargs", log_locals=True)
+            func(*args, **kwargs)
+        except KeyboardInterrupt:
+            console.print("KeyboardInterrupt by user")
+        except botocore.exceptions.BotoCoreError as e:
+            console.log("BotoCoreError: ", e)
+        except ParseException as e:
+            console.log("Engine: ParseException")
+            syntax = Syntax(
+                self.engine.pformat_exc(e),
+                "sql",
+                theme="monokai",
+                line_numbers=True,
+                word_wrap=True,
+            )
+            console.print(Panel(syntax, title="Engine Details", expand=False))
+        except SyntaxError as e:
+            console.log(e)
+        except Exception:
+            console.print_exception()
+
     def start(self):
         """ Start running the interactive session (blocking) """
         self.running = True
         while self.running:
             self.update_prompt()
-            try:
-                self.cmdloop()
-            except KeyboardInterrupt:
-                console.print("KeyboardInterrupt by user")
-            except botocore.exceptions.BotoCoreError as e:
-                console.log("BotoCoreError: ", e)
-            except ParseException as e:
-                console.log("Engine: ParseException")
-                console.print(
-                    Panel(
-                        self.engine.pformat_exc(e), title="Engine Details", expand=False
-                    )
-                )
-            except SyntaxError as e:
-                console.log(e)
-            except Exception:
-                console.print_exception()
+            self.with_exception_handling("cmdloop")
             self.engine.reset()
 
     def postcmd(self, stop, line):
@@ -676,21 +686,7 @@ class DQLClient(cmd.Cmd):
         """ Run a command passed in from the command line with -c """
         self.display = DISPLAYS["stdout"]
         self.conf["pagesize"] = 0
-        try:
-            self.onecmd(command)
-        except KeyboardInterrupt:
-            console.print("KeyboardInterrupt by user")
-        except botocore.exceptions.BotoCoreError as e:
-            console.log("BotoCoreError: ", e)
-        except ParseException as e:
-            console.log("Engine: ParseException")
-            console.print(
-                Panel(self.engine.pformat_exc(e), title="Engine Details", expand=False)
-            )
-        except SyntaxError as e:
-            console.log(e)
-        except Exception:
-            console.print_exception()
+        self.with_exception_handling("onecmd", command)
 
     def emptyline(self):
         self.default("")
