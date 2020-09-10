@@ -3,15 +3,19 @@ import cmd
 import functools
 import json
 import os
+import random
 import shlex
 import subprocess
-import traceback
 from builtins import input
 from collections import OrderedDict
+from contextlib import contextmanager
 from fnmatch import fnmatch
 
 import botocore
 from pyparsing import ParseException
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.traceback import install
 
 from .engine import FragmentEngine
 from .help import (
@@ -34,6 +38,7 @@ from .output import (
     ColumnFormat,
     ExpandedFormat,
     SmartFormat,
+    console,
     less_display,
     stdout_display,
 )
@@ -63,6 +68,9 @@ DEFAULT_CONFIG = {
     "allow_select_scan": False,
     "_throttle": {},
 }
+
+# Installing the rich traceback handler for un-handled errors.
+install()
 
 
 def indent(string, prefix="  "):
@@ -134,6 +142,32 @@ def get_enum_key(key, choices):
         return keys[0]
 
 
+@contextmanager
+def exception_handler(engine):
+    """ It is a context manager which can handle exceptions and deal with them. """
+    try:
+        yield
+    except KeyboardInterrupt:
+        spooky_season = [":skull:", ":vampire:", ":zombie:", ":jack-o-lantern:"]
+        console.print(random.choice(spooky_season))
+    except botocore.exceptions.BotoCoreError as e:
+        console.log("BotoCoreError: ", e)
+    except ParseException as e:
+        console.log("Engine: ParseException")
+        syntax = Syntax(
+            engine.pformat_exc(e),
+            "sql",
+            theme="monokai",
+            line_numbers=True,
+            word_wrap=True,
+        )
+        console.print(Panel(syntax, title="Engine Details", expand=False))
+    except SyntaxError as e:
+        console.log(e)
+    except Exception:
+        console.print_exception()
+
+
 class DQLClient(cmd.Cmd):
 
     """
@@ -203,16 +237,8 @@ class DQLClient(cmd.Cmd):
         self.running = True
         while self.running:
             self.update_prompt()
-            try:
+            with exception_handler(self.engine):
                 self.cmdloop()
-            except KeyboardInterrupt:
-                print()
-            except botocore.exceptions.BotoCoreError as e:
-                print(e)
-            except ParseException as e:
-                print(self.engine.pformat_exc(e))
-            except Exception:
-                traceback.print_exc()
             self.engine.reset()
 
     def postcmd(self, stop, line):
@@ -595,6 +621,7 @@ class DQLClient(cmd.Cmd):
         self.save_config()
 
     def default(self, command):
+        """ This is an override of super class method. """
         self._run_cmd(command)
 
     def completedefault(self, text, line, *_):
@@ -663,7 +690,8 @@ class DQLClient(cmd.Cmd):
         """ Run a command passed in from the command line with -c """
         self.display = DISPLAYS["stdout"]
         self.conf["pagesize"] = 0
-        self.onecmd(command)
+        with exception_handler(self.engine):
+            self.onecmd(command)
 
     def emptyline(self):
         self.default("")

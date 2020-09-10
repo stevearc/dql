@@ -11,6 +11,8 @@ REQUIREMENTS = [
     "dynamo3>=0.4.7",
     "pyparsing==2.1.4",
     "python-dateutil",
+    "botocore>=1.17.55",
+    "rich>=6.1.1",
 ]
 
 EXTRAS = {

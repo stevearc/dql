@@ -15,8 +15,11 @@ from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 from dynamo3 import Binary
+from rich.console import Console
 
 from .util import getmaxyx, plural
+
+console = Console()
 
 
 def truncate(string, length, ellipsis="…"):
