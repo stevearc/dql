@@ -20,9 +20,9 @@ try:
 except ImportError:
     try:
         import os
+        import struct
         from fcntl import ioctl
         from termios import TIOCGWINSZ
-        import struct
 
         def getmaxyx():
             """ Get the terminal height and width """

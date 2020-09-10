@@ -3,6 +3,7 @@ import cmd
 import functools
 import json
 import os
+import random
 import shlex
 import subprocess
 from builtins import input
@@ -147,7 +148,8 @@ def exception_handler(engine):
     try:
         yield
     except KeyboardInterrupt:
-        console.print("KeyboardInterrupt by user")
+        spooky_season = [":skull:", ":vampire:", ":zombie:", ":jack-o-lantern:"]
+        console.print(random.choice(spooky_season))
     except botocore.exceptions.BotoCoreError as e:
         console.log("BotoCoreError: ", e)
     except ParseException as e:
