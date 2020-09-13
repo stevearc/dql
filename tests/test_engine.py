@@ -1,4 +1,5 @@
 """ Tests for the query engine """
+import unittest
 from decimal import Decimal
 
 from dynamo3 import Binary
@@ -7,11 +8,6 @@ from pyparsing import ParseException
 from dql.engine import FragmentEngine
 
 from . import BaseSystemTest
-
-try:
-    import unittest2 as unittest  # pylint: disable=F0401
-except ImportError:
-    import unittest
 
 
 class TestDataTypes(BaseSystemTest):

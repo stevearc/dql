@@ -1,14 +1,10 @@
 """ Testing tools for DQL """
+import unittest
+
 from dql import Engine
 
-try:
-    import unittest2 as unittest  # pylint: disable=F0401
-except ImportError:
-    import unittest
-
-
 if not hasattr(unittest.TestCase, "assertItemsEqual"):
-    unittest.TestCase.assertItemsEqual = unittest.TestCase.assertCountEqual
+    unittest.TestCase.assertItemsEqual = unittest.TestCase.assertCountEqual  # type: ignore
 
 
 class BaseSystemTest(unittest.TestCase):
