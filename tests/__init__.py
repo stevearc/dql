@@ -3,9 +3,6 @@ import unittest
 
 from dql import Engine
 
-if not hasattr(unittest.TestCase, "assertItemsEqual"):
-    unittest.TestCase.assertItemsEqual = unittest.TestCase.assertCountEqual  # type: ignore
-
 
 class BaseSystemTest(unittest.TestCase):
 

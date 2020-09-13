@@ -19,7 +19,7 @@ class TestDataTypes(BaseSystemTest):
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id) VALUES ('a')")
         result = list(self.dynamo.scan(table))
-        self.assertItemsEqual(result, [{"id": "a"}])
+        self.assertCountEqual(result, [{"id": "a"}])
 
     def test_int(self):
         """ Can insert integer literals """
