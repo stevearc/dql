@@ -5,7 +5,8 @@ from pyparsing import ParseException, StringEnd
 
 from dql.expressions import ConstraintExpression, SelectionExpression, UpdateExpression
 from dql.grammar import parser, statement_parser, update_expr
-from dql.grammar.query import selection, value, where
+from dql.grammar.common import value
+from dql.grammar.query import selection, where
 
 try:
     from unittest2 import TestCase  # pylint: disable=F0401
