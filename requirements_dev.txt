@@ -1,12 +1,8 @@
-autopep8
+-r requirements_test.txt
 bump2version
-mock
-nose
 numpydoc
-pycodestyle
-pylint==1.7.4
 sphinx
 sphinx_rtd_theme
-wheel
 tox
 tox-pyenv
+wheel

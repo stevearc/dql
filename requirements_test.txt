@@ -1,0 +1,5 @@
+nose
+mock
+black
+pylint==2.3.1
+isort>=4.2.5,<5

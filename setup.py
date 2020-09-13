@@ -15,11 +15,7 @@ REQUIREMENTS = [
     "rich>=6.1.1",
 ]
 
-EXTRAS = {
-    "test": ["nose", "mock"],
-    "lint": ["black", "pylint==2.3.1", "isort>=4.2.5,<5"],
-    "doc": ["numpydoc", "sphinx", "sphinx_rtd_theme"],
-}
+REQUIREMENTS_TEST = open(os.path.join(HERE, "requirements_test.txt")).readlines()
 
 if __name__ == "__main__":
     setup(
@@ -50,6 +46,5 @@ if __name__ == "__main__":
         python_requires=">=3.6",
         entry_points={"console_scripts": ["dql = dql:main"]},
         install_requires=REQUIREMENTS,
-        tests_require=REQUIREMENTS + EXTRAS["test"],
-        extras_require=EXTRAS,
+        tests_require=REQUIREMENTS + REQUIREMENTS_TEST,
     )
