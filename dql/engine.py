@@ -13,6 +13,7 @@ from base64 import b64encode
 from builtins import int
 from decimal import Decimal
 from pprint import pformat
+from typing import Any, BinaryIO, Dict, List, cast
 
 import botocore
 from botocore.exceptions import ClientError
@@ -32,6 +33,7 @@ from dynamo3 import (
     Throughput,
 )
 from dynamo3.constants import RESERVED_WORDS
+from dynamo3.result import Count
 from pyparsing import ParseException
 
 from .expressions import (
@@ -114,6 +116,9 @@ class Engine(object):
 
     """
 
+    _session: Any
+    _connection: DynamoDBConnection
+
     def __init__(self, connection=None):
         self._connection = None
         self.connection = connection
@@ -186,8 +191,8 @@ class Engine(object):
                 if filename[0] in ['"', "'"]:
                     filename = unwrap(filename)
                 ret = "Saved %d record%s to %s" % (result, plural(result), filename)
-            elif isinstance(result, int):
-                if result == result.scanned_count:
+            elif isinstance(result, Count):
+                if result.count == result.scanned_count:
                     ret = "%d" % result
                 else:
                     ret = "%d (scanned count: %d)" % (result, result.scanned_count)
@@ -345,7 +350,7 @@ class Engine(object):
 
     def _parse_throttle(self, tablename, throttle):
         """ Parse a 'throttle' statement and return a RateLimit """
-        amount = []
+        amount: List[float] = []
         desc = self.describe(tablename)
         throughputs = [desc.read_throughput, desc.write_throughput]
         for value, throughput in zip(throttle[1:], throughputs):
@@ -458,7 +463,7 @@ class Engine(object):
         """ Run a SELECT statement """
         tablename = tree.table
         desc = self.describe(tablename, require=True)
-        kwargs = {}
+        kwargs: Dict = {}
         if tree.consistent:
             kwargs["consistent"] = True
 
@@ -546,10 +551,10 @@ class Engine(object):
             if not result:
                 return result
             visitor = Visitor(self.reserved_words)
-            kwargs = {"keys": [desc.primary_key(item) for item in result]}
-            kwargs["attributes"] = selection.build(visitor)
-            kwargs["alias"] = visitor.attribute_names
-            result = self.connection.batch_get(tablename, **kwargs)
+            get_kwargs: Dict = {"keys": [desc.primary_key(item) for item in result]}
+            get_kwargs["attributes"] = selection.build(visitor)
+            get_kwargs["alias"] = visitor.attribute_names
+            result = self.connection.batch_get(tablename, **get_kwargs)
 
         def order(items):
             """ Sort the items by the specified keys """
@@ -587,7 +592,7 @@ class Engine(object):
                             yield gzip_file
                         else:
                             with io.TextIOWrapper(
-                                gzip_file, encoding="utf-8"
+                                cast(BinaryIO, gzip_file), encoding="utf-8"
                             ) as text_file:
                                 yield text_file
                 else:
@@ -826,8 +831,7 @@ class Engine(object):
         """ Run an INSERT statement """
         tablename = tree.table
         count = 0
-        kwargs = {}
-        batch = self.connection.batch_write(tablename, **kwargs)
+        batch = self.connection.batch_write(tablename)
         with batch:
             for item in iter_insert_items(tree):
                 batch.put(item)
@@ -837,9 +841,8 @@ class Engine(object):
     def _drop(self, tree):
         """ Run a DROP statement """
         tablename = tree.table
-        kwargs = {}
         try:
-            ret = self.connection.delete_table(tablename, **kwargs)
+            ret = self.connection.delete_table(tablename)
         except DynamoDBError as e:
             if e.kwargs["Code"] == "ResourceNotFoundException" and tree.exists:
                 return False
@@ -900,8 +903,7 @@ class Engine(object):
                     raise
         elif tree.create_index:
             # GlobalIndex
-            attrs = {}
-            index = self._parse_global_index(tree.create_index, attrs)
+            index = self._parse_global_index(tree.create_index, {})
             updates = [IndexUpdate.create(index)]
             try:
                 self.connection.update_table(tree.table, index_updates=updates)
@@ -953,8 +955,8 @@ class Engine(object):
                         batch.put(row)
                         count += 1
                 elif ext.lower() == ".json":
-                    for row in ifile:
-                        batch.put(json.loads(row))
+                    for line in ifile:
+                        batch.put(json.loads(line))
                         count += 1
                 else:
                     try:

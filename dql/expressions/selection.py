@@ -1,6 +1,7 @@
 """ Selection expressions """
 from collections import OrderedDict
 from datetime import datetime
+from typing import Any, Dict, List
 
 from dateutil.parser import parse
 from dateutil.tz import tzlocal, tzutc
@@ -90,7 +91,7 @@ class SelectionExpression(Expression):
         """ Convert an item into an OrderedDict with the selected fields """
         if not self.expressions:
             return item
-        ret = OrderedDict()
+        ret: Dict[str, Any] = OrderedDict()
         for expr in self.expressions:
             expr.populate(item, ret, sanitize)
         return ret
@@ -98,7 +99,7 @@ class SelectionExpression(Expression):
     @classmethod
     def from_selection(cls, selection):
         """ Factory for creating a Selection expression """
-        expressions = []
+        expressions: List[Expression] = []
         # Have to special case the '*' and 'COUNT(*)' selections
         if selection[0] == "*":
             return cls(expressions)

@@ -2,6 +2,7 @@
 import calendar
 from datetime import datetime
 from decimal import Decimal
+from typing import Dict
 
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
@@ -29,9 +30,9 @@ except ImportError:
             try:
                 return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
             except KeyError:
-                height, width = struct.unpack("hhhh", ioctl(0, TIOCGWINSZ, 8 * "\000"))[
-                    0:2
-                ]
+                height, width = struct.unpack(
+                    "hhhh", ioctl(0, TIOCGWINSZ, 8 * b"\000")
+                )[0:2]
                 if not height or not width:
                     return 25, 80
                 return height, width
@@ -112,7 +113,7 @@ def eval_function(value):
 
 def eval_interval(interval):
     """ Evaluate an interval expression """
-    kwargs = {
+    kwargs: Dict = {
         "years": 0,
         "months": 0,
         "weeks": 0,

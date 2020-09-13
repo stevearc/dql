@@ -10,6 +10,7 @@ from builtins import input
 from collections import OrderedDict
 from contextlib import contextmanager
 from fnmatch import fnmatch
+from typing import Any, Callable, ContextManager, Dict
 
 import botocore
 from pyparsing import ParseException
@@ -37,6 +38,7 @@ from .monitor import Monitor
 from .output import (
     ColumnFormat,
     ExpandedFormat,
+    SmartBuffer,
     SmartFormat,
     console,
     less_display,
@@ -182,14 +184,14 @@ class DQLClient(cmd.Cmd):
     """
 
     running = False
-    conf = None
-    engine = None
+    conf: Dict
+    engine: FragmentEngine
     formatter = None
-    display = None
+    display: Any
     session = None
-    _conf_dir = None
+    _conf_dir: str
     _local_endpoint = None
-    throttle = None
+    throttle: TableLimits
 
     def initialize(
         self, region="us-west-1", host=None, port=8000, config_dir=None, session=None
@@ -289,9 +291,9 @@ class DQLClient(cmd.Cmd):
             return json.load(ifile)
 
     @repl_command
-    def do_opt(self, *args, **kwargs):
+    def do_opt(self, *_args, **kwargs):
         """ Get and set options """
-        args = list(args)
+        args = list(_args)
         if not args:
             largest = 0
             keys = [key for key in self.conf if not key.startswith("_")]
@@ -543,7 +545,7 @@ class DQLClient(cmd.Cmd):
         return [t + " " for t in REGIONS if t.startswith(text)]
 
     @repl_command
-    def do_throttle(self, *args):
+    def do_throttle(self, *_args):
         """
         Set the allowed consumed throughput for DQL.
 
@@ -559,7 +561,7 @@ class DQLClient(cmd.Cmd):
         see also: unthrottle
 
         """
-        args = list(args)
+        args = list(_args)
         if not args:
             print(self.throttle)
             return
@@ -567,7 +569,7 @@ class DQLClient(cmd.Cmd):
             return self.onecmd("help throttle")
         args, read, write = args[:-2], args[-2], args[-1]
         if len(args) == 2:
-            tablename, indexname = args
+            tablename, indexname = args  # pylint: disable=W0632
             self.throttle.set_index_limit(tablename, indexname, read, write)
         elif len(args) == 1:
             tablename = args[0]

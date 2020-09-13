@@ -1,6 +1,8 @@
 """ Testing tools for DQL """
 import unittest
 
+from dynamo3 import DynamoDBConnection
+
 from dql import Engine
 
 
@@ -8,7 +10,7 @@ class BaseSystemTest(unittest.TestCase):
 
     """ Base class for system tests """
 
-    dynamo = None
+    dynamo: DynamoDBConnection = None
 
     def setUp(self):
         super(BaseSystemTest, self).setUp()

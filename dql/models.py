@@ -485,6 +485,8 @@ class TableMeta(object):
     @property
     def primary_key_attributes(self):
         """ Get the names of the primary key attributes as a tuple """
+        if self.hash_key is None:
+            raise ValueError("Missing hash key")
         if self.range_key is None:
             return (self.hash_key.name,)
         else:
@@ -492,6 +494,8 @@ class TableMeta(object):
 
     def primary_key_tuple(self, item):
         """ Get the primary key tuple from an item """
+        if self.hash_key is None:
+            raise ValueError("Missing hash key")
         if self.range_key is None:
             return (item[self.hash_key.name],)
         else:
@@ -505,6 +509,8 @@ class TableMeta(object):
         you may pass in an Item itself
 
         """
+        if self.hash_key is None:
+            raise ValueError("Missing hash key")
         if isinstance(hkey, dict):
 
             def decode(val):
@@ -571,6 +577,8 @@ class TableMeta(object):
     def schema(self):
         """ The DQL query that will construct this table's schema """
         attrs = self.attrs.copy()
+        if self.hash_key is None:
+            raise ValueError("Missing hash key")
         parts = ["CREATE", "TABLE", self.name, "(%s," % self.hash_key.schema]
         del attrs[self.hash_key.name]
         if self.range_key:

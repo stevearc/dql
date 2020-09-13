@@ -1,5 +1,6 @@
 """ Tests for the language parser """
-from __future__ import print_function
+from typing import Any, Dict, List, Tuple, Union
+from unittest import TestCase
 
 from pyparsing import ParseException, StringEnd
 
@@ -8,13 +9,7 @@ from dql.grammar import parser, statement_parser, update_expr
 from dql.grammar.common import value
 from dql.grammar.query import selection, where
 
-try:
-    from unittest2 import TestCase  # pylint: disable=F0401
-except ImportError:
-    from unittest import TestCase
-
-
-TEST_CASES = {
+TEST_CASES: Dict[str, List[Tuple[str, Union[str, List[Any]]]]] = {
     "create": [
         (
             "CREATE TABLE foobars (foo string hash key)",

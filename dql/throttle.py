@@ -1,4 +1,6 @@
 """ Wrapper around the dynamo3 RateLimit class """
+from typing import Dict
+
 from dynamo3 import RateLimit
 
 
@@ -46,7 +48,7 @@ class TableLimits(object):
                             limit["write"], index.write_throughput
                         ),
                     }
-        kwargs = {"table_caps": table_caps}
+        kwargs: Dict = {"table_caps": table_caps}
         if self.total:
             kwargs["total_read"] = float(self.total["read"])
             kwargs["total_write"] = float(self.total["write"])

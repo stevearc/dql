@@ -1,8 +1,14 @@
 """ Utilities for monitoring the consumed capacity of tables """
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING, List
 
 from .util import getmaxyx
+
+if TYPE_CHECKING:
+    from _curses import _CursesWindow  # pylint:disable=E0611
+
+    Window = _CursesWindow
 
 try:
     import curses
@@ -15,9 +21,11 @@ except ImportError:
 class Monitor(object):
     """ Tool for monitoring the consumed capacity of many tables """
 
+    win: "Window"
+
     def __init__(self, engine, tables):
         self.engine = engine
-        self.win = None
+        self.win = None  # type: ignore
         self._tables = tables
         self._refresh_rate = 30
         self._max_width = 80
@@ -114,8 +122,8 @@ class Monitor(object):
             curses.resizeterm(height, width)
         y = 1  # Starts at 1 because of date string
         x = 0
-        columns = []
-        column = []
+        columns: List = []
+        column: List = []
         for table in self._tables:
             desc = self.engine.describe(table, fetch_data, True)
             line_count = 1 + 2 * len(desc.consumed_capacity)

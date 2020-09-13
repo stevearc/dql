@@ -12,6 +12,7 @@ from builtins import input, range, str
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Dict
 
 from dateutil.relativedelta import relativedelta
 from dynamo3 import Binary
@@ -207,7 +208,7 @@ class ColumnFormat(BaseFormat):
 
     def __init__(self, *args, **kwargs):
         super(ColumnFormat, self).__init__(*args, **kwargs)
-        col_width = OrderedDict()
+        col_width: Dict[str, int] = OrderedDict()
         for result in self._results:
             for key, value in result.items():
                 col_width.setdefault(key, len(key))
@@ -264,6 +265,8 @@ class ColumnFormat(BaseFormat):
 class SmartFormat(object):
 
     """ A layout that chooses column/expanded format intelligently """
+
+    _sub_formatter: BaseFormat
 
     def __init__(self, results, ostream, *args, **kwargs):
         results = make_list(results)

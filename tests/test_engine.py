@@ -97,6 +97,8 @@ class TestFragmentEngine(BaseSystemTest):
 
     """ Tests for the FragmentEngine """
 
+    engine: FragmentEngine
+
     def setUp(self):
         super(TestFragmentEngine, self).setUp()
         self.engine = FragmentEngine(self.dynamo)

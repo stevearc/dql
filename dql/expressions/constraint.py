@@ -1,4 +1,6 @@
 """ Constraint expressions for selecting """
+from typing import Set
+
 from dql.util import resolve
 
 from .base import Expression, Field, Value
@@ -158,7 +160,7 @@ class Conjunction(ConstraintExpression):
 
     def _get_fields(self, attr):
         """ Get the hash/range fields of all joined constraints """
-        ret = set()
+        ret: Set[str] = set()
         if "OR" in self.pieces:
             return ret
         for i in range(0, len(self.pieces), 2):

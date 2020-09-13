@@ -5,6 +5,7 @@ import unittest
 from io import StringIO
 from urllib.parse import urlparse
 
+from dynamo3 import DynamoDBConnection
 from mock import patch
 
 from dql.cli import DQLClient, repl_command
@@ -14,7 +15,7 @@ class TestCli(unittest.TestCase):
 
     """ Tests for the CLI """
 
-    dynamo = None
+    dynamo: DynamoDBConnection = None
 
     def setUp(self):
         super(TestCli, self).setUp()
