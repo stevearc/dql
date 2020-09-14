@@ -8,7 +8,7 @@ README = open(os.path.join(HERE, "README.rst")).read()
 CHANGES = open(os.path.join(HERE, "CHANGES.rst")).read()
 
 REQUIREMENTS = [
-    "dynamo3>=0.4.7",
+    "dynamo3>=1.0.0.dev1",
     "pyparsing==2.1.4",
     "python-dateutil",
     "botocore>=1.17.55",
@@ -30,7 +30,6 @@ if __name__ == "__main__":
             "Operating System :: OS Independent",
             "Programming Language :: Python",
             "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.5",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",

@@ -13,12 +13,11 @@ from base64 import b64encode
 from builtins import int
 from decimal import Decimal
 from pprint import pformat
-from typing import Any, BinaryIO, Dict, List, cast
+from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union, cast, overload
 
 import botocore
 from botocore.exceptions import ClientError
 from dynamo3 import (
-    TYPES,
     Binary,
     Capacity,
     CheckFailed,
@@ -32,10 +31,13 @@ from dynamo3 import (
     RateLimit,
     Throughput,
 )
-from dynamo3.constants import RESERVED_WORDS
+from dynamo3.constants import PAY_PER_REQUEST, PROVISIONED, RESERVED_WORDS
 from dynamo3.result import Count
+from dynamo3.types import TYPES
 from pyparsing import ParseException
+from typing_extensions import Literal
 
+from .exceptions import EngineRuntimeError, ExplainSignal
 from .expressions import (
     ConstraintExpression,
     SelectionExpression,
@@ -43,7 +45,7 @@ from .expressions import (
     Visitor,
 )
 from .grammar import line_parser, parser
-from .models import TableMeta
+from .models import GlobalIndexMeta, TableMeta
 from .util import plural, resolve, unwrap
 
 LOG = logging.getLogger(__name__)
@@ -62,10 +64,6 @@ def default(value):
     elif isinstance(value, Binary):
         return b64encode(value.value)
     raise TypeError("Cannot encode %s value %r" % (type(value), value))
-
-
-class ExplainSignal(Exception):
-    """ Thrown to stop a query when we're doing an EXPLAIN """
 
 
 def add_query_kwargs(kwargs, visitor, constraints, index):
@@ -149,12 +147,12 @@ class Engine(object):
         return self._connection.region
 
     @property
-    def connection(self):
+    def connection(self) -> DynamoDBConnection:
         """ Get the dynamo connection """
         return self._connection
 
     @connection.setter
-    def connection(self, connection):
+    def connection(self, connection: DynamoDBConnection) -> None:
         """ Change the dynamo connection """
         if connection is not None:
             connection.subscribe("capacity", self._on_capacity_data)
@@ -251,7 +249,9 @@ class Engine(object):
             points.sort(key=lambda r: r["Timestamp"])
             return float(points[-1]["Sum"]) / period
 
-    def get_capacity(self, tablename, index_name=None):
+    def get_capacity(
+        self, tablename: str, index_name: Optional[str] = None
+    ) -> Tuple[float, float]:
         """ Get the consumed read/write capacity """
         # If we're connected to a DynamoDB Local instance, don't connect to the
         # actual cloudwatch endpoint
@@ -266,14 +266,40 @@ class Engine(object):
         except ClientError:
             return 0, 0
 
-    def describe(self, tablename, refresh=False, metrics=False, require=False):
+    @overload
+    def describe(
+        self,
+        tablename: str,
+        refresh: bool = ...,
+        metrics: bool = ...,
+        require: Literal[True] = ...,
+    ) -> TableMeta:
+        ...
+
+    @overload
+    def describe(
+        self,
+        tablename: str,
+        refresh: bool = ...,
+        metrics: bool = ...,
+        require: bool = ...,
+    ) -> Optional[TableMeta]:
+        ...
+
+    def describe(
+        self,
+        tablename: str,
+        refresh: bool = False,
+        metrics: bool = False,
+        require: bool = False,
+    ) -> Optional[TableMeta]:
         """ Get the :class:`.TableMeta` for a table """
         table = self.cached_descriptions.get(tablename)
         if refresh or table is None or (metrics and not table.consumed_capacity):
             desc = self.connection.describe_table(tablename)
             if desc is None:
                 if require:
-                    raise RuntimeError("Table %r not found" % tablename)
+                    raise EngineRuntimeError("Table %r not found" % tablename)
                 else:
                     return None
             table = TableMeta.from_description(desc)
@@ -348,11 +374,14 @@ class Engine(object):
         else:
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
-    def _parse_throttle(self, tablename, throttle):
+    def _parse_throttle(self, tablename: str, throttle: Any) -> RateLimit:
         """ Parse a 'throttle' statement and return a RateLimit """
         amount: List[float] = []
         desc = self.describe(tablename)
-        throughputs = [desc.read_throughput, desc.write_throughput]
+        if desc.throughput is None:
+            throughputs = (0, 0)
+        else:
+            throughputs = (desc.throughput.read, desc.throughput.write)
         for value, throughput in zip(throttle[1:], throughputs):
             if value == "*":
                 amount.append(0)
@@ -539,7 +568,7 @@ class Engine(object):
         kwargs["expr_values"] = visitor.expression_values
         kwargs["alias"] = visitor.attribute_names
 
-        method = getattr(self.connection, action + "2")
+        method = getattr(self.connection, action)
         result = method(tablename, **kwargs)
 
         # If the queried index didn't project the selected attributes, we need
@@ -662,7 +691,7 @@ class Engine(object):
                 and not self.caution_callback(method_name)  # pylint: disable=E1102
             ):
                 return False
-            method = getattr(self.connection, action + "2")
+            method = getattr(self.connection, action)
             keys = method(table.name, **kwargs)
             if self._explaining:
                 try:
@@ -670,7 +699,7 @@ class Engine(object):
                 except ExplainSignal:
                     keys = [{}]
 
-        method = getattr(self.connection, method_name + "2")
+        method = getattr(self.connection, method_name)
         count = 0
         for key in keys:
             try:
@@ -852,7 +881,7 @@ class Engine(object):
     def _update_throughput(self, tablename, read, write, index):
         """ Update the throughput on a table or index """
 
-        def get_desc():
+        def get_desc() -> Union[TableMeta, GlobalIndexMeta]:
             """ Get the table or global index description """
             desc = self.describe(tablename, refresh=True, require=True)
             if index is not None:
@@ -862,23 +891,29 @@ class Engine(object):
         desc = get_desc()
 
         def num_or_star(value):
-            """ Convert * to 0, otherwise resolve a number """
-            return 0 if value == "*" else resolve(value)
+            """ Convert * to -1, otherwise resolve a number """
+            return -1 if value == "*" else resolve(value)
 
         read = num_or_star(read)
         write = num_or_star(write)
-        if read <= 0:
-            read = desc.read_throughput
-        if write <= 0:
-            write = desc.write_throughput
+        if read < 0:
+            read = 0 if desc.throughput is None else desc.throughput.read
+        if write < 0:
+            write = 0 if desc.throughput is None else desc.throughput.write
 
         throughput = Throughput(read, write)
+
         kwargs = {}
         if index:
-            kwargs["global_indexes"] = {index: throughput}
+            self.connection.update_table(
+                tablename, index_updates=[IndexUpdate.update(index, throughput)]
+            )
+        elif throughput.read or throughput.write:
+            self.connection.update_table(
+                tablename, billing_mode=PROVISIONED, throughput=throughput
+            )
         else:
-            kwargs["throughput"] = throughput
-        self.connection.update_table(tablename, **kwargs)
+            self.connection.update_table(tablename, billing_mode=PAY_PER_REQUEST)
         desc = get_desc()
         while desc.status == "UPDATING":  # pragma: no cover
             time.sleep(5)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Tests for model classes """
 from dql.models import format_throughput
 
@@ -35,10 +36,5 @@ class TestModels(BaseSystemTest):
 
     def test_format_throughput_for_when_available_is_zero(self):
         """ Returns N/A as the available throughput is 0 """
-        self.assertEqual(format_throughput(0, 7), "N/A")
+        self.assertEqual(format_throughput(0, 7), "7/∞")
         self.assertEqual(format_throughput(0), "N/A")
-
-    def test_format_throughput_for_when_available_is_NaN(self):
-        """ Returns N/A as the available throughput is NaN """
-        self.assertEqual(format_throughput("asd", 7), "N/A")
-        self.assertEqual(format_throughput("asd"), "N/A")

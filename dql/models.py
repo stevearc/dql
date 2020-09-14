@@ -1,17 +1,25 @@
+# -*- coding: utf-8 -*-
 """ Data containers """
 from decimal import Decimal
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
-from dynamo3 import TYPES_REV
-from dynamo3.fields import snake_to_camel
+from dynamo3 import DynamoKey, GlobalIndex, Table, Throughput
+from dynamo3.constants import TableStatusType
+from dynamo3.fields import BaseIndex
+from dynamo3.types import TYPES_REV
+
+from .exceptions import EngineRuntimeError
 
 
-def format_throughput(available, used=None):
+def format_throughput(available: float, used: Optional[float] = None) -> str:
     """ Format the read/write throughput for display """
-    if available == 0 or not isinstance(available, (int, float)):
+    if available == 0:
+        if used is not None:
+            return "{0:.0f}/∞".format(used)
         return "N/A"
     if used is None:
         return str(available)
-    percent = float(used) / available
+    percent = used / available
     return "{0:.0f}/{1:.0f} ({2:.0%})".format(used, available, percent)
 
 
@@ -26,14 +34,21 @@ class QueryIndex(object):
 
     """
 
-    def __init__(self, name, is_global, hash_key, range_key, attributes=None):
+    def __init__(
+        self,
+        name: str,
+        is_global: bool,
+        hash_key: DynamoKey,
+        range_key: Optional[DynamoKey],
+        attributes: Optional[Set[str]] = None,
+    ):
         self.name = name
         self.is_global = is_global
         self.hash_key = hash_key
         self.range_key = range_key
         self.attributes = attributes
 
-    def projects_all_attributes(self, attrs):
+    def projects_all_attributes(self, attrs: Iterable[str]) -> bool:
         """ Return True if the index projects all the attributes """
         if self.attributes is None:
             return True
@@ -47,12 +62,12 @@ class QueryIndex(object):
         return True
 
     @property
-    def scannable(self):
+    def scannable(self) -> bool:
         """ Only global indexes can be scanned """
         return self.is_global
 
     @classmethod
-    def from_table_index(cls, table, index):
+    def from_table_index(cls, table: Table, index: BaseIndex) -> "QueryIndex":
         """ Factory method """
         attributes = None
         if index.range_key is None:
@@ -99,9 +114,6 @@ class TableField(object):
         The type of object (e.g. 'STRING', 'NUMBER', etc)
     key_type : str, optional
         The type of key (e.g. 'RANGE', 'HASH', 'INDEX')
-    index_name : str, optional
-        If the key_type is 'INDEX', this will be the name of the index that
-        uses the field as a range key.
 
     """
 
@@ -163,7 +175,7 @@ class IndexField(TableField):
         self.includes = includes
 
     @property
-    def schema(self):
+    def schema(self) -> str:
         """ The DQL syntax for creating this item """
         schema = "%s %s %s %s('%s'" % (
             self.name,
@@ -199,83 +211,71 @@ class IndexField(TableField):
         )
 
 
-class GlobalIndex(object):
+class GlobalIndexMeta(object):
 
     """ Container for global index data """
 
-    def __init__(
-        self,
-        name,
-        index_type,
-        status,
-        hash_key,
-        range_key,
-        read_throughput,
-        write_throughput,
-        size,
-        includes=None,
-        description=None,
-    ):
-        self.name = name
-        if index_type == "KEYS_ONLY":
-            self.index_type = "KEYS"
-        else:
-            self.index_type = index_type
-        self.status = status
-        self.size = size
-        self.hash_key = hash_key
-        self.range_key = range_key
-        self.read_throughput = read_throughput
-        self.write_throughput = write_throughput
-        self.includes = includes
-        self.description = description or {}
+    def __init__(self, index: GlobalIndex):
+        self._index = index
+        self.hash_key = None
+        self.range_key = None
+        hash_key = self._index.hash_key
+        if hash_key is not None:
+            self.hash_key = TableField(
+                hash_key.name, TYPES_REV[hash_key.data_type], "HASH"
+            )
+        range_key = self._index.range_key
+        if range_key is not None:
+            self.range_key = TableField(
+                range_key.name, TYPES_REV[range_key.data_type], "RANGE"
+            )
 
-    @classmethod
-    def from_description(cls, description, attrs):
-        """ Create an object from a dynamo3 response """
-        hash_key = None
-        range_key = None
-        index_type = description["Projection"]["ProjectionType"]
-        includes = description["Projection"].get("NonKeyAttributes")
-        for data in description["KeySchema"]:
-            name = data["AttributeName"]
-            if name not in attrs:
-                continue
-            key_type = data["KeyType"]
-            if key_type == "HASH":
-                hash_key = TableField(name, attrs[name].data_type, key_type)
-            elif key_type == "RANGE":
-                range_key = TableField(name, attrs[name].data_type, key_type)
-        throughput = description["ProvisionedThroughput"]
-        return cls(
-            description["IndexName"],
-            index_type,
-            description["IndexStatus"],
-            hash_key,
-            range_key,
-            throughput["ReadCapacityUnits"],
-            throughput["WriteCapacityUnits"],
-            description.get("IndexSizeBytes", 0),
-            includes,
-            description,
-        )
+    @property
+    def name(self) -> str:
+        """ Getter for name """
+        return self._index.name
 
-    def __getattr__(self, name):
-        camel_name = snake_to_camel(name)
-        if camel_name in self.description:
-            return self.description[camel_name]
-        return super(GlobalIndex, self).__getattribute__(name)
+    @property
+    def index_type(self):
+        """ Getter for index_type """
+        if self._index.projection_type == "KEYS_ONLY":
+            return "KEYS"
+        return self._index.projection_type
+
+    @property
+    def status(self):
+        """ Getter for status """
+        return self._index.status
+
+    @property
+    def includes(self) -> Optional[List[str]]:
+        """ Getter for includes """
+        return self._index.include_fields
+
+    @property
+    def throughput(self) -> Optional[Throughput]:
+        """ Getter for throughput """
+        return self._index.throughput
+
+    @property
+    def item_count(self):
+        """ Getter for item_count """
+        return self._index.item_count
+
+    @property
+    def size(self):
+        """ Getter for size """
+        return self._index.size
 
     def __repr__(self):
-        return "GlobalIndex('%s', '%s', '%s', %s, %s, %s, %s, %s)" % (
+        return "GlobalIndex('%s', '%s', '%s', %s, %s, %s, %s)" % (
             self.name,
             self.index_type,
             self.status,
             self.hash_key,
             self.range_key,
-            self.read_throughput,
-            self.write_throughput,
             self.includes,
+            self.throughput,
         )
 
     def pformat(self, consumed_capacity=None):
@@ -287,14 +287,17 @@ class GlobalIndex(object):
             parts.insert(0, "[%s]" % self.status)
         lines.append(" ".join(parts))
         lines.append("  items: {0:,} ({1:,} bytes)".format(self.item_count, self.size))
+        read_throughput = 0 if self.throughput is None else self.throughput.read
+        write_throughput = 0 if self.throughput is None else self.throughput.write
         read = "Read: " + format_throughput(
-            self.read_throughput, consumed_capacity.get("read")
+            read_throughput, consumed_capacity.get("read")
         )
         write = "Write: " + format_throughput(
-            self.write_throughput, consumed_capacity.get("write")
+            write_throughput, consumed_capacity.get("write")
         )
         lines.append("  " + read + "  " + write)
-        lines.append("  " + self.hash_key.schema)
+        if self.hash_key is not None:
+            lines.append("  " + self.hash_key.schema)
         if self.range_key is not None:
             lines.append("  " + self.range_key.schema)
 
@@ -304,9 +307,9 @@ class GlobalIndex(object):
         return "\n".join(lines)
 
     @property
-    def schema(self):
+    def schema(self) -> str:
         """ The DQL fragment for constructing this index """
-        if self.status == "DELETING":
+        if self.status == "DELETING" or self.hash_key is None:
             return ""
         parts = ["GLOBAL", self.index_type, "INDEX"]
         parts.append("('%s', %s," % (self.name, self.hash_key.name))
@@ -315,25 +318,18 @@ class GlobalIndex(object):
         if self.includes:
             parts.append("[%s]," % ", ".join(("'%s'" % i for i in self.includes)))
 
-        parts.append(
-            "THROUGHPUT (%d, %d))" % (self.read_throughput, self.write_throughput)
-        )
-        return " ".join(parts)
+        if self.throughput is not None:
+            parts.append(
+                "THROUGHPUT (%d, %d)" % (self.throughput.read, self.throughput.write)
+            )
+        return " ".join(parts) + ")"
 
     def __hash__(self):
         return hash(self.name)
 
     def __eq__(self, other):
         """ Check if schemas are equivalent """
-        return (
-            self.name == other.name
-            and self.index_type == other.index_type
-            and self.hash_key == other.hash_key
-            and self.range_key == other.range_key
-            and self.read_throughput == other.read_throughput
-            and self.write_throughput == other.write_throughput
-            and self.includes == other.includes
-        )
+        return isinstance(other, GlobalIndexMeta) and self._index == other._index
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -346,40 +342,24 @@ class TableMeta(object):
 
     Parameters
     ----------
-    name : str
-    status : str
+    table : :class:`~dynamo3.Table`
     attrs : dict
         Mapping of attribute name to :class:`.TableField`
     global_indexes : dict
-        Mapping of hash key to :class:`.GlobalIndex`
-    read_throughput : int
-    write_throughput : int
-    decreases_today : int
-    size : int
-        Size of the table in bytes
-    item_count : int
-        Number of items in the table
+        Mapping of hash key to :class:`.GlobalIndexMeta`
 
     """
 
     def __init__(
         self,
-        table,
-        attrs,
-        global_indexes,
-        read_throughput,
-        write_throughput,
-        decreases_today,
-        size,
+        table: Table,
+        attrs: Dict[str, TableField],
+        global_indexes: Dict[str, GlobalIndexMeta],
     ):
         self._table = table
         self.attrs = attrs
-        self.size = size
         self.global_indexes = global_indexes
-        self.read_throughput = read_throughput
-        self.write_throughput = write_throughput
-        self.decreases_today = decreases_today
-        self.consumed_capacity = {}
+        self.consumed_capacity: Dict[str, Any] = {}
         self.hash_key = None
         self.range_key = None
         for field in attrs.values():
@@ -388,7 +368,42 @@ class TableMeta(object):
             elif field.key_type == "RANGE":
                 self.range_key = field
 
-    def iter_query_indexes(self):
+    @property
+    def name(self) -> str:
+        """ Getter for name """
+        return self._table.name
+
+    @property
+    def is_on_demand(self) -> bool:
+        """ Getter for is_on_demand """
+        return self._table.is_on_demand
+
+    @property
+    def throughput(self) -> Optional[Throughput]:
+        """ Getter for throughput """
+        return self._table.throughput
+
+    @property
+    def status(self) -> TableStatusType:
+        """ Getter for status """
+        return self._table.status
+
+    @property
+    def decreases_today(self):
+        """ Getter for decreases_today """
+        return self._table.decreases_today
+
+    @property
+    def item_count(self) -> int:
+        """ Getter for item_count """
+        return self._table.item_count
+
+    @property
+    def size(self) -> int:
+        """ Getter for size """
+        return self._table.size
+
+    def iter_query_indexes(self) -> Iterator[QueryIndex]:
         """
         Iterator that constructs :class:`~dql.models.QueryIndex` for all global
         and local indexes, and a special one for the default table hash & range
@@ -405,7 +420,9 @@ class TableMeta(object):
         for index in self._table.global_indexes:
             yield QueryIndex.from_table_index(self._table, index)
 
-    def get_matching_indexes(self, possible_hash, possible_range):
+    def get_matching_indexes(
+        self, possible_hash: Set[str], possible_range: Set[str]
+    ) -> List[QueryIndex]:
         """
         Get all indexes that could be queried on using a set of keys.
 
@@ -432,14 +449,14 @@ class TableMeta(object):
             return range_matches
         return matches
 
-    def get_index(self, index_name):
+    def get_index(self, index_name: str) -> QueryIndex:
         """ Get a specific index by name """
         try:
             return self.get_indexes()[index_name]
         except KeyError:
-            raise SyntaxError("Unknown index %r" % index_name)
+            raise EngineRuntimeError("Unknown index %r" % index_name)
 
-    def get_indexes(self):
+    def get_indexes(self) -> Dict[str, QueryIndex]:
         """ Get a dict of index names to index """
         ret = {}
         for index in self.iter_query_indexes():
@@ -447,17 +464,16 @@ class TableMeta(object):
         return ret
 
     @classmethod
-    def from_description(cls, table):
+    def from_description(cls, table: Table) -> "TableMeta":
         """ Factory method that uses the dynamo3 'describe' return value """
-        throughput = table.provisioned_throughput
         attrs = {}
-        for data in getattr(table, "attribute_definitions", []):
-            field = TableField(data["AttributeName"], TYPES_REV[data["AttributeType"]])
+        for attr in table.attribute_definitions:
+            field = TableField(attr.name, TYPES_REV[attr.data_type])
             attrs[field.name] = field
-        for data in getattr(table, "key_schema", []):
+        for data in table.get("KeySchema", []):
             name = data["AttributeName"]
             attrs[name].key_type = data["KeyType"]
-        for index in getattr(table, "local_secondary_indexes", []):
+        for index in table.get("LocalSecondaryIndexes", []):
             for data in index["KeySchema"]:
                 if data["KeyType"] == "RANGE":
                     name = data["AttributeName"]
@@ -468,21 +484,9 @@ class TableMeta(object):
                     )
                     break
         global_indexes = {}
-        for index in getattr(table, "global_secondary_indexes", []):
-            idx = GlobalIndex.from_description(index, attrs)
-            global_indexes[idx.name] = idx
-        return cls(
-            table,
-            attrs,
-            global_indexes,
-            throughput["ReadCapacityUnits"],
-            throughput["WriteCapacityUnits"],
-            throughput["NumberOfDecreasesToday"],
-            table.table_size_bytes,
-        )
-
-    def __getattr__(self, name):
-        return getattr(self._table, name)
+        for index in table.global_indexes:
+            global_indexes[index.name] = GlobalIndexMeta(index)
+        return cls(table, attrs, global_indexes)
 
     @property
     def primary_key_attributes(self):
@@ -494,7 +498,7 @@ class TableMeta(object):
         else:
             return (self.hash_key.name, self.range_key.name)
 
-    def primary_key_tuple(self, item):
+    def primary_key_tuple(self, item: Dict) -> Union[Tuple[str], Tuple[str, str]]:
         """ Get the primary key tuple from an item """
         if self.hash_key is None:
             raise ValueError("Missing hash key")
@@ -534,23 +538,26 @@ class TableMeta(object):
             return pkey
 
     @property
-    def total_read_throughput(self):
+    def total_read_throughput(self) -> Optional[float]:
         """ Combined read throughput of table and global indexes """
-        total = self.read_throughput
+        if self.throughput is None:
+            return None
+        total = self.throughput.read
         for index in self.global_indexes.values():
-            total += index.read_throughput
+            if index.throughput is not None:
+                total += index.throughput.read
         return total
 
     @property
-    def total_write_throughput(self):
+    def total_write_throughput(self) -> Optional[float]:
         """ Combined write throughput of table and global indexes """
-        total = self.write_throughput
+        if self.throughput is None:
+            return None
+        total = self.throughput.write
         for index in self.global_indexes.values():
-            total += index.write_throughput
+            if index.throughput is not None:
+                total += index.throughput.write
         return total
-
-    def __len__(self):
-        return self.item_count
 
     def __repr__(self):
         return "TableMeta(%s)" % self.name
@@ -564,19 +571,18 @@ class TableMeta(object):
     def __eq__(self, other):
         """ Check if schemas are equivalent """
         return (
-            self.name == other.name
+            isinstance(other, TableMeta)
+            and self._table == other._table
             and self.attrs == other.attrs
-            and self.range_key == other.range_key
             and self.global_indexes == other.global_indexes
-            and self.read_throughput == other.read_throughput
-            and self.write_throughput == other.write_throughput
+            and self.throughput == other.throughput
         )
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     @property
-    def schema(self):
+    def schema(self) -> str:
         """ The DQL query that will construct this table's schema """
         attrs = self.attrs.copy()
         if self.hash_key is None:
@@ -590,20 +596,23 @@ class TableMeta(object):
             attr_def = ", ".join([attr.schema for attr in attrs.values()])
             parts.append(attr_def + ",")
 
-        parts.append(
-            "THROUGHPUT (%d, %d))" % (self.read_throughput, self.write_throughput)
-        )
-        parts.extend([g.schema for g in self.global_indexes.values()])
-        return " ".join(parts) + ";"
+        if self.throughput is not None:
+            parts.append(
+                "THROUGHPUT (%d, %d)" % (self.throughput.read, self.throughput.write)
+            )
+        prefix = " ".join(parts) + ")"
+        return prefix + " ".join([g.schema for g in self.global_indexes.values()]) + ";"
 
-    def pformat(self):
+    def pformat(self) -> str:
         """ Pretty string format """
         lines = []
         lines.append(("%s (%s)" % (self.name, self.status)).center(50, "-"))
         lines.append("items: {0:,} ({1:,} bytes)".format(self.item_count, self.size))
         cap = self.consumed_capacity.get("__table__", {})
-        read = "Read: " + format_throughput(self.read_throughput, cap.get("read"))
-        write = "Write: " + format_throughput(self.write_throughput, cap.get("write"))
+        read_throughput = 0 if self.throughput is None else self.throughput.read
+        write_throughput = 0 if self.throughput is None else self.throughput.write
+        read = "Read: " + format_throughput(read_throughput, cap.get("read"))
+        write = "Write: " + format_throughput(write_throughput, cap.get("write"))
         lines.append(read + "  " + write)
         if self.decreases_today > 0:
             lines.append("decreases today: %d" % self.decreases_today)
@@ -620,5 +629,4 @@ class TableMeta(object):
         for index_name, gindex in self.global_indexes.items():
             cap = self.consumed_capacity.get(index_name)
             lines.append(gindex.pformat(cap))
-
         return "\n".join(lines)

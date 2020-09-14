@@ -19,6 +19,7 @@ from rich.syntax import Syntax
 from rich.traceback import install
 
 from .engine import FragmentEngine
+from .exceptions import EngineRuntimeError
 from .help import (
     ALTER,
     ANALYZE,
@@ -164,6 +165,8 @@ def exception_handler(engine):
             word_wrap=True,
         )
         console.print(Panel(syntax, title="Engine Details", expand=False))
+    except EngineRuntimeError as e:
+        console.log(e)
     except SyntaxError as e:
         console.log(e)
     except Exception:

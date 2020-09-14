@@ -2,9 +2,10 @@
 import time
 from datetime import datetime, timedelta
 
-from dynamo3 import Binary
+from dynamo3 import Binary, DynamoKey, GlobalIndex, Throughput
+from dynamo3.constants import NUMBER, STRING
 
-from dql.models import GlobalIndex, IndexField, TableField
+from dql.models import GlobalIndexMeta, IndexField, TableField
 
 from . import BaseSystemTest
 
@@ -45,8 +46,8 @@ class TestQueries(BaseSystemTest):
             "bag NUMBER INCLUDE INDEX('bag-index', ['foo']), "
             "THROUGHPUT (2, 6)) "
             "GLOBAL INDEX ('myindex', bar, baz, TP (1, 2)) "
-            "GLOBAL KEYS INDEX ('idx2', id) "
-            "GLOBAL INCLUDE INDEX ('idx3', baz, ['foo', 'foobar'])"
+            "GLOBAL KEYS INDEX ('idx2', id, THROUGHPUT (2, 3)) "
+            "GLOBAL INCLUDE INDEX ('idx3', baz, ['foo', 'foobar'], THROUGHPUT (5, 8))"
         )
         original = self.engine.describe("test")
         schema = self.query("DUMP SCHEMA")
@@ -90,24 +91,29 @@ class TestAlter(BaseSystemTest):
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         desc = self.engine.describe("foobar", refresh=True)
-        self.assertEqual(desc.read_throughput, 2)
-        self.assertEqual(desc.write_throughput, 2)
-
-    def test_alter_throughput_partial(self):
-        """ Can alter just read or just write throughput of a table """
-        self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
-        self.query("ALTER TABLE foobar SET THROUGHPUT (2, 0)")
-        desc = self.engine.describe("foobar", refresh=True)
-        self.assertEqual(desc.read_throughput, 2)
-        self.assertEqual(desc.write_throughput, 1)
+        self.assertEqual(desc.throughput, Throughput(2, 2))
 
     def test_alter_throughput_partial_star(self):
         """ Can alter just read or just write throughput by passing in '*' """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, *)")
         desc = self.engine.describe("foobar", refresh=True)
-        self.assertEqual(desc.read_throughput, 2)
-        self.assertEqual(desc.write_throughput, 1)
+        self.assertEqual(desc.throughput, Throughput(2, 1))
+
+    def test_alter_billing_mode(self):
+        """ Can change a provisioned table to on-demand """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
+        self.query("ALTER TABLE foobar SET THROUGHPUT (0, 0)")
+        desc = self.engine.describe("foobar", refresh=True, require=True)
+        self.assertTrue(desc.is_on_demand)
+
+    def test_alter_billing_mode_provisioned(self):
+        """ Can change an on-demand table to provisioned """
+        self.query("CREATE TABLE foobar (id STRING HASH KEY)")
+        self.query("ALTER TABLE foobar SET THROUGHPUT (2, 3)")
+        desc = self.engine.describe("foobar", refresh=True, require=True)
+        self.assertFalse(desc.is_on_demand)
+        self.assertEqual(desc.throughput, Throughput(2, 3))
 
     def test_alter_index_throughput(self):
         """ Can alter throughput of a global index """
@@ -118,8 +124,7 @@ class TestAlter(BaseSystemTest):
         self.query("ALTER TABLE foobar SET INDEX foo_index THROUGHPUT (2, 2)")
         desc = self.engine.describe("foobar", refresh=True)
         index = desc.global_indexes["foo_index"]
-        self.assertEqual(index.read_throughput, 2)
-        self.assertEqual(index.write_throughput, 2)
+        self.assertEqual(index.throughput, Throughput(2, 2))
 
     def test_alter_drop(self):
         """ ALTER can drop an index """
@@ -137,7 +142,9 @@ class TestAlter(BaseSystemTest):
 
     def test_alter_create(self):
         """ ALTER can create an index """
-        self.make_table()
+        self.query(
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1))"
+        )
         self.query(
             "ALTER TABLE foobar CREATE GLOBAL INDEX ('foo_index', "
             "baz string, TP (2, 3))"
@@ -145,10 +152,10 @@ class TestAlter(BaseSystemTest):
         desc = self.engine.describe("foobar", refresh=True)
         self.assertTrue("foo_index" in desc.global_indexes)
         index = desc.global_indexes["foo_index"]
+        assert index.hash_key is not None
         self.assertEqual(index.hash_key.name, "baz")
         self.assertIsNone(index.range_key)
-        self.assertEqual(index.read_throughput, 2)
-        self.assertEqual(index.write_throughput, 3)
+        self.assertEqual(index.throughput, Throughput(2, 3))
 
     def test_explain_throughput(self):
         """ EXPLAIN ALTER """
@@ -182,6 +189,7 @@ class TestAlter(BaseSystemTest):
         desc = self.engine.describe("foobar", refresh=True)
         self.assertTrue("foo_index" in desc.global_indexes)
         index = desc.global_indexes["foo_index"]
+        assert index.hash_key is not None
         self.assertEqual(index.hash_key.name, "foo")
 
     def test_alter_drop_if_exists(self):
@@ -281,10 +289,10 @@ class TestSelect(BaseSystemTest):
         """ SELECT filters by indexes """
         self.make_table(index="ts")
         self.query(
-            "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), " "('a', 2, 200)"
+            "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), ('a', 2, 200)"
         )
         results = self.query(
-            "SELECT * FROM foobar WHERE id = 'a' " "and ts < 150 USING ts-index"
+            "SELECT * FROM foobar WHERE id = 'a' and ts < 150 USING ts-index"
         )
         results = list(results)
         self.assertCountEqual(results, [{"id": "a", "bar": 1, "ts": 100}])
@@ -491,7 +499,7 @@ class TestSelect(BaseSystemTest):
             "GLOBAL KEYS INDEX ('gindex', foo)"
         )
         self.query(
-            "INSERT INTO foobar (id, foo, bar) VALUES " "('a', 'a', 1), ('b', 'b', 2)"
+            "INSERT INTO foobar (id, foo, bar) VALUES ('a', 'a', 1), ('b', 'b', 2)"
         )
         ret = self.query("SELECT bar FROM foobar WHERE foo = 'b' USING gindex")
         self.assertEqual(list(ret), [{"bar": 2}])
@@ -774,8 +782,7 @@ class TestCreate(BaseSystemTest):
         """ CREATE statement can specify throughput """
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 2))")
         desc = self.engine.describe("foobar")
-        self.assertEqual(desc.read_throughput, 1)
-        self.assertEqual(desc.write_throughput, 2)
+        self.assertEqual(desc.throughput, Throughput(1, 2))
 
     def test_create_if_not_exists(self):
         """ CREATE IF NOT EXISTS shouldn't fail if table exists """
@@ -814,59 +821,69 @@ class TestCreate(BaseSystemTest):
     def test_create_global_indexes(self):
         """ Can create with global indexes """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY) "
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY, THROUGHPUT (1, 1)) "
             "GLOBAL INDEX ('myindex', foo, id, THROUGHPUT (1, 2))"
         )
         desc = self.engine.describe("foobar")
-        hash_key = TableField("foo", "NUMBER", "HASH")
-        range_key = TableField("id", "STRING", "RANGE")
-        gindex = GlobalIndex("myindex", "ALL", "ACTIVE", hash_key, range_key, 1, 2, 0)
+        hash_key = DynamoKey("foo", NUMBER)
+        range_key = DynamoKey("id", STRING)
+        gindex = GlobalIndexMeta(
+            GlobalIndex.all("myindex", hash_key, range_key, Throughput(1, 2))
+        )
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_index_types(self):
         """ Global indexes can specify the attribute types """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY) "
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY, THROUGHPUT (1, 1)) "
             "GLOBAL INDEX ('myindex', foo number, baz string, THROUGHPUT (1, 2))"
         )
         desc = self.engine.describe("foobar")
-        hash_key = TableField("foo", "NUMBER", "HASH")
-        range_key = TableField("baz", "STRING", "RANGE")
-        gindex = GlobalIndex("myindex", "ALL", "ACTIVE", hash_key, range_key, 1, 2, 0)
+        hash_key = DynamoKey("foo", NUMBER)
+        range_key = DynamoKey("baz", STRING)
+        gindex = GlobalIndexMeta(
+            GlobalIndex.all("myindex", hash_key, range_key, Throughput(1, 2))
+        )
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_index_no_range(self):
         """ Can create global index with no range key """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1)) "
             "GLOBAL ALL INDEX ('myindex', foo, THROUGHPUT (1, 2))"
         )
         desc = self.engine.describe("foobar")
-        hash_key = TableField("foo", "NUMBER", "HASH")
-        gindex = GlobalIndex("myindex", "ALL", "ACTIVE", hash_key, None, 1, 2, 0)
+        hash_key = DynamoKey("foo", NUMBER)
+        gindex = GlobalIndexMeta(
+            GlobalIndex.all("myindex", hash_key, throughput=Throughput(1, 2))
+        )
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_keys_index(self):
         """ Can create a global keys-only index """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1)) "
             "GLOBAL KEYS INDEX ('myindex', foo, THROUGHPUT (1, 2))"
         )
         desc = self.engine.describe("foobar")
-        hash_key = TableField("foo", "NUMBER", "HASH")
-        gindex = GlobalIndex("myindex", "KEYS", "ACTIVE", hash_key, None, 1, 2, 0)
+        hash_key = DynamoKey("foo", NUMBER)
+        gindex = GlobalIndexMeta(
+            GlobalIndex.keys("myindex", hash_key, throughput=Throughput(1, 2))
+        )
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_include_index(self):
         """ Can create a global include-only index """
         self.query(
-            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
+            "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1)) "
             "GLOBAL INCLUDE INDEX ('myindex', foo, ['bar', 'baz'], THROUGHPUT (1, 2))"
         )
         desc = self.engine.describe("foobar")
-        hash_key = TableField("foo", "NUMBER", "HASH")
-        gindex = GlobalIndex(
-            "myindex", "INCLUDE", "ACTIVE", hash_key, None, 1, 2, 0, ["bar", "baz"]
+        hash_key = DynamoKey("foo", NUMBER)
+        gindex = GlobalIndexMeta(
+            GlobalIndex.include(
+                "myindex", hash_key, None, ["bar", "baz"], Throughput(1, 2)
+            )
         )
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
