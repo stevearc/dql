@@ -7,6 +7,8 @@ from dynamo3.fields import snake_to_camel
 
 def format_throughput(available, used=None):
     """ Format the read/write throughput for display """
+    if available == 0 or not isinstance(available, (int, float)):
+        return "N/A"
     if used is None:
         return str(available)
     percent = float(used) / available
