@@ -1057,5 +1057,4 @@ class FragmentEngine(Engine):
             post_nl = len(self.last_query)
         lines.append(self.last_query[:post_nl])
         lines.append(" " * (exc.loc - pre_nl) + "^")
-        lines.append(str(exc))
         return "\n".join(lines)
