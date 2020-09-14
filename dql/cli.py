@@ -492,7 +492,6 @@ class DQLClient(cmd.Cmd):
                 return
             elif len(filtered) == 0:
                 raise EngineRuntimeError("Table %r not found" % table)
-                return
             else:
                 table_descriptions = [self.engine.describe(t, True) for t in filtered]
         fields = OrderedDict(

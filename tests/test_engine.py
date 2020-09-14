@@ -131,13 +131,7 @@ class TestFragmentEngine(BaseSystemTest):
                 self.query(fragment)
         except ParseException as e:
             pretty = self.engine.pformat_exc(e)
-            self.assertEqual(
-                pretty,
-                query
-                + "\n"
-                + "^\n"
-                + 'Expected {";" | StringEnd} (at char 21), (line:4, col:1)',
-            )
+            self.assertEqual(pretty, query + "\n" + "^")
         else:
             assert False, "Engine should raise exception if parsing fails"
 

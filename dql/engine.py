@@ -17,9 +17,6 @@ from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union, cast, over
 
 import botocore
 from botocore.exceptions import ClientError
-from pyparsing import ParseException
-from typing_extensions import Literal
-
 from dynamo3 import (
     Binary,
     Capacity,
@@ -37,6 +34,8 @@ from dynamo3 import (
 from dynamo3.constants import PAY_PER_REQUEST, PROVISIONED, RESERVED_WORDS
 from dynamo3.result import Count
 from dynamo3.types import TYPES
+from pyparsing import ParseException
+from typing_extensions import Literal
 
 from .exceptions import EngineRuntimeError, ExplainSignal
 from .expressions import (
