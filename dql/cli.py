@@ -476,34 +476,48 @@ class DQLClient(cmd.Cmd):
         ]
 
     @repl_command
-    def do_ls(self, table=None):
+    def do_ls(self, table: str = None) -> None:
         """ List all tables or print details of one table """
         if table is None:
-            fields = OrderedDict(
-                [
-                    ("Name", "name"),
-                    ("Status", "status"),
-                    ("Read", "total_read_throughput"),
-                    ("Write", "total_write_throughput"),
-                ]
-            )
-            tables = self.engine.describe_all()
-            # Calculate max width of all items for each column
-            sizes = [
-                1 + max([len(str(getattr(t, f))) for t in tables] + [len(title)])
-                for title, f in fields.items()
-            ]
-            # Print the header
-            for size, title in zip(sizes, fields):
-                print(title.ljust(size), end="")
-            print()
-            # Print each table row
-            for row_table in tables:
-                for size, field in zip(sizes, fields.values()):
-                    print(str(getattr(row_table, field)).ljust(size), end="")
-                print()
+            table_descriptions = self.engine.describe_all()
         else:
-            print(self.engine.describe(table, refresh=True, metrics=True).pformat())
+            tables = list(self.engine.connection.list_tables())
+            filtered = [t for t in tables if fnmatch(t, table)]
+            if len(filtered) == 1:
+                print(
+                    self.engine.describe(
+                        filtered[0], refresh=True, metrics=True
+                    ).pformat()
+                )
+                return
+            elif len(filtered) == 0:
+                raise EngineRuntimeError("Table %r not found" % table)
+                return
+            else:
+                table_descriptions = [self.engine.describe(t, True) for t in filtered]
+        fields = OrderedDict(
+            [
+                ("Name", "name"),
+                ("Status", "status"),
+                ("Read", "total_read_throughput"),
+                ("Write", "total_write_throughput"),
+            ]
+        )
+        # Calculate max width of all items for each column
+        sizes = [
+            1
+            + max([len(str(getattr(t, f))) for t in table_descriptions] + [len(title)])
+            for title, f in fields.items()
+        ]
+        # Print the header
+        for size, title in zip(sizes, fields):
+            print(title.ljust(size), end="")
+        print()
+        # Print each table row
+        for row_table in table_descriptions:
+            for size, field in zip(sizes, fields.values()):
+                print(str(getattr(row_table, field)).ljust(size), end="")
+            print()
 
     def complete_ls(self, text, *_):
         """ Autocomplete for ls """
