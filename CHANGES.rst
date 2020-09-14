@@ -6,6 +6,7 @@ Changelog
 WIP: Tracking all changes for the next version. Actual version number will be decided later.
 
 * Bug fix: Fixed ZeroDivisionError with ls on On-Demand tables (#32)
+* Added: ls command accepts glob patterns (#30)
 * Added: Better error handling and display. (#28)
 * Added: Standard error handling for execution with ``-c`` option. (#28)
 * Added: Keyboard interrupts will print spooky emojis. (#28)
