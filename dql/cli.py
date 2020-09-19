@@ -75,6 +75,7 @@ DEFAULT_CONFIG = {
     "display": "stdout",
     "format": "smart",
     "allow_select_scan": False,
+    "lossy_json_float": True,
     "_throttle": {},
 }
 
@@ -201,6 +202,9 @@ class DQLClient(cmd.Cmd):
     _conf_dir: str
     _local_endpoint = None
     throttle: TableLimits
+    # When True, will not output status messages from queries (i.e. "table created").
+    # Used with --command
+    _silent: bool = False
 
     def initialize(
         self,
@@ -232,13 +236,22 @@ class DQLClient(cmd.Cmd):
         self._conf_dir = config_dir or os.path.join(
             os.environ.get("HOME", "."), ".config"
         )
-        self.session = session or botocore.session.get_session()
+        self.session = session
         self.engine = FragmentEngine()
         self.engine.caution_callback = self.caution_callback
+        kwargs = {}
         if host is not None:
             self._local_endpoint = (host, port)
+            # If we don't pass these in we might get a missing credentials error
+            kwargs["access_key"] = ""
+            kwargs["secret_key"] = ""
         self.engine.connect(
-            region, session=self.session, host=host, port=port, is_secure=(host is None)
+            region,
+            session=session,
+            host=host,
+            port=port,
+            is_secure=(host is None),
+            **kwargs
         )
 
         self.conf = self.load_config()
@@ -433,6 +446,15 @@ class DQLClient(cmd.Cmd):
         """ Autocomplete for allow_select_scan option """
         return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
 
+    def opt_lossy_json_float(self, lossy):
+        """ Set option lossy_json_float """
+        lossy = lossy.lower() in ("true", "t", "yes", "y")
+        self.conf["lossy_json_float"] = lossy
+
+    def complete_opt_lossy_json_float(self, text, *_):
+        """ Autocomplete for lossy_json_float option """
+        return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
+
     @repl_command
     def do_watch(self, *args):
         """ Watch Dynamo tables consumed capacity """
@@ -562,7 +584,13 @@ class DQLClient(cmd.Cmd):
         if self._local_endpoint is not None:
             host, port = self._local_endpoint  # pylint: disable=W0633
             self.engine.connect(
-                region, session=self.session, host=host, port=port, is_secure=False
+                region,
+                session=self.session,
+                host=host,
+                port=port,
+                is_secure=False,
+                access_key="",
+                secret_key="",
             )
         else:
             self.engine.connect(region, session=self.session)
@@ -682,7 +710,8 @@ class DQLClient(cmd.Cmd):
         if results is None:
             pass
         elif isinstance(results, str):
-            print(results)
+            if not self._silent:
+                print(results)
         else:
             with self.display() as ostream:
                 formatter = FORMATTERS[self.conf["format"]](
@@ -690,6 +719,7 @@ class DQLClient(cmd.Cmd):
                     ostream,
                     pagesize=self.conf["pagesize"],
                     width=self.conf["width"],
+                    lossy_json_float=self.conf["lossy_json_float"],
                 )
                 formatter.display()
         print_count = 0
@@ -715,12 +745,20 @@ class DQLClient(cmd.Cmd):
         print()
         return True
 
-    def run_command(self, command):
+    def run_command(
+        self, command: str, use_json: bool = False, raise_exceptions: bool = False
+    ) -> None:
         """ Run a command passed in from the command line with -c """
         self.display = DISPLAYS["stdout"]
         self.conf["pagesize"] = 0
-        with exception_handler(self.engine):
+        if use_json:
+            self.conf["format"] = "json"
+            self._silent = True
+        if raise_exceptions:
             self.onecmd(command)
+        else:
+            with exception_handler(self.engine):
+                self.onecmd(command)
 
     def emptyline(self):
         self.default("")

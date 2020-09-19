@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from base64 import b64encode
 from builtins import input, range, str
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -15,9 +16,8 @@ from decimal import Decimal
 from typing import Dict
 
 from dateutil.relativedelta import relativedelta
-from rich.console import Console
-
 from dynamo3 import Binary
+from rich.console import Console
 
 from .util import getmaxyx, plural
 
@@ -45,18 +45,31 @@ def wrap(string, length, indent):
     return newline.join((string[i : i + length] for i in range(0, len(string), length)))
 
 
+def serialize_json_var_lossy_float(obj):
+    """ Serialize custom types to JSON """
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, bytes):
+        return b64encode(obj).decode("ascii")
+    elif isinstance(obj, Binary):
+        return b64encode(obj.value).decode("ascii")
+    elif isinstance(obj, set):
+        return list(obj)
+    else:
+        raise TypeError("%s %r is not JSON serializable" % (type(obj), obj))
+
+
 def serialize_json_var(obj):
     """ Serialize custom types to JSON """
     if isinstance(obj, Decimal):
         return str(obj)
-    else:
-        raise TypeError("%r is not JSON serializable" % obj)
+    return serialize_json_var_lossy_float(obj)
 
 
-def format_json(json_object, indent):
+def format_json(json_object, indent, default):
     """ Pretty-format json data """
     indent_str = "\n" + " " * indent
-    json_str = json.dumps(json_object, indent=2, default=serialize_json_var)
+    json_str = json.dumps(json_object, indent=2, default=default)
     return indent_str.join(json_str.split("\n"))
 
 
@@ -81,11 +94,22 @@ class BaseFormat(object):
 
     """ Base class for formatters """
 
-    def __init__(self, results, ostream, width="auto", pagesize="auto"):
+    def __init__(
+        self, results, ostream, width="auto", pagesize="auto", lossy_json_float=True
+    ):
         self._results = make_list(results)
         self._ostream = ostream
         self._width = width
         self._pagesize = pagesize
+        self._lossy_json_float = lossy_json_float
+
+    @property
+    def _default_json_serializer(self):
+        """ Getter for _default_json_serializer """
+        if self._lossy_json_float:
+            return serialize_json_var_lossy_float
+        else:
+            return serialize_json_var
 
     @property
     def width(self):
@@ -193,9 +217,13 @@ class ExpandedFormat(BaseFormat):
                 except ValueError:
                     pass
                 else:
-                    val = format_json(data, max_key + 3)
+                    val = format_json(
+                        data, max_key + 3, default=self._default_json_serializer
+                    )
             elif isinstance(val, (dict, list)):
-                val = format_json(val, max_key + 3)
+                val = format_json(
+                    val, max_key + 3, default=self._default_json_serializer
+                )
             else:
                 val = wrap(
                     self.format_field(val), self.width - max_key - 3, max_key + 3
@@ -269,7 +297,9 @@ class JsonFormat(BaseFormat):
 
     def display(self):
         for result in self._results:
-            self._ostream.write(json.dumps(result, default=serialize_json_var))
+            self._ostream.write(
+                json.dumps(result, default=self._default_json_serializer)
+            )
             self._ostream.write("\n")
 
 
@@ -338,7 +368,4 @@ def less_display():
 @contextlib.contextmanager
 def stdout_display():
     """ Print results straight to stdout """
-    if sys.version_info[0] == 2:
-        yield SmartBuffer(sys.stdout)
-    else:
-        yield SmartBuffer(sys.stdout.buffer)
+    yield SmartBuffer(sys.stdout.buffer)

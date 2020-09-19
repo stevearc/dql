@@ -50,6 +50,11 @@ def main():
         help="Port to connect to " "(default %(default)d)",
     )
     parse.add_argument(
+        "--json",
+        action="store_true",
+        help="When used with --command, format the results as JSON",
+    )
+    parse.add_argument(
         "--version", action="store_true", help="Print the version and exit"
     )
     args = parse.parse_args()
@@ -65,10 +70,10 @@ def main():
     if args.command:
         command = args.command.strip()
         try:
-            cli.run_command(command)
+            cli.run_command(command, use_json=args.json)
             # Add a trailing ';' if it was missing
             if cli.engine.partial:
-                cli.run_command(";")
+                cli.run_command(";", use_json=args.json)
         except KeyboardInterrupt:
             pass
     else:
