@@ -10,6 +10,7 @@ WIP: Tracking all changes for the next version. Actual version number will be de
 * Added: Better error handling and display. (#28)
 * Added: Standard error handling for execution with ``-c`` option. (#28)
 * Added: Keyboard interrupts will print spooky emojis. (#28)
+* Added: ``--json`` argument for use with ``-c`` to format results as JSON
 * Chore: General Dev Env & CI updates for easier development. (#27)
 
 0.5.28
