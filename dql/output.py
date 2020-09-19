@@ -15,8 +15,9 @@ from decimal import Decimal
 from typing import Dict
 
 from dateutil.relativedelta import relativedelta
-from dynamo3 import Binary
 from rich.console import Console
+
+from dynamo3 import Binary
 
 from .util import getmaxyx, plural
 
@@ -260,6 +261,16 @@ class ColumnFormat(BaseFormat):
             self._ostream.write(truncate(val, width))
             self._ostream.write(" |")
         self._ostream.write("\n")
+
+
+class JsonFormat(BaseFormat):
+    def write(self, result):
+        pass
+
+    def display(self):
+        for result in self._results:
+            self._ostream.write(json.dumps(result, default=serialize_json_var))
+            self._ostream.write("\n")
 
 
 class SmartFormat(object):

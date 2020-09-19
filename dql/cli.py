@@ -10,7 +10,7 @@ from builtins import input
 from collections import OrderedDict
 from contextlib import contextmanager
 from fnmatch import fnmatch
-from typing import Any, Callable, ContextManager, Dict
+from typing import Any, Callable, ContextManager, Dict, Optional
 
 import botocore
 from pyparsing import ParseException
@@ -39,6 +39,7 @@ from .monitor import Monitor
 from .output import (
     ColumnFormat,
     ExpandedFormat,
+    JsonFormat,
     SmartBuffer,
     SmartFormat,
     console,
@@ -62,7 +63,12 @@ REGIONS = [
 NO_DEFAULT = object()
 
 DISPLAYS = {"stdout": stdout_display, "less": less_display}
-FORMATTERS = {"smart": SmartFormat, "expanded": ExpandedFormat, "column": ColumnFormat}
+FORMATTERS = {
+    "smart": SmartFormat,
+    "expanded": ExpandedFormat,
+    "column": ColumnFormat,
+    "json": JsonFormat,
+}
 DEFAULT_CONFIG = {
     "width": "auto",
     "pagesize": "auto",
@@ -197,8 +203,13 @@ class DQLClient(cmd.Cmd):
     throttle: TableLimits
 
     def initialize(
-        self, region="us-west-1", host=None, port=8000, config_dir=None, session=None
-    ):
+        self,
+        region: str = "us-west-1",
+        host: str = None,
+        port: int = 8000,
+        config_dir: Optional[str] = None,
+        session: Optional[Any] = None,
+    ) -> None:
         """ Set up the repl for execution. """
         try:
             import readline
@@ -723,7 +734,7 @@ class DQLClient(cmd.Cmd):
         print(ALTER)
 
     def help_analyze(self):
-        """ Print the help text for ALTER """
+        """ Print the help text for ANALYZE """
         print(ANALYZE)
 
     def help_create(self):

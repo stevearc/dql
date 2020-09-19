@@ -66,6 +66,7 @@ def main():
         command = args.command.strip()
         try:
             cli.run_command(command)
+            # Add a trailing ';' if it was missing
             if cli.engine.partial:
                 cli.run_command(";")
         except KeyboardInterrupt:
