@@ -11,9 +11,9 @@ from urllib.parse import urlparse
 
 from dynamo3 import DynamoDBConnection
 from mock import patch
+from snapshottest import TestCase
 
 from dql.cli import DQLClient, repl_command
-from snapshottest import TestCase
 
 from . import BaseSystemTest
 
