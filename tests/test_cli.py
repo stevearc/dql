@@ -13,6 +13,7 @@ from dynamo3 import DynamoDBConnection
 from mock import patch
 
 from dql.cli import DQLClient, repl_command
+from snapshottest import TestCase
 
 from . import BaseSystemTest
 
@@ -33,13 +34,14 @@ class UniqueCollection(object):
         return not self.__eq__(other)
 
 
-class BaseCLITest(unittest.TestCase):
+class BaseCLITest(TestCase):
 
     """ Base class for CLI tests """
 
     dynamo: DynamoDBConnection = None
     cli: DQLClient
     confdir: str
+    patcher: Any
 
     @classmethod
     def setUpClass(cls):
@@ -48,22 +50,29 @@ class BaseCLITest(unittest.TestCase):
         cls.confdir = tempfile.mkdtemp()
         host = urlparse(cls.dynamo.host)
         cls.cli.initialize(host=host.hostname, port=host.port, config_dir=cls.confdir)
+        # Have to patch this so we don't make requests to CloudWatch
+        cls.patcher = patch("dql.engine.Engine._get_metric", spec=True)
+        method = cls.patcher.start()
+        method.return_value = 0
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
         shutil.rmtree(cls.confdir)
+        cls.patcher.stop()
 
     def setUp(self):
         super().setUp()
         # Clear out any pre-existing tables
-        for tablename in self.dynamo.list_tables():
-            self.dynamo.delete_table(tablename)
+        conn = self.cli.engine.connection
+        for tablename in conn.list_tables():
+            conn.delete_table(tablename, wait=True)
 
     def tearDown(self):
         super().tearDown()
-        for tablename in self.dynamo.list_tables():
-            self.dynamo.delete_table(tablename)
+        conn = self.cli.engine.connection
+        for tablename in conn.list_tables():
+            conn.delete_table(tablename, wait=True)
 
 
 class TestCli(BaseCLITest):
@@ -117,15 +126,18 @@ class TestCliCommands(BaseCLITest):
 
     """ Tests that run the 'dql --command' """
 
-    def _run_command(self, command: str) -> List[Any]:
+    def _run_command(self, command: str) -> str:
         stream = BytesIO()
         out = TextIOWrapper(stream)
         with patch("sys.stdout", out):
             self.cli.run_command(command, use_json=True, raise_exceptions=True)
         self.assertFalse(self.cli.engine.partial, "Command was not terminated properly")
+        out.seek(0)
+        return out.read()
+
+    def _run_dql_command(self, command: str) -> List[Any]:
+        output = self._run_command(command)
         ret: List[Any] = []
-        stream.seek(0)
-        output = stream.read().decode("utf-8")
         for line in output.split("\n"):
             if not line:
                 continue
@@ -139,7 +151,7 @@ class TestCliCommands(BaseCLITest):
 
     def test_scan_table(self):
         """ Can create, insert, and scan from table """
-        lines = self._run_command(
+        lines = self._run_dql_command(
             """
         CREATE TABLE foobar (id STRING HASH KEY);
         INSERT INTO foobar (id='a', num=1, bin=b'a',
@@ -170,3 +182,17 @@ class TestCliCommands(BaseCLITest):
                 "bool": True,
             },
         )
+
+    def test_ls(self):
+        """ Snapshot test for ls format """
+        self._run_dql_command(
+            """
+        CREATE TABLE foobar (
+            id STRING HASH KEY,
+            range NUMBER RANGE KEY,
+            foo STRING INDEX('foo-index')
+        ) GLOBAL INDEX ('bar-index', bar STRING);
+        """
+        )
+        output = self._run_command("ls foobar")
+        self.assertMatchSnapshot(output)
