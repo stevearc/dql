@@ -8,7 +8,7 @@ README = open(os.path.join(HERE, "README.rst")).read()
 CHANGES = open(os.path.join(HERE, "CHANGES.rst")).read()
 
 REQUIREMENTS = [
-    "dynamo3>=1.0.0.dev2",
+    "dynamo3>=1.0.0",
     "pyparsing==2.1.4",
     "python-dateutil",
     "botocore>=1.17.55",
