@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.6.0
+-----
+* Bug fix: Fixed ZeroDivisionError with ls on On-Demand tables (#32)
+* Added: ls command accepts glob patterns (#30)
+* Added: Better error handling and display. (#28)
+* Added: Standard error handling for execution with ``-c`` option. (#28)
+* Added: Keyboard interrupts will print spooky emojis. (#28)
+* Added: ``--json`` argument for use with ``-c`` to format results as JSON
+* Chore: General Dev Env & CI updates for easier development. (#27)
+
 0.5.28
 ------
 * Bug fix: Encoding errors for some SAVE file formats

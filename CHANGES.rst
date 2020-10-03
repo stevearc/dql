@@ -1,10 +1,8 @@
 Changelog
 =========
 
-0.5.29-dev0
------------
-WIP: Tracking all changes for the next version. Actual version number will be decided later.
-
+0.6.0
+-----
 * Bug fix: Fixed ZeroDivisionError with ls on On-Demand tables (#32)
 * Added: ls command accepts glob patterns (#30)
 * Added: Better error handling and display. (#28)
