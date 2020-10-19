@@ -118,8 +118,12 @@ class SelectionExpression(Expression):
         fields = set()
         for expr in self.expressions:
             fields.update(expr.build(visitor))
-        if fields:
+        if self.is_count:
+            return set()
+        elif fields:
             return fields
+        else:
+            return None
 
     @property
     def all_fields(self):

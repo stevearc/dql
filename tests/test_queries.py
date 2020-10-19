@@ -1194,3 +1194,16 @@ class TestRegressions(BaseSystemTest):
         results = self.query("SCAN * FROM foobar WHERE my-field = 1")
         results = list(results)
         self.assertCountEqual(results, [{"id": "a", "my-field": 1}])
+
+    def test_count_on_index(self):
+        """ Can select count(*) on an INCLUDE index """
+        self.query(
+            """
+            CREATE TABLE foobar (
+                id STRING HASH KEY,
+                name STRING
+            ) GLOBAL INCLUDE INDEX ('gindex', name, ['foo'], THROUGHPUT(1, 1))
+            """
+        )
+        count = self.query("SCAN count(*) FROM foobar USING gindex")
+        self.assertEqual(count, 0)

@@ -564,7 +564,9 @@ class Engine(object):
             ]
             fetch_attrs_after = True
         else:
-            kwargs["attributes"] = selection.build(visitor)
+            attributes = selection.build(visitor)
+            if attributes:
+                kwargs["attributes"] = attributes
         kwargs["expr_values"] = visitor.expression_values
         kwargs["alias"] = visitor.attribute_names
 

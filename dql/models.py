@@ -48,13 +48,13 @@ class QueryIndex(object):
         self.range_key = range_key
         self.attributes = attributes
 
-    def projects_all_attributes(self, attrs: Iterable[str]) -> bool:
+    def projects_all_attributes(self, attrs: Optional[Iterable[str]]) -> bool:
         """ Return True if the index projects all the attributes """
         if self.attributes is None:
             return True
         # If attrs is None we are checking if the index projects ALL
         # attributes, and the answer is "no"
-        if not attrs:
+        if attrs is None:
             return False
         for attr in attrs:
             if attr not in self.attributes:
