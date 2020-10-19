@@ -1,12 +1,18 @@
 """ Constraint expressions for selecting """
-from typing import Set
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, List, Optional, Set, Union
 
 from dql.util import resolve
 
 from .base import Expression, Field, Value
 
+if TYPE_CHECKING:
+    from .visitor import Visitor
 
-def field_or_value(clause):
+numeric = Union[int, float, Decimal]
+
+
+def field_or_value(clause: Any) -> Union[Field, Value]:
     """
     For a clause that could be a field or value,
     create the right one and return it
@@ -27,38 +33,10 @@ class ConstraintExpression(Expression):
 
     """
 
-    @classmethod
-    def from_where(cls, where):
-        """ Factory method for creating the top-level expression """
-        if where.conjunction:
-            return Conjunction.from_clause(where)
-        else:
-            return cls.from_clause(where[0])
-
-    @classmethod
-    def from_clause(cls, clause):
-        """ Factory method """
-        name = clause.getName()
-        if name == "not":
-            cond = Invert(cls.from_clause(clause[1]))
-        elif name == "operator":
-            cond = OperatorConstraint.from_clause(clause)
-        elif name == "conjunction" or clause.conjunction:
-            cond = Conjunction.from_clause(clause)
-        elif name == "function":
-            cond = FunctionConstraint.from_clause(clause)
-        elif name == "between":
-            cond = BetweenConstraint.from_clause(clause)
-        elif name == "in":
-            cond = InConstraint.from_clause(clause)
-        else:
-            raise SyntaxError("Unknown constraint type %r" % name)
-        return cond
-
-    def build(self, visitor):
+    def build(self, visitor: "Visitor") -> str:
         raise NotImplementedError
 
-    def possible_hash_fields(self):
+    def possible_hash_fields(self) -> Set[str]:
         """
         Set of field names this expression could possibly be selecting for the
         hash key of a query.
@@ -72,11 +50,11 @@ class ConstraintExpression(Expression):
         return set([field])
 
     @property
-    def hash_field(self):
+    def hash_field(self) -> Optional[str]:
         """ The field of the hash key this expression can select, if any """
         return None
 
-    def possible_range_fields(self):
+    def possible_range_fields(self) -> Set[str]:
         """
         Set of field names this expression could possibly be selecting for the
         range key of a query.
@@ -90,93 +68,82 @@ class ConstraintExpression(Expression):
         return set([field])
 
     @property
-    def range_field(self):
+    def range_field(self) -> Optional[str]:
         """ The field of the range key this expression can select, if any """
         return None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Constraint(%s)" % self
+
+    def __ne__(self, other: Any) -> bool:
+        return not (self == other)
 
 
 class Invert(ConstraintExpression):
 
     """ Invert another constraint expression with NOT """
 
-    def __init__(self, constraint):
+    def __init__(self, constraint: "ConstraintExpression"):
         self.constraint = constraint
 
-    def build(self, visitor):
+    @classmethod
+    def from_parser(cls, result):
+        return cls(result[0][1])
+
+    def build(self, visitor: "Visitor") -> str:
         return "NOT " + self.constraint.build(visitor)
+
+    def __hash__(self) -> int:
+        return hash(self.constraint) + 1
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, Invert) and self.constraint == other.constraint
 
 
 class Conjunction(ConstraintExpression):
 
     """ Use AND and OR to join 2 or more expressions """
 
-    def __init__(self, pieces):
-        if len(pieces) < 3 or len(pieces) % 2 != 1:
-            raise SyntaxError("Invalid conjunction %r" % pieces)
-        self.pieces = pieces
+    def __init__(self, is_and: bool, *args: "ConstraintExpression"):
+        self.pieces = list(args)
+        self.is_and = is_and
 
     @classmethod
-    def and_(cls, constraints):
-        """ Factory for a group AND """
-        return cls._factory(constraints, "AND")
-
-    @classmethod
-    def or_(cls, constraints):
-        """ Factory for a group OR """
-        return cls._factory(constraints, "OR")
-
-    @classmethod
-    def _factory(cls, constraints, op):
-        """ Factory for joining constraints with a single conjunction """
+    def from_parser(cls, result):
+        result = result[0]
+        conj = result[1]
         pieces = []
-        for i, constraint in enumerate(constraints):
-            pieces.append(constraint)
-            if i != len(constraints) - 1:
-                pieces.append(op)
-        return cls(pieces)
-
-    @classmethod
-    def from_clause(cls, clause):
-        """ Factory method """
-        pieces = []
-        for i, part in enumerate(clause):
-            if i % 2 == 1:
-                pieces.append(part)
+        is_and = conj == "AND"
+        for i in range(0, len(result), 2):
+            expr = result[i]
+            if isinstance(expr, Conjunction) and is_and == expr.is_and:
+                pieces.extend(expr.pieces)
             else:
-                pieces.append(ConstraintExpression.from_clause(part))
-        return cls(pieces)
+                pieces.append(expr)
+        return cls(is_and, *pieces)
 
-    def build(self, visitor):
-        strings = []
-        for i, part in enumerate(self.pieces):
-            if i % 2 == 1:
-                strings.append(part)
-            else:
-                strings.append(part.build(visitor))
-        return "(" + " ".join(strings) + ")"
+    def build(self, visitor: "Visitor") -> str:
+        delimiter = " AND " if self.is_and else " OR "
+        return "(" + delimiter.join([p.build(visitor) for p in self.pieces]) + ")"
 
-    def _get_fields(self, attr):
+    def _get_fields(self, attr: str) -> Set[str]:
         """ Get the hash/range fields of all joined constraints """
         ret: Set[str] = set()
-        if "OR" in self.pieces:
+        if not self.is_and:
             return ret
-        for i in range(0, len(self.pieces), 2):
-            const = self.pieces[i]
+        for const in self.pieces:
             field = getattr(const, attr)
             if field is not None:
                 ret.add(field)
         return ret
 
-    def possible_hash_fields(self):
+    def possible_hash_fields(self) -> Set[str]:
         return self._get_fields("hash_field")
 
-    def possible_range_fields(self):
+    def possible_range_fields(self) -> Set[str]:
         return self._get_fields("range_field")
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.pieces)
 
     def remove_index(self, index):
@@ -188,12 +155,10 @@ class Conjunction(ConstraintExpression):
         remaining constraints, if any, are returned as the filter_constraints.
 
         """
-        # We can only be doing this if all of the joining ops are AND (no OR),
-        # so we don't even need to worry about OR's
+        assert self.is_and
         query = []
         remainder = []
-        for i in range(0, len(self.pieces), 2):
-            const = self.pieces[i]
+        for const in self.pieces:
             if const.hash_field == index.hash_key:
                 query.append(const)
             elif index.range_key is not None and const.range_field == index.range_key:
@@ -203,21 +168,31 @@ class Conjunction(ConstraintExpression):
         if len(query) == 1:
             query_constraints = query[0]
         else:
-            query_constraints = Conjunction.and_(query)
+            query_constraints = Conjunction(True, *query)
         if not remainder:
             filter_constraints = None
         elif len(remainder) == 1:
             filter_constraints = remainder[0]
         else:
-            filter_constraints = Conjunction.and_(remainder)
+            filter_constraints = Conjunction(True, *remainder)
         return (query_constraints, filter_constraints)
+
+    def __hash__(self) -> int:
+        return hash(self.is_and) + hash(self.pieces)
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, Conjunction)
+            and self.is_and == other.is_and
+            and self.pieces == other.pieces
+        )
 
 
 class OperatorConstraint(ConstraintExpression):
 
     """ Constraint expression for operations, e.g. foo = 4 """
 
-    def __init__(self, field, operator, value):
+    def __init__(self, field: str, operator: str, value: Union[Field, Value]):
         self.field = field
         self.operator = operator
         self.value = value
@@ -225,25 +200,26 @@ class OperatorConstraint(ConstraintExpression):
             self.operator = "<>"
 
     @classmethod
-    def from_clause(cls, clause):
-        """ Factory method """
-        (field, operator, val) = clause
+    def from_parser(cls, result):
+        (field, operator, val) = result
         return cls(field, operator, field_or_value(val))
 
-    def build(self, visitor):
+    def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
         val = self.value.build(visitor)
         return field + " " + self.operator + " " + val
 
     @property
-    def hash_field(self):
+    def hash_field(self) -> Optional[str]:
         if self.operator == "=" and isinstance(self.value, Value):
             return self.field
+        return None
 
     @property
-    def range_field(self):
+    def range_field(self) -> Optional[str]:
         if self.operator != "<>" and isinstance(self.value, Value):
             return self.field
+        return None
 
     def remove_index(self, index):
         """
@@ -256,33 +232,34 @@ class OperatorConstraint(ConstraintExpression):
         """
         return (self, None)
 
+    def __hash__(self) -> int:
+        return hash(self.field) + hash(self.operator) + hash(self.value)
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, OperatorConstraint)
+            and self.field == other.field
+            and self.operator == other.operator
+            and self.value == other.value
+        )
+
 
 class FunctionConstraint(ConstraintExpression):
 
     """ Constraint for function expressions e.g. attribute_exists(field) """
 
-    def __init__(self, fn_name, field, operand=None):
+    def __init__(self, fn_name: str, field: str, operand: Any = None):
         self.fn_name = fn_name
         self.field = field
         self.operand = operand
 
     @classmethod
-    def from_clause(cls, clause):
-        """ Factory method """
-        fn_name = clause[0]
-        if fn_name == "size":
-            return SizeConstraint.from_clause(clause)
-        elif fn_name == "attribute_type":
-            return TypeConstraint.from_clause(clause)
-        else:
-            fn_name = clause[0]
-            field = clause[1]
-            if len(clause) > 2:
-                return cls(fn_name, field, resolve(clause[2]))
-            else:
-                return cls(fn_name, field)
+    def from_parser(cls, result):
+        fn_name, field = result[:2]
+        operand = resolve(result[2]) if len(result) == 3 else None
+        return cls(fn_name, field, operand)
 
-    def build(self, visitor):
+    def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
         string = self.fn_name + "(" + field
         if self.operand is not None:
@@ -291,9 +268,21 @@ class FunctionConstraint(ConstraintExpression):
         return string + ")"
 
     @property
-    def range_field(self):
+    def range_field(self) -> Optional[str]:
         if self.fn_name == "begins_with":
             return self.field
+        return None
+
+    def __hash__(self) -> int:
+        return hash(self.fn_name) + hash(self.field) + hash(self.operand)
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, FunctionConstraint)
+            and self.fn_name == other.fn_name
+            and self.field == other.field
+            and self.operand == other.operand
+        )
 
 
 class TypeConstraint(FunctionConstraint):
@@ -301,16 +290,16 @@ class TypeConstraint(FunctionConstraint):
     """ Constraint for attribute_type() function """
 
     @classmethod
-    def from_clause(cls, clause):
+    def from_parser(cls, result):
         """ Factory method """
-        return cls(clause[0], clause[1], clause[2])
+        return cls(*result)
 
 
 class SizeConstraint(ConstraintExpression):
 
     """ Constraint expression for size() function """
 
-    def __init__(self, field, operator, value):
+    def __init__(self, field: str, operator: str, value: Any):
         self.field = field
         self.operator = operator
         self.value = value
@@ -318,58 +307,88 @@ class SizeConstraint(ConstraintExpression):
             self.operator = "<>"
 
     @classmethod
-    def from_clause(cls, clause):
+    def from_parser(cls, clause):
         """ Factory method """
         [_, field, operator, val] = clause
         return cls(field, operator, resolve(val))
 
-    def build(self, visitor):
+    def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
         val = visitor.get_value(self.value)
         return "size(" + field + ") " + self.operator + " " + val
+
+    def __hash__(self) -> int:
+        return hash(self.field) + hash(self.operator) + hash(self.value)
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, SizeConstraint)
+            and self.field == other.field
+            and self.operator == other.operator
+            and self.value == other.value
+        )
 
 
 class BetweenConstraint(ConstraintExpression):
 
     """ Constraint expression for BETWEEN low AND high """
 
-    def __init__(self, field, low, high):
+    def __init__(self, field: str, low: numeric, high: numeric):
         self.field = field
         self.low = low
         self.high = high
 
     @classmethod
-    def from_clause(cls, clause):
-        """ Factory method """
-        [field, low, high] = clause
+    def from_parser(cls, result):
+        (field, low, high) = result
         return cls(field, resolve(low), resolve(high))
 
-    def build(self, visitor):
+    def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
         low = visitor.get_value(self.low)
         high = visitor.get_value(self.high)
         return field + " BETWEEN " + low + " AND " + high
 
     @property
-    def range_field(self):
+    def range_field(self) -> str:
         return self.field
+
+    def __hash__(self) -> int:
+        return hash(self.field) + hash(self.low) + hash(self.high)
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, BetweenConstraint)
+            and self.field == other.field
+            and self.low == other.low
+            and self.high == other.high
+        )
 
 
 class InConstraint(ConstraintExpression):
 
     """ Constraint expression for membership in a set """
 
-    def __init__(self, field, values):
+    def __init__(self, field: str, values: List):
         self.field = field
         self.values = values
 
     @classmethod
-    def from_clause(cls, clause):
-        """ Factory method """
-        [field, vals] = clause
+    def from_parser(cls, result):
+        field, vals = result
         return cls(field, resolve(vals))
 
-    def build(self, visitor):
+    def build(self, visitor: "Visitor") -> str:
         values = (visitor.get_value(v) for v in self.values)
         field = visitor.get_field(self.field)
         return field + " IN (" + ", ".join(values) + ")"
+
+    def __hash__(self) -> int:
+        return hash(self.field) + sum(map(hash, self.values))
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, InConstraint)
+            and self.field == other.field
+            and set(self.values) == set(other.values)
+        )

@@ -8,7 +8,21 @@ from pyparsing import (
     Suppress,
     ZeroOrMore,
     delimitedList,
+    infixNotation,
+    nestedExpr,
     oneOf,
+    opAssoc,
+)
+
+from dql.expressions.constraint import (
+    BetweenConstraint,
+    Conjunction,
+    FunctionConstraint,
+    InConstraint,
+    Invert,
+    OperatorConstraint,
+    SizeConstraint,
+    TypeConstraint,
 )
 
 from .common import (
@@ -17,6 +31,7 @@ from .common import (
     function,
     integer,
     not_,
+    or_,
     set_,
     string,
     types,
@@ -61,21 +76,30 @@ def create_selection():
 def create_query_constraint():
     """ Create a constraint for a query WHERE clause """
     op = oneOf("= < > >= <= != <>", caseless=True).setName("operator")
-    basic_constraint = (var + op + var_val).setResultsName("operator")
+    basic_constraint = (var + op + var_val).setParseAction(
+        OperatorConstraint.from_parser
+    )
     between = (
         var + Suppress(upkey("between")) + value + Suppress(and_) + value
-    ).setResultsName("between")
-    is_in = (var + Suppress(upkey("in")) + set_).setResultsName("in")
+    ).setParseAction(BetweenConstraint.from_parser)
+    is_in = (var + Suppress(upkey("in")) + set_).setParseAction(
+        InConstraint.from_parser
+    )
     fxn = (
         function("attribute_exists", var)
         | function("attribute_not_exists", var)
-        | function("attribute_type", var, types)
         | function("begins_with", var, Group(string))
         | function("contains", var, value)
-        | (function("size", var) + op + value)
-    ).setResultsName("function")
-    all_constraints = between | basic_constraint | is_in | fxn
-    return Group(all_constraints).setName("constraint")
+    ).setParseAction(FunctionConstraint.from_parser)
+    size_fxn = (function("size", var) + op + value).setParseAction(
+        SizeConstraint.from_parser
+    )
+    type_fxn = function("attribute_type", var, types).setParseAction(
+        TypeConstraint.from_parser
+    )
+    return (between | basic_constraint | is_in | fxn | size_fxn | type_fxn).setName(
+        "constraint"
+    )
 
 
 # pylint: disable=C0103
@@ -85,16 +109,15 @@ constraint = create_query_constraint()
 
 def create_where():
     """ Create a grammar for the 'where' clause used by 'select' """
-    conjunction = Forward().setResultsName("conjunction")
-    nested = Group(Suppress("(") + conjunction + Suppress(")")).setResultsName(
-        "conjunction"
+    full_constraint = infixNotation(
+        constraint,
+        [
+            (not_, 1, opAssoc.RIGHT, Invert.from_parser),
+            (and_, 2, opAssoc.LEFT, Conjunction.from_parser),
+            (or_, 2, opAssoc.LEFT, Conjunction.from_parser),
+        ],
     )
-
-    maybe_nested = nested | constraint
-    inverted = Group(not_ + maybe_nested).setResultsName("not")
-    full_constraint = maybe_nested | inverted
-    conjunction <<= full_constraint + OneOrMore(and_or + full_constraint)
-    return upkey("where") + Group(conjunction | full_constraint).setResultsName("where")
+    return upkey("where") + full_constraint.setResultsName("where")
 
 
 def create_keys_in():

@@ -444,8 +444,8 @@ class Engine(object):
         if tree.using:
             index_name = kwargs["index"] = tree.using[1]
             index = table.get_index(index_name)
-        if tree.where:
-            constraints = ConstraintExpression.from_where(tree.where)
+        if isinstance(tree.where, ConstraintExpression):
+            constraints = tree.where
             possible_hash = constraints.possible_hash_fields()
             possible_range = constraints.possible_range_fields()
             if index is None:
@@ -705,9 +705,8 @@ class Engine(object):
         table = self.describe(tablename, require=True)
         kwargs = {}
         visitor = Visitor(self.reserved_words)
-        if tree.where:
-            constraints = ConstraintExpression.from_where(tree.where)
-            kwargs["condition"] = constraints.build(visitor)
+        if isinstance(tree.where, ConstraintExpression):
+            kwargs["condition"] = tree.where.build(visitor)
         kwargs["expr_values"] = visitor.expression_values
         kwargs["alias"] = visitor.attribute_names
         return self._query_and_op(tree, table, "delete_item", kwargs)
@@ -726,9 +725,8 @@ class Engine(object):
         visitor = Visitor(self.reserved_words)
         updates = UpdateExpression.from_update(tree.update)
         kwargs["expression"] = updates.build(visitor)
-        if tree.where:
-            constraints = ConstraintExpression.from_where(tree.where)
-            kwargs["condition"] = constraints.build(visitor)
+        if isinstance(tree.where, ConstraintExpression):
+            kwargs["condition"] = tree.where.build(visitor)
         kwargs["expr_values"] = visitor.expression_values
         kwargs["alias"] = visitor.attribute_names
         return self._query_and_op(tree, table, "update_item", kwargs)

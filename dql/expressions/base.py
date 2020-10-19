@@ -47,6 +47,12 @@ class Field(Expression):
             return None
         return item
 
+    def __hash__(self):
+        return hash(self.field)
+
+    def __eq__(self, other):
+        return isinstance(other, Field) and self.field == other.field
+
 
 class Value(Expression):
 
@@ -61,3 +67,9 @@ class Value(Expression):
     def evaluate(self, item):
         """ Values evaluate to themselves regardless of the item """
         return self.value
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __eq__(self, other):
+        return isinstance(other, Value) and self.value == other.value

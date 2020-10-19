@@ -5,6 +5,17 @@ from unittest import TestCase
 from pyparsing import ParseException, StringEnd
 
 from dql.expressions import ConstraintExpression, SelectionExpression, UpdateExpression
+from dql.expressions.base import Field, Value
+from dql.expressions.constraint import (
+    BetweenConstraint,
+    Conjunction,
+    FunctionConstraint,
+    InConstraint,
+    Invert,
+    OperatorConstraint,
+    SizeConstraint,
+    TypeConstraint,
+)
 from dql.grammar import parser, statement_parser, update_expr
 from dql.grammar.common import value
 from dql.grammar.query import selection, where
@@ -377,36 +388,91 @@ class TestParser(TestCase):
 
 
 CONSTRAINTS = [
-    ("WHERE bar = 1", "bar = 1"),
-    ("WHERE foo != 1 or bar > 0", "(foo <> 1 OR bar > 0)"),
-    ("WHERE foo != bar", "foo <> bar"),
+    ("WHERE bar = 1", OperatorConstraint("bar", "=", Value(1))),
     (
-        'WHERE foo < 1 and (bar >= 0 or baz < "str" or qux = 1)',
-        "(foo < 1 AND (bar >= 0 OR baz < 'str' OR qux = 1))",
+        "WHERE foo != 1 or bar > 0",
+        Conjunction(
+            False,
+            OperatorConstraint("foo", "<>", Value(1)),
+            OperatorConstraint("bar", ">", Value(0)),
+        ),
+    ),
+    ("WHERE foo != bar", OperatorConstraint("foo", "<>", Field("bar"))),
+    ("WHERE NOT foo > 3", Invert(OperatorConstraint("foo", ">", Value(3)))),
+    ("WHERE size(foo) < 3", SizeConstraint("foo", "<", 3)),
+    (
+        'WHERE begins_with(foo, "bar")',
+        FunctionConstraint("begins_with", "foo", "bar"),
+    ),
+    ("WHERE attribute_exists(foo)", FunctionConstraint("attribute_exists", "foo")),
+    (
+        "WHERE attribute_not_exists(foo)",
+        FunctionConstraint("attribute_not_exists", "foo"),
     ),
     (
-        "WHERE foo < 1 and ((bar > 0 or baz < 2) or qux > 4)",
-        "(foo < 1 AND ((bar > 0 OR baz < 2) OR qux > 4))",
+        "WHERE attribute_type(foo, N)",
+        TypeConstraint("attribute_type", "foo", "N"),
     ),
-    ("WHERE NOT foo > 3", "NOT foo > 3"),
-    ("WHERE size(foo) < 3", "size(foo) < 3"),
-    ('WHERE begins_with(foo, "bar")', "begins_with(foo, 'bar')"),
-    ("WHERE attribute_exists(foo)", "attribute_exists(foo)"),
-    ("WHERE attribute_not_exists(foo)", "attribute_not_exists(foo)"),
-    ("WHERE attribute_type(foo, N)", "attribute_type(foo, 'N')"),
-    ('WHERE contains(foo, "test")', "contains(foo, 'test')"),
-    ("WHERE foo between 1 and 5", "foo BETWEEN 1 AND 5"),
-    ("WHERE foo in (1, 5, 7)", "foo IN (1, 5, 7)"),
-    ('WHERE foo > utcts("2015-12-5")', "foo > 1449273600.0"),
-    ('WHERE foo > ms(utcts "2015-12-5")', "foo > 1449273600000.0"),
-    ('WHERE foo > utcts "2015-12-5" + interval "1 minute 1s"', "foo > 1449273661.0"),
+    (
+        'WHERE contains(foo, "test")',
+        FunctionConstraint("contains", "foo", "test"),
+    ),
+    ("WHERE foo between 1 and 5", BetweenConstraint("foo", 1, 5)),
+    ("WHERE foo in (1, 5, 7)", InConstraint("foo", [1, 5, 7])),
+    (
+        'WHERE foo > utcts("2015-12-5")',
+        OperatorConstraint("foo", ">", Value(1449273600.0)),
+    ),
+    (
+        'WHERE foo > ms(utcts "2015-12-5")',
+        OperatorConstraint("foo", ">", Value(1449273600000.0)),
+    ),
+    (
+        'WHERE foo > utcts "2015-12-5" + interval "1 minute 1s"',
+        OperatorConstraint("foo", ">", Value(1449273661.0)),
+    ),
     (
         'WHERE foo > ms(utcts "2015-12-5" + interval "1 minute 1s")',
-        "foo > 1449273661000.0",
+        OperatorConstraint("foo", ">", Value(1449273661000.0)),
     ),
     (
         'WHERE foo > utcts "2015-12-5" - interval "1y -2d 1month -3 weeks 8 day 2h 3ms 10us"',
-        "foo > 1416434399.99699",
+        OperatorConstraint("foo", ">", Value(1416434399.99699)),
+    ),
+    (
+        'WHERE foo < 1 AND (bar >= 0 OR baz < "str" OR qux = 1)',
+        Conjunction(
+            True,
+            OperatorConstraint("foo", "<", Value(1)),
+            Conjunction(
+                False,
+                OperatorConstraint("bar", ">=", Value(0)),
+                OperatorConstraint("baz", "<", Value("str")),
+                OperatorConstraint("qux", "=", Value(1)),
+            ),
+        ),
+    ),
+    (
+        "WHERE foo < 1 and ((bar > 0 or baz < 2) or qux > 4)",
+        Conjunction(
+            True,
+            OperatorConstraint("foo", "<", Value(1)),
+            Conjunction(
+                False,
+                OperatorConstraint("bar", ">", Value(0)),
+                OperatorConstraint("baz", "<", Value(2)),
+                OperatorConstraint("qux", ">", Value(4)),
+            ),
+        ),
+    ),
+    (
+        'WHERE foo < 1 AND (bar >= 0 AND baz < "str")',
+        Conjunction(
+            True,
+            OperatorConstraint("foo", "<", Value(1)),
+            OperatorConstraint("bar", ">=", Value(0)),
+            OperatorConstraint("baz", "<", Value("str")),
+        ),
     ),
 ]
 
@@ -460,27 +526,24 @@ class TestExpressions(TestCase):
         try:
             parse_result = grammar.parseString(expression)
             const = factory(parse_result[key])
-            self.assertEqual(str(const), expected)
+            self.assertEqual(const, expected)
         except AssertionError:
             print("Expression: %s" % expression)
             print("Expected  : %s" % expected)
             print("Got       : %s" % const)
-            raise
+            self.fail("Parsing expression produced incorrect result")
         except ParseException as e:
             print(expression)
             print(" " * e.loc + "^")
-            raise
+            self.fail("Failed to parse expression")
         except Exception:
-            print("Expression: %s" % expression)
-            print("Parsed    : %s" % parse_result.asList())
+            print(expression)
             raise
 
     def test_constraints(self):
         """ Test parsing constraint expressions (WHERE ...) """
         for (expression, expected) in CONSTRAINTS:
-            self._run_test(
-                expression, expected, where, "where", ConstraintExpression.from_where
-            )
+            self._run_test(expression, expected, where, "where", lambda x: x)
 
     def test_updates(self):
         """ Test parsing update expressions (SET ...) """
@@ -490,7 +553,7 @@ class TestExpressions(TestCase):
                 expected,
                 update_expr,
                 "update",
-                UpdateExpression.from_update,
+                lambda x: str(UpdateExpression.from_update(x)),
             )
 
     def test_selection(self):
@@ -501,5 +564,5 @@ class TestExpressions(TestCase):
                 expected,
                 selection,
                 "attrs",
-                SelectionExpression.from_selection,
+                lambda x: str(SelectionExpression.from_selection(x)),
             )
