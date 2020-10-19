@@ -1,8 +1,12 @@
 """ Utility methods """
 import calendar
+import contextlib
+import gzip
+import io
+import os
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict
+from typing import BinaryIO, Dict, cast
 
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
@@ -20,7 +24,6 @@ try:
 
 except ImportError:
     try:
-        import os
         import struct
         from fcntl import ioctl
         from termios import TIOCGWINSZ
@@ -159,3 +162,27 @@ def eval_expression(value):
         return start - interval
     else:
         raise SyntaxError("Unrecognized operator %r" % op)
+
+
+@contextlib.contextmanager
+def open_file_smart_mode(filename, write=False):
+    remainder, ext = os.path.splitext(filename)
+    is_gzip = ext.lower() in [".gz", ".gzip"]
+    if is_gzip:
+        ext = os.path.splitext(remainder)[1]
+    mode = "w" if write else "r"
+    text_format = ext.lower() in [".csv", ".json"]
+    if is_gzip:
+        with gzip.open(filename, mode + "b") as gzip_file:
+            if text_format:
+                with io.TextIOWrapper(
+                    cast(BinaryIO, gzip_file), encoding="utf-8"
+                ) as text_file:
+                    yield text_file
+            else:
+                yield gzip_file
+    else:
+        if not text_format:
+            mode += "b"
+        with open(filename, mode) as ofile:
+            yield ofile

@@ -11,7 +11,7 @@ import sys
 import time
 from base64 import b64encode
 from builtins import int
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pprint import pformat
 from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union, cast, overload
 
@@ -46,7 +46,7 @@ from .expressions import (
 )
 from .grammar import line_parser, parser
 from .models import GlobalIndexMeta, TableMeta
-from .util import plural, resolve, unwrap
+from .util import open_file_smart_mode, plural, resolve, unwrap
 
 LOG = logging.getLogger(__name__)
 
@@ -615,32 +615,17 @@ class Engine(object):
             if is_gzip:
                 ext = os.path.splitext(remainder)[1]
 
-            @contextlib.contextmanager
-            def open_file(mode):
-                if is_gzip:
-                    with gzip.open(filename, "wb") as gzip_file:
-                        if "b" in mode or sys.version_info[0] < 3:
-                            yield gzip_file
-                        else:
-                            with io.TextIOWrapper(
-                                cast(BinaryIO, gzip_file), encoding="utf-8"
-                            ) as text_file:
-                                yield text_file
-                else:
-                    with open(filename, mode) as ofile:
-                        yield ofile
-
-            if ext.lower() == ".csv":
-                if selection.all_keys:
-                    headers = selection.all_keys
-                else:
-                    # Have to do this to get all the headers :(
-                    result = list(result)
-                    all_headers = set()
-                    for item in result:
-                        all_headers.update(item.keys())
-                    headers = list(all_headers)
-                with open_file("w") as ofile:
+            with open_file_smart_mode(filename, True) as ofile:
+                if ext.lower() == ".csv":
+                    if selection.all_keys:
+                        headers = selection.all_keys
+                    else:
+                        # Have to do this to get all the headers :(
+                        result = list(result)
+                        all_headers = set()
+                        for item in result:
+                            all_headers.update(item.keys())
+                        headers = list(all_headers)
                     writer = csv.DictWriter(
                         ofile, fieldnames=headers, extrasaction="ignore"
                     )
@@ -648,14 +633,12 @@ class Engine(object):
                     for item in result:
                         count += 1
                         writer.writerow(item)
-            elif ext.lower() == ".json":
-                with open_file("w") as ofile:
+                elif ext.lower() == ".json":
                     for item in result:
                         count += 1
                         ofile.write(self._encoder.encode(item))
                         ofile.write("\n")
-            else:
-                with open_file("wb") as ofile:
+                else:
                     for item in result:
                         count += 1
                         pickle.dump(item, ofile)
@@ -976,20 +959,26 @@ class Engine(object):
             filename = unwrap(filename)
         if not os.path.exists(filename):
             raise Exception("No such file %r" % filename)
+        remainder, ext = os.path.splitext(filename)
+        is_gzip = ext.lower() in [".gz", ".gzip"]
+        if is_gzip:
+            ext = os.path.splitext(remainder)[1]
+
         batch = self.connection.batch_write(tree.table)
         count = 0
         with batch:
-            remainder, ext = os.path.splitext(filename)
-            if ext.lower() in [".gz", ".gzip"]:
-                ext = os.path.splitext(remainder)[1]
-                opened = gzip.open(filename, "rb")
-            else:
-                opened = open(filename, "r")
-            with opened as ifile:
+            with open_file_smart_mode(filename) as ifile:
                 if ext.lower() == ".csv":
                     reader = csv.DictReader(ifile)
                     for row in reader:
-                        batch.put(row)
+                        item: Dict[str, Any] = {}
+                        for k, v in row.items():
+                            try:
+                                num = Decimal(v)
+                                item[k] = num
+                            except InvalidOperation:
+                                item[k] = v
+                        batch.put(item)
                         count += 1
                 elif ext.lower() == ".json":
                     for line in ifile:

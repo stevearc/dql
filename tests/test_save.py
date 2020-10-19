@@ -1,5 +1,6 @@
 """ Tests for saving data to files """
 import os
+import shutil
 import tempfile
 
 from . import BaseSystemTest
@@ -11,42 +12,30 @@ class TestSave(BaseSystemTest):
 
     """ System tests for saving to file """
 
-    def _create_data(self):
-        """ Create sample data in a test table """
+    def setUp(self):
+        super().setUp()
+        self.tmpdir = tempfile.mkdtemp()
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("INSERT INTO foobar (id, foo) VALUES ('a', 1), ('b', 2)")
+        self.query("CREATE TABLE destination (id STRING HASH KEY)")
+
+    def tearDown(self):
+        super().tearDown()
+        shutil.rmtree(self.tmpdir)
 
     def _save(self, filename):
         """ Query test table and save to a file """
-        filepath = os.path.join(tempfile.gettempdir(), filename)
+        filepath = os.path.join(self.tmpdir, filename)
         self.query("SCAN * FROM foobar SAVE %s" % filepath)
+        return filepath
 
-    def test_pickle(self):
-        """ Can save data as a pickle without crashing """
-        self._create_data()
-        self._save("out.p")
-
-    def test_csv(self):
-        """ Can save data as a csv without crashing """
-        self._create_data()
-        self._save("out.csv")
-
-    def test_json(self):
-        """ Can save data as json without crashing """
-        self._create_data()
-        self._save("out.json")
-
-    def test_pickle_gz(self):
-        """ Can save data as a gzipped pickle without crashing """
-        self._create_data()
-        self._save("out.p.gz")
-
-    def test_csv_gz(self):
-        """ Can save data as a gzipped csv without crashing """
-        self._create_data()
-        self._save("out.csv.gz")
-
-    def test_json_gz(self):
-        """ Can save data as gzipped json without crashing """
-        self._create_data()
-        self._save("out.json.gz")
+    def test_file_formats(self):
+        """ Test saving and loading all file formats """
+        formats = ["p", "csv", "json", "p.gz", "csv.gz", "json.gz"]
+        for fmt in formats:
+            filename = self._save("out.%s" % fmt)
+            self.query("LOAD %s INTO destination" % filename)
+            res1 = list(self.query("SCAN * FROM foobar"))
+            res2 = list(self.query("SCAN * FROM destination"))
+            self.assertCountEqual(res2, res1)
+            self.query("DELETE FROM destination")
