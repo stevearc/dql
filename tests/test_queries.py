@@ -570,6 +570,15 @@ class TestSelectScan(BaseSystemTest):
             "* FROM foobar WHERE attribute_not_exists(baz)", [{"id": "a", "bar": 5}]
         )
 
+    def test_attribute_not_exists_quoted(self):
+        """ Quoted syntax for attribut_not_exists query """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
+        self._run(
+            "* FROM foobar WHERE attribute_not_exists('baz')", [{"id": "a", "bar": 5}]
+        )
+
     def test_not_null(self):
         """ SELECT scan can filter if an attr is not null """
         self.make_table()
@@ -577,6 +586,16 @@ class TestSelectScan(BaseSystemTest):
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
         self._run(
             "* FROM foobar WHERE attribute_exists(baz)",
+            [{"id": "a", "bar": 1, "baz": 1}],
+        )
+
+    def test_attribute_exists_quoted(self):
+        """ Quoted syntax for attribute_exists query """
+        self.make_table()
+        self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
+        self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
+        self._run(
+            "* FROM foobar WHERE attribute_exists('baz')",
             [{"id": "a", "bar": 1, "baz": 1}],
         )
 

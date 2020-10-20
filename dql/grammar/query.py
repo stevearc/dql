@@ -33,6 +33,7 @@ from .common import (
     integer,
     not_,
     or_,
+    quoted,
     set_,
     string,
     types,
@@ -82,6 +83,7 @@ def create_selection():
 field_or_value = Group(parsed_value).setParseAction(lambda x: Value(x[0][0])).setName(
     "value"
 ) | Group(var).setName("field").setParseAction(lambda x: Field(x[0][0]))
+var_or_quoted_var = var | quoted(var)
 
 
 def create_query_constraint():
@@ -101,15 +103,15 @@ def create_query_constraint():
         InConstraint.from_parser
     )
     fxn = (
-        function("attribute_exists", var)
-        | function("attribute_not_exists", var)
-        | function("begins_with", var, parsed_value)
-        | function("contains", var, parsed_value)
+        function("attribute_exists", var_or_quoted_var)
+        | function("attribute_not_exists", var_or_quoted_var)
+        | function("begins_with", var_or_quoted_var, parsed_value)
+        | function("contains", var_or_quoted_var, parsed_value)
     ).setParseAction(FunctionConstraint.from_parser)
-    size_fxn = (function("size", var) + op + parsed_value).setParseAction(
+    size_fxn = (function("size", var_or_quoted_var) + op + parsed_value).setParseAction(
         SizeConstraint.from_parser
     )
-    type_fxn = function("attribute_type", var, types).setParseAction(
+    type_fxn = function("attribute_type", var_or_quoted_var, types).setParseAction(
         TypeConstraint.from_parser
     )
     return (between | basic_constraint | is_in | fxn | size_fxn | type_fxn).setName(
