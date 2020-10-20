@@ -6,7 +6,7 @@ import io
 import os
 from datetime import datetime
 from decimal import Decimal
-from typing import BinaryIO, Dict, cast
+from typing import BinaryIO, Dict, Union, cast
 
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
@@ -92,7 +92,7 @@ def resolve(val):
         raise SyntaxError("Unable to resolve value '%s'" % val)
 
 
-def dt_to_ts(value):
+def dt_to_ts(value: Union[datetime, int, float]) -> float:
     """ If value is a datetime, convert to timestamp """
     if not isinstance(value, datetime):
         return value

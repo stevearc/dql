@@ -2,26 +2,12 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, List, Optional, Set, Union
 
-from dql.util import resolve
-
 from .base import Expression, Field, Value
 
 if TYPE_CHECKING:
     from .visitor import Visitor
 
 numeric = Union[int, float, Decimal]
-
-
-def field_or_value(clause: Any) -> Union[Field, Value]:
-    """
-    For a clause that could be a field or value,
-    create the right one and return it
-
-    """
-    if hasattr(clause, "getName") and clause.getName() != "field":
-        return Value(resolve(clause))
-    else:
-        return Field(clause)
 
 
 class ConstraintExpression(Expression):
@@ -202,7 +188,7 @@ class OperatorConstraint(ConstraintExpression):
     @classmethod
     def from_parser(cls, result):
         (field, operator, val) = result
-        return cls(field, operator, field_or_value(val))
+        return cls(field, operator, val)
 
     def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
@@ -256,7 +242,7 @@ class FunctionConstraint(ConstraintExpression):
     @classmethod
     def from_parser(cls, result):
         fn_name, field = result[:2]
-        operand = resolve(result[2]) if len(result) == 3 else None
+        operand = result[2] if len(result) == 3 else None
         return cls(fn_name, field, operand)
 
     def build(self, visitor: "Visitor") -> str:
@@ -310,7 +296,7 @@ class SizeConstraint(ConstraintExpression):
     def from_parser(cls, clause):
         """ Factory method """
         [_, field, operator, val] = clause
-        return cls(field, operator, resolve(val))
+        return cls(field, operator, val)
 
     def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
@@ -341,7 +327,7 @@ class BetweenConstraint(ConstraintExpression):
     @classmethod
     def from_parser(cls, result):
         (field, low, high) = result
-        return cls(field, resolve(low), resolve(high))
+        return cls(field, low, high)
 
     def build(self, visitor: "Visitor") -> str:
         field = visitor.get_field(self.field)
@@ -376,7 +362,7 @@ class InConstraint(ConstraintExpression):
     @classmethod
     def from_parser(cls, result):
         field, vals = result
-        return cls(field, resolve(vals))
+        return cls(field, vals)
 
     def build(self, visitor: "Visitor") -> str:
         values = (visitor.get_value(v) for v in self.values)

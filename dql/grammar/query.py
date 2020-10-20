@@ -14,6 +14,7 @@ from pyparsing import (
     opAssoc,
 )
 
+from dql.expressions.base import Field, Value
 from dql.expressions.constraint import (
     BetweenConstraint,
     Conjunction,
@@ -40,6 +41,10 @@ from .common import (
     var,
     var_val,
 )
+from .parsed_primitives import primitive as parsed_primitive
+from .parsed_primitives import set_ as parsed_set_
+from .parsed_primitives import string as parsed_string
+from .parsed_primitives import value as parsed_value
 
 
 def select_functions(expr):
@@ -73,25 +78,35 @@ def create_selection():
     ).setResultsName("attrs")
 
 
+# pylint: disable=C0103
+field_or_value = Group(parsed_value).setParseAction(lambda x: Value(x[0][0])).setName(
+    "value"
+) | Group(var).setName("field").setParseAction(lambda x: Field(x[0][0]))
+
+
 def create_query_constraint():
     """ Create a constraint for a query WHERE clause """
     op = oneOf("= < > >= <= != <>", caseless=True).setName("operator")
-    basic_constraint = (var + op + var_val).setParseAction(
+    basic_constraint = (var + op + field_or_value).setParseAction(
         OperatorConstraint.from_parser
     )
     between = (
-        var + Suppress(upkey("between")) + value + Suppress(and_) + value
+        var
+        + Suppress(upkey("between"))
+        + parsed_primitive
+        + Suppress(and_)
+        + parsed_primitive
     ).setParseAction(BetweenConstraint.from_parser)
-    is_in = (var + Suppress(upkey("in")) + set_).setParseAction(
+    is_in = (var + Suppress(upkey("in")) + parsed_set_).setParseAction(
         InConstraint.from_parser
     )
     fxn = (
         function("attribute_exists", var)
         | function("attribute_not_exists", var)
-        | function("begins_with", var, Group(string))
-        | function("contains", var, value)
+        | function("begins_with", var, parsed_value)
+        | function("contains", var, parsed_value)
     ).setParseAction(FunctionConstraint.from_parser)
-    size_fxn = (function("size", var) + op + value).setParseAction(
+    size_fxn = (function("size", var) + op + parsed_value).setParseAction(
         SizeConstraint.from_parser
     )
     type_fxn = function("attribute_type", var, types).setParseAction(
@@ -104,7 +119,6 @@ def create_query_constraint():
 
 # pylint: disable=C0103
 constraint = create_query_constraint()
-# pylint: enable=C0103
 
 
 def create_where():

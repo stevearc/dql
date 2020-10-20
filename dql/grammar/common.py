@@ -26,10 +26,11 @@ def upkey(name):
 
 def function(name, *args, **kwargs):
     """ Construct a parser for a standard function format """
-    if kwargs.get("caseless"):
-        name = upkey(name)
-    else:
-        name = Word(name)
+    if isinstance(name, str):
+        if kwargs.get("caseless"):
+            name = upkey(name)
+        else:
+            name = Word(name)
     fxn_args = None
     for i, arg in enumerate(args):
         if i == 0:

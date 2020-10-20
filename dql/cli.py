@@ -10,7 +10,7 @@ from builtins import input
 from collections import OrderedDict
 from contextlib import contextmanager
 from fnmatch import fnmatch
-from typing import Any, Callable, ContextManager, Dict, Optional
+from typing import Any, Callable, ContextManager, Dict, Optional, Tuple
 
 import botocore
 from pyparsing import ParseException
@@ -200,7 +200,7 @@ class DQLClient(cmd.Cmd):
     display: Any
     session = None
     _conf_dir: str
-    _local_endpoint = None
+    _local_endpoint: Optional[Tuple[str, int]] = None
     throttle: TableLimits
     # When True, will not output status messages from queries (i.e. "table created").
     # Used with --command
