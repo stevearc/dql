@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.6.1-dev0
+----------
+* Chore: Updated config for Dynamo Local to install dependency within project root.
+
 0.6.0
 -----
 * Bug fix: Fixed ZeroDivisionError with ls on On-Demand tables (#32)
