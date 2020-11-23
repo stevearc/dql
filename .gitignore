@@ -47,3 +47,6 @@ _build
 
 # vim
 *.swp
+
+# dynamo local service
+.dynamo-local
