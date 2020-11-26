@@ -100,8 +100,24 @@ def prompt(msg, default=NO_DEFAULT, validate=None):
             return response
 
 
-def promptyn(msg, default=None):
-    """ Display a blocking prompt until the user confirms """
+def promptyn(msg, default=None) -> bool:
+    """
+    Display a blocking prompt until the user confirms.
+    Case is disregarded for prompt input.
+
+    User can input one of: `["y", "n", "yes", "no"]`
+
+    Example:
+    --------
+        promptyn("This is a message. Do you want to do stuff?", True)
+        # will print with a default True, capitalizes Y.
+        "This is a message. Do you want to do stuff? (Y/n)"
+
+        promptyn("This is a message. Do you want to do stuff?", False)
+        # will print with a default False, capitalizes N.
+        "This is a message. Do you want to do stuff? (y/N)"
+    """
+
     while True:
         yes = "Y" if default else "y"
         if default or default is None:
@@ -458,18 +474,16 @@ class DQLClient(cmd.Cmd):
     @repl_command
     def do_watch(self, *args):
         """ Watch Dynamo tables consumed capacity """
-        tables = []
+        tables = set()
         if not self.engine.cached_descriptions:
             self.engine.describe_all()
         all_tables = list(self.engine.cached_descriptions)
         for arg in args:
             candidates = set((t for t in all_tables if fnmatch(t, arg)))
-            for t in sorted(candidates):
-                if t not in tables:
-                    tables.append(t)
+            tables.update(candidates)
 
-        mon = Monitor(self.engine, tables)
-        mon.start()
+        monitor = Monitor(self.engine, sorted(tables))
+        monitor.start()
 
     def complete_watch(self, text, *_):
         """ Autocomplete for watch """
@@ -646,16 +660,18 @@ class DQLClient(cmd.Cmd):
         """
         Remove the throughput limits for DQL that were set with 'throttle'
 
-        # Remove all limits
-        > unthrottle
-        # Remove the limit on total allowed throughput
-        > unthrottle total
-        # Remove the default limit
-        > unthrottle default
-        # Remove the limit on a table
-        > unthrottle mytable
-        # Remove the limit on a global index
-        > unthrottle mytable myindex
+        Examples:
+        ---------
+            # Remove all limits
+            > unthrottle
+            # Remove the limit on total allowed throughput
+            > unthrottle total
+            # Remove the default limit
+            > unthrottle default
+            # Remove the limit on a table
+            > unthrottle mytable
+            # Remove the limit on a global index
+            > unthrottle mytable myindex
 
         """
         if not args:
