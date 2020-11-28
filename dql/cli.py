@@ -10,8 +10,8 @@ from builtins import input
 from collections import OrderedDict
 from contextlib import contextmanager
 from fnmatch import fnmatch
-from typing import Any, Callable, ContextManager, Dict, Optional, Tuple
 from pathlib import Path
+from typing import Any, Callable, ContextManager, Dict, Optional, Tuple
 
 import botocore
 from pyparsing import ParseException
@@ -168,16 +168,19 @@ def get_enum_key(key, choices):
     if len(keys) == 1:
         return keys[0]
 
+
 def create_dir_if_not_exists(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+
 def get_history_dir_and_file():
     home = str(Path.home())
-    history_dir = os.path.join(home, '.dql')
+    history_dir = os.path.join(home, ".dql")
     create_dir_if_not_exists(history_dir)
-    history_file = os.path.join(history_dir, 'history')
+    history_file = os.path.join(history_dir, "history")
     return (history_dir, history_file)
+
 
 def try_to_write_history():
     (history_dir, history_file) = get_history_dir_and_file()
@@ -190,6 +193,7 @@ def try_to_write_history():
         readline.write_history_file(history_file)
         print("History written to file: " + history_file)
 
+
 def try_to_load_history():
     (history_dir, history_file) = get_history_dir_and_file()
     if os.path.exists(history_file):
@@ -201,6 +205,7 @@ def try_to_load_history():
             pass
         else:
             readline.read_history_file(history_file)
+
 
 @contextmanager
 def exception_handler(engine):
