@@ -4,6 +4,7 @@ Changelog
 0.6.1-dev0
 ----------
 * Chore: Updated config for Dynamo Local to install dependency within project root.
+* Feature: Retain query history across sessions.
 
 0.6.0
 -----
