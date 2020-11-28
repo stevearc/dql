@@ -101,7 +101,7 @@ def prompt(msg, default=NO_DEFAULT, validate=None):
             return response
 
 
-def promptyn(msg, default=None) -> bool:
+def promptyn(msg: str, default: Optional[bool] = None) -> bool:
     """
     Display a blocking prompt until the user confirms.
     Case is disregarded for prompt input.
@@ -169,7 +169,7 @@ def get_enum_key(key, choices):
         return keys[0]
 
 
-def create_dir_if_not_exists(path):
+def create_dir_if_not_exists(path: str) -> None:
     if not os.path.exists(path):
         os.makedirs(path)
 
