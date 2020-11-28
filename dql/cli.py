@@ -10,7 +10,6 @@ from builtins import input
 from collections import OrderedDict
 from contextlib import contextmanager
 from fnmatch import fnmatch
-from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Optional, Tuple
 
 import botocore
@@ -36,6 +35,7 @@ from .help import (
     SELECT,
     UPDATE,
 )
+from .history import HistoryManager
 from .monitor import Monitor
 from .output import (
     ColumnFormat,
@@ -167,54 +167,6 @@ def get_enum_key(key, choices):
     keys = [k for k in choices if k.startswith(key)]
     if len(keys) == 1:
         return keys[0]
-
-
-class HistoryManager:
-    initial_history_length = 0
-
-    def create_dir_if_not_exists(self, path: str) -> None:
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-    def create_file_if_nost_exists(self, path: str) -> None:
-        if not os.path.exists(path):
-            with open(path, "w"):
-                pass
-
-    def get_history_dir_and_file(self):
-        home = str(Path.home())
-        history_dir = os.path.join(home, ".dql")
-        self.create_dir_if_not_exists(history_dir)
-        history_file = os.path.join(history_dir, "history")
-        self.create_file_if_nost_exists(history_file)
-        return (history_dir, history_file)
-
-    def try_to_load_history(self):
-        (history_dir, history_file) = self.get_history_dir_and_file()
-        if os.path.exists(history_file):
-            # print("History loading from file: " + history_file)
-            try:
-                import readline
-            except ImportError:
-                # Windows doesn't have readline, so gracefully ignore.
-                pass
-            else:
-                readline.read_history_file(history_file)
-                initial_history_length = readline.get_current_history_length()
-
-    def try_to_write_history(self):
-        (history_dir, history_file) = self.get_history_dir_and_file()
-        try:
-            import readline
-        except ImportError:
-            # Windows doesn't have readline, so gracefully ignore.
-            pass
-        else:
-            # readline.write_history_file()
-            current_history_length = readline.get_current_history_length()
-            new_history_length = current_history_length - self.initial_history_length
-            readline.append_history_file(new_history_length, history_file)
-            print("History written to file: " + history_file)
 
 
 @contextmanager
