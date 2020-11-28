@@ -169,42 +169,52 @@ def get_enum_key(key, choices):
         return keys[0]
 
 
-def create_dir_if_not_exists(path: str) -> None:
-    if not os.path.exists(path):
-        os.makedirs(path)
+class HistoryManager:
+    initial_history_length = 0
 
+    def create_dir_if_not_exists(self, path: str) -> None:
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-def get_history_dir_and_file():
-    home = str(Path.home())
-    history_dir = os.path.join(home, ".dql")
-    create_dir_if_not_exists(history_dir)
-    history_file = os.path.join(history_dir, "history")
-    return (history_dir, history_file)
+    def create_file_if_nost_exists(self, path: str) -> None:
+        if not os.path.exists(path):
+            with open(path, "w"):
+                pass
 
+    def get_history_dir_and_file(self):
+        home = str(Path.home())
+        history_dir = os.path.join(home, ".dql")
+        self.create_dir_if_not_exists(history_dir)
+        history_file = os.path.join(history_dir, "history")
+        self.create_file_if_nost_exists(history_file)
+        return (history_dir, history_file)
 
-def try_to_write_history():
-    (history_dir, history_file) = get_history_dir_and_file()
-    try:
-        import readline
-    except ImportError:
-        # Windows doesn't have readline, so gracefully ignore.
-        pass
-    else:
-        readline.write_history_file(history_file)
-        print("History written to file: " + history_file)
+    def try_to_load_history(self):
+        (history_dir, history_file) = self.get_history_dir_and_file()
+        if os.path.exists(history_file):
+            # print("History loading from file: " + history_file)
+            try:
+                import readline
+            except ImportError:
+                # Windows doesn't have readline, so gracefully ignore.
+                pass
+            else:
+                readline.read_history_file(history_file)
+                initial_history_length = readline.get_current_history_length()
 
-
-def try_to_load_history():
-    (history_dir, history_file) = get_history_dir_and_file()
-    if os.path.exists(history_file):
-        # print("History loading from file: " + history_file)
+    def try_to_write_history(self):
+        (history_dir, history_file) = self.get_history_dir_and_file()
         try:
             import readline
         except ImportError:
             # Windows doesn't have readline, so gracefully ignore.
             pass
         else:
-            readline.read_history_file(history_file)
+            # readline.write_history_file()
+            current_history_length = readline.get_current_history_length()
+            new_history_length = current_history_length - self.initial_history_length
+            readline.append_history_file(new_history_length, history_file)
+            print("History written to file: " + history_file)
 
 
 @contextmanager
@@ -261,6 +271,8 @@ class DQLClient(cmd.Cmd):
     # Used with --command
     _silent: bool = False
 
+    history_manager: HistoryManager = HistoryManager()
+
     def initialize(
         self,
         region: str = "us-west-1",
@@ -270,7 +282,7 @@ class DQLClient(cmd.Cmd):
         session: Optional[Any] = None,
     ) -> None:
         """ Set up the repl for execution. """
-        try_to_load_history()
+        self.history_manager.try_to_load_history()
         try:
             import readline
             import rlcompleter
@@ -800,7 +812,7 @@ class DQLClient(cmd.Cmd):
         """Exit"""
         self.running = False
         print()
-        try_to_write_history()
+        self.history_manager.try_to_write_history()
         return True
 
     def run_command(
