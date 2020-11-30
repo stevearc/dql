@@ -12,6 +12,11 @@ DQL
 
 A simple, SQL-ish language for DynamoDB
 
+As of November 2020, Amazon has released `PartiQL
+support <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.html>`__
+for DynamoDB. You should investigate that first to see if it addresses your
+needs.
+
 Getting Started
 ===============
 The easiest way to use DQL is to download and run the install script::
