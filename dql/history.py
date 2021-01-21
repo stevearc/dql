@@ -6,7 +6,7 @@ class HistoryManager(object):
     _initial_history_length = 0
 
     def _create_file_if_not_exists(self, path: str) -> None:
-        with open(path, "w"):
+        with open(path, "a"):
             pass
 
     def _prep_history_file(self):
@@ -46,6 +46,11 @@ class HistoryManager(object):
         else:
             current_history_length = readline.get_current_history_length()
             new_history_length = current_history_length - self._initial_history_length
-            # append will fail if the file does not exist.
-            readline.append_history_file(new_history_length, history_file)
-            print("History written to file: " + history_file)
+            if new_history_length < 0:
+                print(
+                    f"Error: New History Length is less than 0. {current_history_length} - {self._initial_history_length}"
+                )
+            else:
+                # append will fail if the file does not exist.
+                readline.append_history_file(new_history_length, history_file)
+                print("History written to file: " + history_file)
