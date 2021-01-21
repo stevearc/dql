@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 
 class HistoryManager(object):
@@ -9,7 +10,7 @@ class HistoryManager(object):
         with open(path, "a"):
             pass
 
-    def _prep_history_file(self):
+    def _prep_history_file(self, history_dir: Optional[str] = None) -> str:
         """
         Will return the path to the prepared hisory file.
         Prepping involves creating the dirs and the file itself.
@@ -18,15 +19,15 @@ class HistoryManager(object):
         -------
             str The path to the history file.
         """
-
-        history_dir = os.path.join(Path.home(), ".dql")
-        os.makedirs(history_dir, exist_ok=True)
-        history_file = os.path.join(history_dir, "history")
+        default_history_dir = os.path.join(Path.home(), ".dql")
+        actual_history_dir = history_dir or default_history_dir
+        os.makedirs(actual_history_dir, exist_ok=True)
+        history_file = os.path.join(actual_history_dir, "history")
         self._create_file_if_not_exists(history_file)
         return history_file
 
-    def try_to_load_history(self):
-        history_file = self._prep_history_file()
+    def try_to_load_history(self, history_dir: Optional[str] = None) -> None:
+        history_file = self._prep_history_file(history_dir)
         try:
             import readline
         except ImportError:
@@ -36,8 +37,8 @@ class HistoryManager(object):
             readline.read_history_file(history_file)
             self._initial_history_length = readline.get_current_history_length()
 
-    def try_to_write_history(self):
-        history_file = self._prep_history_file()
+    def try_to_write_history(self, history_dir: Optional[str] = None) -> None:
+        history_file = self._prep_history_file(history_dir)
         try:
             import readline
         except ImportError:
