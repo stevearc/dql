@@ -47,8 +47,8 @@ class HistoryManager(object):
             current_history_length = readline.get_current_history_length()
             new_history_length = current_history_length - self._initial_history_length
             if new_history_length < 0:
-                print(
-                    f"Error: New History Length is less than 0. {current_history_length} - {self._initial_history_length}"
+                raise Exception(
+                    f"Unable to write new history. Length is less than 0. ({current_history_length} - {self._initial_history_length})"
                 )
             else:
                 # append will fail if the file does not exist.
