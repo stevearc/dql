@@ -27,6 +27,10 @@ class BaseHistoryManagerTest(TestCase):
     def get_hist_file_path(self, hist_dir):
         return os.path.join(hist_dir, "history")
 
+    def setUp(self):
+        super().setUp()
+        readline.clear_history()
+
 
 class TestHistoryManager(BaseHistoryManagerTest):
 
