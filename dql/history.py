@@ -53,4 +53,3 @@ class HistoryManager(object):
             else:
                 # append will fail if the file does not exist.
                 readline.append_history_file(new_history_length, history_file)
-                print("History written to file: " + history_file)
