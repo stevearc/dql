@@ -196,3 +196,22 @@ class TestCliCommands(BaseCLITest):
         )
         output = self._run_command("ls foobar")
         self.assertMatchSnapshot(output)
+
+    def test_ls_with_multiple_tables(self):
+        """ Snapshot test for ls format """
+        self._run_dql_command(
+            """
+        CREATE TABLE foo (
+            id STRING HASH KEY,
+            range NUMBER RANGE KEY,
+            foo STRING INDEX('foo-index')
+        );
+        CREATE TABLE bar (
+            id STRING HASH KEY,
+            range NUMBER RANGE KEY,
+            bar STRING INDEX('bar-index')
+        );
+        """
+        )
+        output = self._run_command("ls")
+        self.assertMatchSnapshot(output)

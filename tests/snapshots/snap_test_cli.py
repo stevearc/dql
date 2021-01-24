@@ -17,3 +17,8 @@ GLOBAL ALL INDEX bar-index
   Read: 0/∞  Write: 0/∞
   bar STRING HASH KEY
 '''
+
+snapshots['TestCliCommands::test_ls_with_multiple_tables 1'] = '''Name Status Read Write 
+bar  ACTIVE 0    0     
+foo  ACTIVE 0    0     
+'''
