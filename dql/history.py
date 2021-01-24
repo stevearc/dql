@@ -5,6 +5,7 @@ from typing import Optional
 
 class HistoryManager(object):
     _initial_history_length = 0
+    history_file_name = "history"
 
     def _create_file_if_not_exists(self, path: str) -> None:
         with open(path, "a"):
@@ -22,7 +23,7 @@ class HistoryManager(object):
         default_history_dir = os.path.join(Path.home(), ".dql")
         actual_history_dir = history_dir or default_history_dir
         os.makedirs(actual_history_dir, exist_ok=True)
-        history_file = os.path.join(actual_history_dir, "history")
+        history_file = os.path.join(actual_history_dir, self.history_file_name)
         self._create_file_if_not_exists(history_file)
         return history_file
 
