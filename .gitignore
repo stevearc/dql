@@ -50,3 +50,5 @@ _build
 
 # dynamo local service
 .dynamo-local
+
+.direnv/
