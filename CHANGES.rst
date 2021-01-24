@@ -1,10 +1,13 @@
 Changelog
 =========
 
-0.6.1-dev0
-----------
-* Chore: Updated config for Dynamo Local to install dependency within project root.
+0.6.1
+-----
 * Feature: Retain query history across sessions. (#40)
+* Fix: Cannot count(*) on an index (#37)
+* Fix: Saving data to some file formats was failing
+* Fix: Constraint functions accept quoted field names (#36)
+* Chore: Updated config for Dynamo Local to install dependency within project root.
 
 0.6.0
 -----
