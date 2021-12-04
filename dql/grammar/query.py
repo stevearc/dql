@@ -49,7 +49,7 @@ from .parsed_primitives import value as parsed_value
 
 
 def select_functions(expr):
-    """ Create the function expressions for selection """
+    """Create the function expressions for selection"""
     body = Group(expr)
     return Group(
         function("timestamp", body, caseless=True)
@@ -62,7 +62,7 @@ def select_functions(expr):
 
 
 def create_selection():
-    """ Create a selection expression """
+    """Create a selection expression"""
     operation = Forward()
     nested = Group(Suppress("(") + operation + Suppress(")")).setResultsName("nested")
     select_expr = Forward()
@@ -87,7 +87,7 @@ var_or_quoted_var = var | quoted(var)
 
 
 def create_query_constraint():
-    """ Create a constraint for a query WHERE clause """
+    """Create a constraint for a query WHERE clause"""
     op = oneOf("= < > >= <= != <>", caseless=True).setName("operator")
     basic_constraint = (var + op + field_or_value).setParseAction(
         OperatorConstraint.from_parser
@@ -124,7 +124,7 @@ constraint = create_query_constraint()
 
 
 def create_where():
-    """ Create a grammar for the 'where' clause used by 'select' """
+    """Create a grammar for the 'where' clause used by 'select'"""
     full_constraint = infixNotation(
         constraint,
         [
@@ -137,7 +137,7 @@ def create_where():
 
 
 def create_keys_in():
-    """ Create a grammer for the 'KEYS IN' clause used for queries """
+    """Create a grammer for the 'KEYS IN' clause used for queries"""
     keys = Group(
         Optional(Suppress("("))
         + value

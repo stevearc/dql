@@ -85,12 +85,12 @@ install()
 
 
 def indent(string, prefix="  "):
-    """ Indent a paragraph of text """
+    """Indent a paragraph of text"""
     return "\n".join([prefix + line for line in string.split("\n")])
 
 
 def prompt(msg, default=NO_DEFAULT, validate=None):
-    """ Prompt user for input """
+    """Prompt user for input"""
     while True:
         response = input(msg + " ").strip()
         if not response:
@@ -161,7 +161,7 @@ def repl_command(fxn):
 
 
 def get_enum_key(key, choices):
-    """ Get an enum by prefix or equality """
+    """Get an enum by prefix or equality"""
     if key in choices:
         return key
     keys = [k for k in choices if k.startswith(key)]
@@ -171,7 +171,7 @@ def get_enum_key(key, choices):
 
 @contextmanager
 def exception_handler(engine):
-    """ It is a context manager which can handle exceptions and deal with them. """
+    """It is a context manager which can handle exceptions and deal with them."""
     try:
         yield
     except KeyboardInterrupt:
@@ -233,7 +233,7 @@ class DQLClient(cmd.Cmd):
         config_dir: Optional[str] = None,
         session: Optional[Any] = None,
     ) -> None:
-        """ Set up the repl for execution. """
+        """Set up the repl for execution."""
         self.history_manager.try_to_load_history()
         try:
             import readline
@@ -282,7 +282,7 @@ class DQLClient(cmd.Cmd):
         self.throttle.load(self.conf["_throttle"])
 
     def start(self):
-        """ Start running the interactive session (blocking) """
+        """Start running the interactive session (blocking)"""
         self.running = True
         while self.running:
             self.update_prompt()
@@ -295,7 +295,7 @@ class DQLClient(cmd.Cmd):
         return stop
 
     def update_prompt(self):
-        """ Update the prompt """
+        """Update the prompt"""
         prefix = ""
         if self._local_endpoint is not None:
             prefix += "(%s:%d) " % self._local_endpoint
@@ -306,7 +306,7 @@ class DQLClient(cmd.Cmd):
             self.prompt = prefix + "> "
 
     def do_shell(self, arglist):
-        """ Run a shell command """
+        """Run a shell command"""
         proc = subprocess.Popen(
             shlex.split(arglist), stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
@@ -322,7 +322,7 @@ class DQLClient(cmd.Cmd):
         return promptyn(msg, False)
 
     def save_config(self):
-        """ Save the conf file """
+        """Save the conf file"""
         if not os.path.exists(self._conf_dir):
             os.makedirs(self._conf_dir)
         conf_file = os.path.join(self._conf_dir, "dql.json")
@@ -330,7 +330,7 @@ class DQLClient(cmd.Cmd):
             json.dump(self.conf, ofile, indent=2)
 
     def load_config(self):
-        """ Load your configuration settings from a file """
+        """Load your configuration settings from a file"""
         conf_file = os.path.join(self._conf_dir, "dql.json")
         if not os.path.exists(conf_file):
             return {}
@@ -339,7 +339,7 @@ class DQLClient(cmd.Cmd):
 
     @repl_command
     def do_opt(self, *_args, **kwargs):
-        """ Get and set options """
+        """Get and set options"""
         args = list(_args)
         if not args:
             largest = 0
@@ -365,18 +365,18 @@ class DQLClient(cmd.Cmd):
                 self.save_config()
 
     def help_opt(self):
-        """ Print the help text for options """
+        """Print the help text for options"""
         print(OPTIONS)
 
     def getopt_default(self, option):
-        """ Default method to get an option """
+        """Default method to get an option"""
         if option not in self.conf:
             print("Unrecognized option %r" % option)
             return
         print("%s: %s" % (option, self.conf[option]))
 
     def complete_opt(self, text, line, begidx, endidx):
-        """ Autocomplete for options """
+        """Autocomplete for options"""
         tokens = line.split()
         if len(tokens) == 1:
             if text:
@@ -394,27 +394,27 @@ class DQLClient(cmd.Cmd):
             return method(text, line, begidx, endidx)  # pylint: disable=E1102
 
     def opt_width(self, width):
-        """ Set width of output ('auto' will auto-detect terminal width) """
+        """Set width of output ('auto' will auto-detect terminal width)"""
         if width != "auto":
             width = int(width)
         self.conf["width"] = width
 
     def complete_opt_width(self, *_):
-        """ Autocomplete for width option """
+        """Autocomplete for width option"""
         return ["auto"]
 
     def opt_pagesize(self, pagesize):
-        """ Get or set the page size of the query output """
+        """Get or set the page size of the query output"""
         if pagesize != "auto":
             pagesize = int(pagesize)
         self.conf["pagesize"] = pagesize
 
     def complete_opt_pagesize(self, *_):
-        """ Autocomplete for pagesize option """
+        """Autocomplete for pagesize option"""
         return ["auto"]
 
     def _print_enum_opt(self, option, choices):
-        """ Helper for enum options """
+        """Helper for enum options"""
         for key in choices:
             if key == self.conf[option]:
                 print("* %s" % key)
@@ -422,7 +422,7 @@ class DQLClient(cmd.Cmd):
                 print("  %s" % key)
 
     def opt_display(self, display):
-        """ Set value for display option """
+        """Set value for display option"""
         key = get_enum_key(display, DISPLAYS)
         if key is not None:
             self.conf["display"] = key
@@ -432,15 +432,15 @@ class DQLClient(cmd.Cmd):
             print("Unknown display %r" % display)
 
     def getopt_display(self):
-        """ Get value for display option """
+        """Get value for display option"""
         self._print_enum_opt("display", DISPLAYS)
 
     def complete_opt_display(self, text, *_):
-        """ Autocomplete for display option """
+        """Autocomplete for display option"""
         return [t + " " for t in DISPLAYS if t.startswith(text)]
 
     def opt_format(self, fmt):
-        """ Set value for format option """
+        """Set value for format option"""
         key = get_enum_key(fmt, FORMATTERS)
         if key is not None:
             self.conf["format"] = key
@@ -449,35 +449,35 @@ class DQLClient(cmd.Cmd):
             print("Unknown format %r" % fmt)
 
     def getopt_format(self):
-        """ Get value for format option """
+        """Get value for format option"""
         self._print_enum_opt("format", FORMATTERS)
 
     def complete_opt_format(self, text, *_):
-        """ Autocomplete for format option """
+        """Autocomplete for format option"""
         return [t + " " for t in FORMATTERS if t.startswith(text)]
 
     def opt_allow_select_scan(self, allow):
-        """ Set option allow_select_scan """
+        """Set option allow_select_scan"""
         allow = allow.lower() in ("true", "t", "yes", "y")
         self.conf["allow_select_scan"] = allow
         self.engine.allow_select_scan = allow
 
     def complete_opt_allow_select_scan(self, text, *_):
-        """ Autocomplete for allow_select_scan option """
+        """Autocomplete for allow_select_scan option"""
         return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
 
     def opt_lossy_json_float(self, lossy):
-        """ Set option lossy_json_float """
+        """Set option lossy_json_float"""
         lossy = lossy.lower() in ("true", "t", "yes", "y")
         self.conf["lossy_json_float"] = lossy
 
     def complete_opt_lossy_json_float(self, text, *_):
-        """ Autocomplete for lossy_json_float option """
+        """Autocomplete for lossy_json_float option"""
         return [t for t in ("true", "false", "yes", "no") if t.startswith(text.lower())]
 
     @repl_command
     def do_watch(self, *args):
-        """ Watch Dynamo tables consumed capacity """
+        """Watch Dynamo tables consumed capacity"""
         tables = set()
         if not self.engine.cached_descriptions:
             self.engine.describe_all()
@@ -490,29 +490,29 @@ class DQLClient(cmd.Cmd):
         monitor.start()
 
     def complete_watch(self, text, *_):
-        """ Autocomplete for watch """
+        """Autocomplete for watch"""
         return [t + " " for t in self.engine.cached_descriptions if t.startswith(text)]
 
     @repl_command
     def do_file(self, filename):
-        """ Read and execute a .dql file """
+        """Read and execute a .dql file"""
         with open(filename, "r") as infile:
             self._run_cmd(infile.read())
 
     def complete_file(self, text, line, *_):
-        """ Autocomplete DQL file lookup """
+        """Autocomplete DQL file lookup"""
         leading = line[len("file ") :]
         curpath = os.path.join(os.path.curdir, leading)
 
         def isdql(parent, filename):
-            """ Check if a file is .dql or a dir """
+            """Check if a file is .dql or a dir"""
             return not filename.startswith(".") and (
                 os.path.isdir(os.path.join(parent, filename))
                 or filename.lower().endswith(".dql")
             )
 
         def addslash(path):
-            """ Append a slash if a file is a directory """
+            """Append a slash if a file is a directory"""
             if path.lower().endswith(".dql"):
                 return path + " "
             else:
@@ -528,7 +528,7 @@ class DQLClient(cmd.Cmd):
 
     @repl_command
     def do_ls(self, table: str = None) -> None:
-        """ List all tables or print details of one table """
+        """List all tables or print details of one table"""
         if table is None:
             table_descriptions = self.engine.describe_all()
         else:
@@ -570,7 +570,7 @@ class DQLClient(cmd.Cmd):
             print()
 
     def complete_ls(self, text, *_):
-        """ Autocomplete for ls """
+        """Autocomplete for ls"""
         return [t + " " for t in self.engine.cached_descriptions if t.startswith(text)]
 
     @repl_command
@@ -614,7 +614,7 @@ class DQLClient(cmd.Cmd):
             self.engine.connect(region, session=self.session)
 
     def complete_use(self, text, *_):
-        """ Autocomplete for use """
+        """Autocomplete for use"""
         return [t + " " for t in REGIONS if t.startswith(text)]
 
     @repl_command
@@ -698,11 +698,11 @@ class DQLClient(cmd.Cmd):
         self.save_config()
 
     def default(self, command):
-        """ This is an override of super class method. """
+        """This is an override of super class method."""
         self._run_cmd(command)
 
     def completedefault(self, text, line, *_):
-        """ Autocomplete table names in queries """
+        """Autocomplete table names in queries"""
         tokens = line.split()
         try:
             before = tokens[-2]
@@ -719,7 +719,7 @@ class DQLClient(cmd.Cmd):
             pass
 
     def _run_cmd(self, command):
-        """ Run a DQL command """
+        """Run a DQL command"""
         if self.throttle:
             tables = self.engine.describe_all(False)
             limiter = self.throttle.get_limiter(tables)
@@ -770,7 +770,7 @@ class DQLClient(cmd.Cmd):
     def run_command(
         self, command: str, use_json: bool = False, raise_exceptions: bool = False
     ) -> None:
-        """ Run a command passed in from the command line with -c """
+        """Run a command passed in from the command line with -c"""
         self.display = DISPLAYS["stdout"]
         self.conf["pagesize"] = 0
         if use_json:
@@ -790,49 +790,49 @@ class DQLClient(cmd.Cmd):
         print("List commands or print details about a command")
 
     def help_alter(self):
-        """ Print the help text for ALTER """
+        """Print the help text for ALTER"""
         print(ALTER)
 
     def help_analyze(self):
-        """ Print the help text for ANALYZE """
+        """Print the help text for ANALYZE"""
         print(ANALYZE)
 
     def help_create(self):
-        """ Print the help text for CREATE """
+        """Print the help text for CREATE"""
         print(CREATE)
 
     def help_delete(self):
-        """ Print the help text for DELETE """
+        """Print the help text for DELETE"""
         print(DELETE)
 
     def help_drop(self):
-        """ Print the help text for DROP """
+        """Print the help text for DROP"""
         print(DROP)
 
     def help_dump(self):
-        """ Print the help text for DUMP """
+        """Print the help text for DUMP"""
         print(DUMP)
 
     def help_explain(self):
-        """ Print the help text for EXPLAIN """
+        """Print the help text for EXPLAIN"""
         print(EXPLAIN)
 
     def help_insert(self):
-        """ Print the help text for INSERT """
+        """Print the help text for INSERT"""
         print(INSERT)
 
     def help_load(self):
-        """ Print the help text for LOAD """
+        """Print the help text for LOAD"""
         print(LOAD)
 
     def help_scan(self):
-        """ Print the help text for SCAN """
+        """Print the help text for SCAN"""
         print(SCAN)
 
     def help_select(self):
-        """ Print the help text for SELECT """
+        """Print the help text for SELECT"""
         print(SELECT)
 
     def help_update(self):
-        """ Print the help text for UPDATE """
+        """Print the help text for UPDATE"""
         print(UPDATE)

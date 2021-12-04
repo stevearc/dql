@@ -10,7 +10,7 @@ from . import BaseSystemTest
 
 class TestSave(BaseSystemTest):
 
-    """ System tests for saving to file """
+    """System tests for saving to file"""
 
     def setUp(self):
         super().setUp()
@@ -24,13 +24,13 @@ class TestSave(BaseSystemTest):
         shutil.rmtree(self.tmpdir)
 
     def _save(self, filename):
-        """ Query test table and save to a file """
+        """Query test table and save to a file"""
         filepath = os.path.join(self.tmpdir, filename)
         self.query("SCAN * FROM foobar SAVE %s" % filepath)
         return filepath
 
     def test_file_formats(self):
-        """ Test saving and loading all file formats """
+        """Test saving and loading all file formats"""
         formats = ["p", "csv", "json", "p.gz", "csv.gz", "json.gz"]
         for fmt in formats:
             filename = self._save("out.%s" % fmt)

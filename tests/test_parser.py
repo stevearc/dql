@@ -325,10 +325,10 @@ TEST_CASES: Dict[str, List[Tuple[str, Union[str, List[Any]]]]] = {
 
 class TestParser(TestCase):
 
-    """ Tests for the language parser """
+    """Tests for the language parser"""
 
     def _run_tests(self, key, grammar=statement_parser):
-        """ Run a set of tests """
+        """Run a set of tests"""
         for string, result in TEST_CASES[key]:
             try:
                 parse_result = grammar.parseString(string)
@@ -351,39 +351,39 @@ class TestParser(TestCase):
                 raise
 
     def test_create(self):
-        """ Run tests for CREATE statements """
+        """Run tests for CREATE statements"""
         self._run_tests("create")
 
     def test_create_index(self):
-        """ Run tests for CREATE statements with indexes """
+        """Run tests for CREATE statements with indexes"""
         self._run_tests("create_index")
 
     def test_create_global(self):
-        """ Run tests for CREATE statements with global indexes """
+        """Run tests for CREATE statements with global indexes"""
         self._run_tests("create_global")
 
     def test_insert(self):
-        """ Run tests for INSERT statements """
+        """Run tests for INSERT statements"""
         self._run_tests("insert")
 
     def test_drop(self):
-        """ Run tests for DROP statements """
+        """Run tests for DROP statements"""
         self._run_tests("drop")
 
     def test_alter(self):
-        """ Run tests for ALTER statements """
+        """Run tests for ALTER statements"""
         self._run_tests("alter")
 
     def test_dump(self):
-        """ Run tests for DUMP statements """
+        """Run tests for DUMP statements"""
         self._run_tests("dump")
 
     def test_multiple_statements(self):
-        """ Run tests for multiple-line statements """
+        """Run tests for multiple-line statements"""
         self._run_tests("multiple", parser)
 
     def test_variables(self):
-        """ Run tests for parsing variables """
+        """Run tests for parsing variables"""
         self._run_tests("variables", value)
 
 
@@ -518,10 +518,10 @@ SELECTION = [
 
 
 class TestExpressions(TestCase):
-    """ Tests for expression parsing and building """
+    """Tests for expression parsing and building"""
 
     def _run_test(self, expression, expected, grammar, key, factory):
-        """ Parse an expression, build it, and compare """
+        """Parse an expression, build it, and compare"""
         grammar = grammar + StringEnd()
         try:
             parse_result = grammar.parseString(expression)
@@ -541,12 +541,12 @@ class TestExpressions(TestCase):
             raise
 
     def test_constraints(self):
-        """ Test parsing constraint expressions (WHERE ...) """
+        """Test parsing constraint expressions (WHERE ...)"""
         for (expression, expected) in CONSTRAINTS:
             self._run_test(expression, expected, where, "where", lambda x: x)
 
     def test_updates(self):
-        """ Test parsing update expressions (SET ...) """
+        """Test parsing update expressions (SET ...)"""
         for (expression, expected) in UPDATES:
             self._run_test(
                 expression,
@@ -557,7 +557,7 @@ class TestExpressions(TestCase):
             )
 
     def test_selection(self):
-        """ Test parsing selection expressions (SELECT ...) """
+        """Test parsing selection expressions (SELECT ...)"""
         for (expression, expected) in SELECTION:
             self._run_test(
                 expression,

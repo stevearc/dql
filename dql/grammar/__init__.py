@@ -46,7 +46,7 @@ from .query import (
 
 
 def create_throughput(variable=primitive):
-    """ Create a throughput specification """
+    """Create a throughput specification"""
     return (
         Suppress(upkey("throughput") | upkey("tp"))
         + Suppress("(")
@@ -58,7 +58,7 @@ def create_throughput(variable=primitive):
 
 
 def create_throttle():
-    """ Create a THROTTLE statement """
+    """Create a THROTTLE statement"""
     throttle_amount = "*" | Combine(number + "%") | number
     return Group(
         function("throttle", throttle_amount, throttle_amount, caseless=True)
@@ -69,7 +69,7 @@ def create_throttle():
 
 
 def _query(cmd):
-    """ Create the grammar for a scan/query """
+    """Create the grammar for a scan/query"""
     action = upkey(cmd).setResultsName("action")
     consist = upkey("consistent").setResultsName("consistent")
     order_by = (Suppress(upkey("order") + upkey("by")) + var).setResultsName("order_by")
@@ -94,17 +94,17 @@ def _query(cmd):
 
 
 def create_select():
-    """ Create the grammar for the 'select' statement """
+    """Create the grammar for the 'select' statement"""
     return _query("select")
 
 
 def create_scan():
-    """ Create the grammar for the 'scan' statement """
+    """Create the grammar for the 'scan' statement"""
     return _query("scan")
 
 
 def _global_index():
-    """ Create grammar for a global index declaration """
+    """Create grammar for a global index declaration"""
     var_and_type = var + Optional(type_)
     global_dec = Suppress(upkey("global")) + index
     range_key_etc = Suppress(",") + Group(throughput) | Optional(
@@ -124,7 +124,7 @@ def _global_index():
 
 
 def create_create():
-    """ Create the grammar for the 'create' statement """
+    """Create the grammar for the 'create' statement"""
     create = upkey("create").setResultsName("action")
     hash_key = Group(upkey("hash") + upkey("key"))
     range_key = Group(upkey("range") + upkey("key"))
@@ -170,7 +170,7 @@ def create_create():
 
 
 def create_delete():
-    """ Create the grammar for the 'delete' statement """
+    """Create the grammar for the 'delete' statement"""
     delete = upkey("delete").setResultsName("action")
     return (
         delete
@@ -184,7 +184,7 @@ def create_delete():
 
 
 def create_insert():
-    """ Create the grammar for the 'insert' statement """
+    """Create the grammar for the 'insert' statement"""
     insert = upkey("insert").setResultsName("action")
 
     # VALUES
@@ -202,13 +202,13 @@ def create_insert():
 
 
 def create_drop():
-    """ Create the grammar for the 'drop' statement """
+    """Create the grammar for the 'drop' statement"""
     drop = upkey("drop").setResultsName("action")
     return drop + table_key + Optional(if_exists) + table
 
 
 def _create_update_expression():
-    """ Create the grammar for an update expression """
+    """Create the grammar for an update expression"""
     ine = (
         Word("if_not_exists")
         + Suppress("(")
@@ -248,7 +248,7 @@ def _create_update_expression():
 
 
 def create_update():
-    """ Create the grammar for the 'update' statement """
+    """Create the grammar for the 'update' statement"""
     update = upkey("update").setResultsName("action")
     returns, none, all_, updated, old, new = map(
         upkey, ["returns", "none", "all", "updated", "old", "new"]
@@ -269,7 +269,7 @@ def create_update():
 
 
 def create_alter():
-    """ Create the grammar for the 'alter' statement """
+    """Create the grammar for the 'alter' statement"""
     alter = upkey("alter").setResultsName("action")
     prim_or_star = primitive | "*"
 
@@ -293,7 +293,7 @@ def create_alter():
 
 
 def create_dump():
-    """ Create the grammar for the 'dump' statement """
+    """Create the grammar for the 'dump' statement"""
     dump = upkey("dump").setResultsName("action")
     return (
         dump
@@ -303,7 +303,7 @@ def create_dump():
 
 
 def create_load():
-    """ Create the grammar for the 'load' statement """
+    """Create the grammar for the 'load' statement"""
     load = upkey("load").setResultsName("action")
     return (
         load
@@ -315,7 +315,7 @@ def create_load():
 
 
 def create_parser():
-    """ Create the language parser """
+    """Create the language parser"""
     select = create_select()
     scan = create_scan()
     delete = create_delete()

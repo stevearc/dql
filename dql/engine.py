@@ -52,7 +52,7 @@ LOG = logging.getLogger(__name__)
 
 
 def default(value):
-    """ Default encoder for JSON """
+    """Default encoder for JSON"""
     if isinstance(value, Decimal):
         primative = float(value)
         if int(primative) == primative:
@@ -67,7 +67,7 @@ def default(value):
 
 
 def add_query_kwargs(kwargs, visitor, constraints, index):
-    """ Construct KeyConditionExpression and FilterExpression """
+    """Construct KeyConditionExpression and FilterExpression"""
     (query_const, filter_const) = constraints.remove_index(index)
     kwargs["key_condition_expr"] = query_const.build(visitor)
     if filter_const:
@@ -77,7 +77,7 @@ def add_query_kwargs(kwargs, visitor, constraints, index):
 
 
 def iter_insert_items(tree):
-    """ Iterate over the items to insert from an INSERT statement """
+    """Iterate over the items to insert from an INSERT statement"""
     if tree.list_values:
         keys = tree.attrs
         for values in tree.list_values:
@@ -135,7 +135,7 @@ class Engine(object):
         self.caution_callback = None
 
     def connect(self, *args, **kwargs):
-        """ Proxy to DynamoDBConnection.connect. """
+        """Proxy to DynamoDBConnection.connect."""
         self.connection = DynamoDBConnection.connect(*args, **kwargs)
         self._session = kwargs.get("session")
         if self._session is None:
@@ -143,17 +143,17 @@ class Engine(object):
 
     @property
     def region(self):
-        """ Get the connected dynamo region or host """
+        """Get the connected dynamo region or host"""
         return self._connection.region
 
     @property
     def connection(self) -> DynamoDBConnection:
-        """ Get the dynamo connection """
+        """Get the dynamo connection"""
         return self._connection
 
     @connection.setter
     def connection(self, connection: DynamoDBConnection) -> None:
-        """ Change the dynamo connection """
+        """Change the dynamo connection"""
         if connection is not None:
             connection.subscribe("capacity", self._on_capacity_data)
             connection.default_return_capacity = True
@@ -165,21 +165,21 @@ class Engine(object):
 
     @property
     def cloudwatch_connection(self):
-        """ Lazy create a connection to cloudwatch """
+        """Lazy create a connection to cloudwatch"""
         if self._cloudwatch_connection is None:
             conn = self._session.create_client("cloudwatch", self.connection.region)
             self._cloudwatch_connection = conn
         return self._cloudwatch_connection
 
     def _format_explain(self):
-        """ Format the results of an EXPLAIN """
+        """Format the results of an EXPLAIN"""
         lines = []
         for (command, kwargs) in self._call_list:
             lines.append(command + " " + pformat(kwargs))
         return "\n".join(lines)
 
     def _pretty_format(self, statement, result):
-        """ Format the return value of a query for humans """
+        """Format the return value of a query for humans"""
         if result is None:
             return "Success"
         ret = result
@@ -218,7 +218,7 @@ class Engine(object):
         return ret
 
     def describe_all(self, refresh=True):
-        """ Describe all tables in the connected region """
+        """Describe all tables in the connected region"""
         tables = self.connection.list_tables()
         descs = []
         for tablename in tables:
@@ -226,7 +226,7 @@ class Engine(object):
         return descs
 
     def _get_metric(self, metric, tablename, index_name=None):
-        """ Fetch a read/write capacity metric """
+        """Fetch a read/write capacity metric"""
         end = time.time()
         begin = end - 3 * 60  # 3 minute window
         dimensions = [{"Name": "TableName", "Value": tablename}]
@@ -252,7 +252,7 @@ class Engine(object):
     def get_capacity(
         self, tablename: str, index_name: Optional[str] = None
     ) -> Tuple[float, float]:
-        """ Get the consumed read/write capacity """
+        """Get the consumed read/write capacity"""
         # If we're connected to a DynamoDB Local instance, don't connect to the
         # actual cloudwatch endpoint
         if self.connection.region == "local":
@@ -293,7 +293,7 @@ class Engine(object):
         metrics: bool = False,
         require: bool = False,
     ) -> Optional[TableMeta]:
-        """ Get the :class:`.TableMeta` for a table """
+        """Get the :class:`.TableMeta` for a table"""
         table = self.cached_descriptions.get(tablename)
         if refresh or table is None or (metrics and not table.consumed_capacity):
             desc = self.connection.describe_table(tablename)
@@ -339,7 +339,7 @@ class Engine(object):
         return result
 
     def _run(self, tree):
-        """ Run a query from a parse tree """
+        """Run a query from a parse tree"""
         if tree.throttle:
             limiter = self._parse_throttle(tree.table, tree.throttle)
             self._query_rate_limit = limiter
@@ -375,7 +375,7 @@ class Engine(object):
             raise SyntaxError("Unrecognized action '%s'" % tree.action)
 
     def _parse_throttle(self, tablename: str, throttle: Any) -> RateLimit:
-        """ Parse a 'throttle' statement and return a RateLimit """
+        """Parse a 'throttle' statement and return a RateLimit"""
         amount: List[float] = []
         desc = self.describe(tablename)
         if desc.throughput is None:
@@ -393,7 +393,7 @@ class Engine(object):
         return RateLimit(total=cap, callback=self._on_throttle)
 
     def _on_capacity_data(self, conn, command, kwargs, response, capacity):
-        """ Log the received consumed capacity data """
+        """Log the received consumed capacity data"""
         if self._analyzing:
             self.consumed_capacities.append((command, capacity))
         if self._query_rate_limit is not None:
@@ -405,7 +405,7 @@ class Engine(object):
             self.rate_limit.on_capacity(conn, command, kwargs, response, capacity)
 
     def _on_throttle(self, conn, command, kwargs, response, capacity, seconds):
-        """ Print out a message when the query is throttled """
+        """Print out a message when the query is throttled"""
         LOG.info(
             "Throughput limit exceeded during %s. " "Sleeping for %d second%s",
             command,
@@ -414,13 +414,13 @@ class Engine(object):
         )
 
     def _explain(self, tree):
-        """ Set up the engine to do a dry run of a query """
+        """Set up the engine to do a dry run of a query"""
         self._explaining = True
         self._call_list = []
         old_call = self.connection.call
 
         def fake_call(command, **kwargs):
-            """ Replacement for connection.call that logs args """
+            """Replacement for connection.call that logs args"""
             if command == "describe_table":
                 return old_call(command, **kwargs)
             self._call_list.append((command, kwargs))
@@ -438,7 +438,7 @@ class Engine(object):
             self._explaining = False
 
     def _build_query(self, table, tree, visitor):
-        """ Build a scan/query from a statement """
+        """Build a scan/query from a statement"""
         kwargs = {}
         index = None
         if tree.using:
@@ -483,13 +483,13 @@ class Engine(object):
         return [action, kwargs, index]
 
     def _iter_where_in(self, tree):
-        """ Iterate over the KEYS IN and generate primary keys """
+        """Iterate over the KEYS IN and generate primary keys"""
         desc = self.describe(tree.table, require=True)
         for keypair in tree.keys_in:
             yield desc.primary_key(*map(resolve, keypair))
 
     def _select(self, tree, allow_select_scan):
-        """ Run a SELECT statement """
+        """Run a SELECT statement"""
         tablename = tree.table
         desc = self.describe(tablename, require=True)
         kwargs: Dict = {}
@@ -588,7 +588,7 @@ class Engine(object):
             result = self.connection.batch_get(tablename, **get_kwargs)
 
         def order(items):
-            """ Sort the items by the specified keys """
+            """Sort the items by the specified keys"""
             if order_by is None:
                 return items
             if index is None or order_by != index.range_key:
@@ -649,11 +649,11 @@ class Engine(object):
         return result
 
     def _scan(self, tree):
-        """ Run a SCAN statement """
+        """Run a SCAN statement"""
         return self._select(tree, True)
 
     def _query_and_op(self, tree, table, method_name, method_kwargs):
-        """ Query the table and perform an operation on each item """
+        """Query the table and perform an operation on each item"""
         result = []
         if tree.keys_in:
             if tree.using:
@@ -700,7 +700,7 @@ class Engine(object):
             return count
 
     def _delete(self, tree):
-        """ Run a DELETE statement """
+        """Run a DELETE statement"""
         tablename = tree.table
         table = self.describe(tablename, require=True)
         kwargs = {}
@@ -712,7 +712,7 @@ class Engine(object):
         return self._query_and_op(tree, table, "delete_item", kwargs)
 
     def _update(self, tree):
-        """ Run an UPDATE statement """
+        """Run an UPDATE statement"""
         tablename = tree.table
         table = self.describe(tablename, require=True)
         kwargs = {}
@@ -732,7 +732,7 @@ class Engine(object):
         return self._query_and_op(tree, table, "update_item", kwargs)
 
     def _create(self, tree):
-        """ Run a SELECT statement """
+        """Run a SELECT statement"""
         tablename = tree.table
         indexes = []
         global_indexes = []
@@ -791,12 +791,12 @@ class Engine(object):
         return True
 
     def _parse_global_index(self, clause, attrs):
-        """ Parse a global index clause and return a GlobalIndex """
+        """Parse a global index clause and return a GlobalIndex"""
         index_type, name = clause[:2]
         name = resolve(name)
 
         def get_key(field, data_type=None):
-            """ Get or set the DynamoKey from the field name """
+            """Get or set the DynamoKey from the field name"""
             if field in attrs:
                 key = attrs[field]
                 if data_type is not None:
@@ -840,7 +840,7 @@ class Engine(object):
         return factory(name, g_hash_key, g_range_key, **kwargs)
 
     def _insert(self, tree):
-        """ Run an INSERT statement """
+        """Run an INSERT statement"""
         tablename = tree.table
         count = 0
         batch = self.connection.batch_write(tablename)
@@ -851,7 +851,7 @@ class Engine(object):
         return count
 
     def _drop(self, tree):
-        """ Run a DROP statement """
+        """Run a DROP statement"""
         tablename = tree.table
         try:
             ret = self.connection.delete_table(tablename)
@@ -862,10 +862,10 @@ class Engine(object):
         return True
 
     def _update_throughput(self, tablename, read, write, index):
-        """ Update the throughput on a table or index """
+        """Update the throughput on a table or index"""
 
         def get_desc() -> Union[TableMeta, GlobalIndexMeta]:
-            """ Get the table or global index description """
+            """Get the table or global index description"""
             desc = self.describe(tablename, refresh=True, require=True)
             if index is not None:
                 return desc.global_indexes[index]
@@ -874,7 +874,7 @@ class Engine(object):
         desc = get_desc()
 
         def num_or_star(value):
-            """ Convert * to -1, otherwise resolve a number """
+            """Convert * to -1, otherwise resolve a number"""
             return -1 if value == "*" else resolve(value)
 
         read = num_or_star(read)
@@ -903,7 +903,7 @@ class Engine(object):
             desc = get_desc()
 
     def _alter(self, tree):
-        """ Run an ALTER statement """
+        """Run an ALTER statement"""
         if tree.throughput:
             [read, write] = tree.throughput
             index = None
@@ -938,7 +938,7 @@ class Engine(object):
             raise SyntaxError("No alter command found")
 
     def _dump(self, tree):
-        """ Run a DUMP statement """
+        """Run a DUMP statement"""
         schema = []
         if tree.tables:
             for table in tree.tables:
@@ -951,7 +951,7 @@ class Engine(object):
         return "\n\n".join(schema)
 
     def _load(self, tree):
-        """ Run a LOAD statement """
+        """Run a LOAD statement"""
         filename = tree.load_file[0]
         if filename[0] in ['"', "'"]:
             filename = unwrap(filename)
@@ -1006,11 +1006,11 @@ class FragmentEngine(Engine):
 
     @property
     def partial(self):
-        """ True if there is a partial query stored """
+        """True if there is a partial query stored"""
         return len(self.fragments) > 0
 
     def reset(self):
-        """ Clear any query fragments from the engine """
+        """Clear any query fragments from the engine"""
         self.fragments = ""
 
     def execute(self, fragment, pretty_format=True):
@@ -1034,7 +1034,7 @@ class FragmentEngine(Engine):
         return None
 
     def pformat_exc(self, exc):
-        """ Format an exception message for the last query's parse error """
+        """Format an exception message for the last query's parse error"""
         lines = []
         try:
             pre_nl = self.last_query.rindex("\n", 0, exc.loc) + 1

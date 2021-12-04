@@ -61,7 +61,7 @@ dict_ = (
 
 
 def make_interval(long_name, short_name):
-    """ Create an interval segment """
+    """Create an interval segment"""
     pa = lambda x: long_name.upper()
     return (
         integer
@@ -90,7 +90,7 @@ interval = (
 
 
 def eval_interval(result):
-    """ Evaluate an interval expression """
+    """Evaluate an interval expression"""
     kwargs = {
         "years": 0,
         "months": 0,
@@ -134,7 +134,7 @@ interval_fxn = (
 
 
 def eval_expression(result):
-    """ Evaluate a full time expression """
+    """Evaluate a full time expression"""
     start, op, delta = result
     ts = datetime.fromtimestamp(start).replace(tzinfo=tzlocal())
     if op == "+":

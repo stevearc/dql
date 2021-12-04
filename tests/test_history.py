@@ -10,7 +10,7 @@ from dql.history import HistoryManager
 
 class TestHistoryManager(TestCase):
 
-    """ Tests for HistoryManager """
+    """Tests for HistoryManager"""
 
     historyManager: HistoryManager
 
@@ -37,21 +37,21 @@ class TestHistoryManager(TestCase):
         self.assertEqual(expected_contents, actual)
 
     def test_history_file_is_created_on_load(self):
-        """ Assert that a history file is created in the history directory on load """
+        """Assert that a history file is created in the history directory on load"""
         expectedHistFilePath = self._histFile
 
         self.historyManager.try_to_load_history(self._histDir)
         self.assertFileExists(expectedHistFilePath)
 
     def test_history_file_is_created_on_write(self):
-        """ Assert that a history file is created in the history directory on write """
+        """Assert that a history file is created in the history directory on write"""
         expectedHistFilePath = self._histFile
 
         self.historyManager.try_to_write_history(self._histDir)
         self.assertFileExists(expectedHistFilePath)
 
     def test_history_file_contains_history_from_readline(self):
-        """ Assert that a history file will be written with proper contents. """
+        """Assert that a history file will be written with proper contents."""
         expectedHistFilePath = self._histFile
 
         readline.add_history("this is a simulated cli input")
@@ -60,7 +60,7 @@ class TestHistoryManager(TestCase):
         self.assertFileContents(expectedHistFilePath, "this is a simulated cli input\n")
 
     def test_history_file_contains_proper_appended_history(self):
-        """ Assert that a history file will be appended to """
+        """Assert that a history file will be appended to"""
         expectedHistFilePath = self._histFile
 
         readline.add_history("this is a simulated cli input")

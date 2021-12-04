@@ -37,7 +37,7 @@ class ConstraintExpression(Expression):
 
     @property
     def hash_field(self) -> Optional[str]:
-        """ The field of the hash key this expression can select, if any """
+        """The field of the hash key this expression can select, if any"""
         return None
 
     def possible_range_fields(self) -> Set[str]:
@@ -55,7 +55,7 @@ class ConstraintExpression(Expression):
 
     @property
     def range_field(self) -> Optional[str]:
-        """ The field of the range key this expression can select, if any """
+        """The field of the range key this expression can select, if any"""
         return None
 
     def __repr__(self) -> str:
@@ -67,7 +67,7 @@ class ConstraintExpression(Expression):
 
 class Invert(ConstraintExpression):
 
-    """ Invert another constraint expression with NOT """
+    """Invert another constraint expression with NOT"""
 
     def __init__(self, constraint: "ConstraintExpression"):
         self.constraint = constraint
@@ -88,7 +88,7 @@ class Invert(ConstraintExpression):
 
 class Conjunction(ConstraintExpression):
 
-    """ Use AND and OR to join 2 or more expressions """
+    """Use AND and OR to join 2 or more expressions"""
 
     def __init__(self, is_and: bool, *args: "ConstraintExpression"):
         self.pieces = list(args)
@@ -113,7 +113,7 @@ class Conjunction(ConstraintExpression):
         return "(" + delimiter.join([p.build(visitor) for p in self.pieces]) + ")"
 
     def _get_fields(self, attr: str) -> Set[str]:
-        """ Get the hash/range fields of all joined constraints """
+        """Get the hash/range fields of all joined constraints"""
         ret: Set[str] = set()
         if not self.is_and:
             return ret
@@ -176,7 +176,7 @@ class Conjunction(ConstraintExpression):
 
 class OperatorConstraint(ConstraintExpression):
 
-    """ Constraint expression for operations, e.g. foo = 4 """
+    """Constraint expression for operations, e.g. foo = 4"""
 
     def __init__(self, field: str, operator: str, value: Union[Field, Value]):
         self.field = field
@@ -232,7 +232,7 @@ class OperatorConstraint(ConstraintExpression):
 
 class FunctionConstraint(ConstraintExpression):
 
-    """ Constraint for function expressions e.g. attribute_exists(field) """
+    """Constraint for function expressions e.g. attribute_exists(field)"""
 
     def __init__(self, fn_name: str, field: str, operand: Any = None):
         self.fn_name = fn_name
@@ -273,17 +273,17 @@ class FunctionConstraint(ConstraintExpression):
 
 class TypeConstraint(FunctionConstraint):
 
-    """ Constraint for attribute_type() function """
+    """Constraint for attribute_type() function"""
 
     @classmethod
     def from_parser(cls, result):
-        """ Factory method """
+        """Factory method"""
         return cls(*result)
 
 
 class SizeConstraint(ConstraintExpression):
 
-    """ Constraint expression for size() function """
+    """Constraint expression for size() function"""
 
     def __init__(self, field: str, operator: str, value: Any):
         self.field = field
@@ -294,7 +294,7 @@ class SizeConstraint(ConstraintExpression):
 
     @classmethod
     def from_parser(cls, clause):
-        """ Factory method """
+        """Factory method"""
         [_, field, operator, val] = clause
         return cls(field, operator, val)
 
@@ -317,7 +317,7 @@ class SizeConstraint(ConstraintExpression):
 
 class BetweenConstraint(ConstraintExpression):
 
-    """ Constraint expression for BETWEEN low AND high """
+    """Constraint expression for BETWEEN low AND high"""
 
     def __init__(self, field: str, low: numeric, high: numeric):
         self.field = field
@@ -353,7 +353,7 @@ class BetweenConstraint(ConstraintExpression):
 
 class InConstraint(ConstraintExpression):
 
-    """ Constraint expression for membership in a set """
+    """Constraint expression for membership in a set"""
 
     def __init__(self, field: str, values: List):
         self.field = field

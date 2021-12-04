@@ -36,7 +36,7 @@ class Visitor(object):
         return FIELD_RE.sub(self._maybe_replace_path, field)
 
     def _maybe_replace_path(self, match):
-        """ Regex replacement method that will sub paths when needed """
+        """Regex replacement method that will sub paths when needed"""
         path = match.group(0)
         if self._should_replace(path):
             return self._replace_path(path)
@@ -44,7 +44,7 @@ class Visitor(object):
             return path
 
     def _should_replace(self, path):
-        """ True if should replace the path """
+        """True if should replace the path"""
         return (
             self._reserved_words is None
             or path.upper() in self._reserved_words
@@ -52,7 +52,7 @@ class Visitor(object):
         )
 
     def _replace_path(self, path):
-        """ Get the replacement value for a path """
+        """Get the replacement value for a path"""
         if path in self._field_to_key:
             return self._field_to_key[path]
         next_key = "#f%d" % self._next_field
@@ -62,7 +62,7 @@ class Visitor(object):
         return next_key
 
     def get_value(self, value):
-        """ Replace variable names with placeholders (e.g. ':v1') """
+        """Replace variable names with placeholders (e.g. ':v1')"""
         next_key = ":v%d" % self._next_value
         self._next_value += 1
         self._values[next_key] = value
@@ -70,27 +70,27 @@ class Visitor(object):
 
     @property
     def attribute_names(self):
-        """ Dict of encoded field names to original names """
+        """Dict of encoded field names to original names"""
         if self._fields:
             return self._fields
 
     @property
     def expression_values(self):
-        """ Dict of encoded variable names to the variables """
+        """Dict of encoded variable names to the variables"""
         if self._values:
             return self._values
 
 
 class DummyVisitor(Visitor):
 
-    """ No-op visitor for testing """
+    """No-op visitor for testing"""
 
     def get_field(self, field):
-        """ No-op """
+        """No-op"""
         return field
 
     def get_value(self, value):
-        """ No-op """
+        """No-op"""
         return repr(value)
 
 

@@ -19,7 +19,7 @@ except ImportError:
 
 
 class Monitor(object):
-    """ Tool for monitoring the consumed capacity of many tables """
+    """Tool for monitoring the consumed capacity of many tables"""
 
     win: "Window"
 
@@ -31,14 +31,14 @@ class Monitor(object):
         self._max_width = 80
 
     def start(self):
-        """ Start the monitor """
+        """Start the monitor"""
         if CURSES_SUPPORTED:
             curses.wrapper(self.run)
         else:
             print("Your system does not have curses installed. " "Cannot use 'watch'")
 
     def run(self, stdscr):
-        """ Initialize curses and refresh in a loop """
+        """Initialize curses and refresh in a loop"""
         self.win = stdscr
         curses.curs_set(0)
         stdscr.timeout(0)
@@ -54,7 +54,7 @@ class Monitor(object):
                 self.refresh(False)
 
     def _calc_min_width(self, table):
-        """ Calculate the minimum allowable width for a table """
+        """Calculate the minimum allowable width for a table"""
         width = len(table.name)
         cap = table.consumed_capacity["__table__"]
         width = max(width, 4 + len("%.1f/%d" % (cap["read"], table.read_throughput)))
@@ -75,7 +75,7 @@ class Monitor(object):
         return width
 
     def _progress_bar(self, width, percent, left="", right="", fill="|"):
-        """ Get the green/yellow/red pieces of a text + bar display """
+        """Get the green/yellow/red pieces of a text + bar display"""
         text = left + (width - len(left) - len(right)) * " " + right
         cutoff = int(round(percent * width))
         text = text[:cutoff].replace(" ", fill) + text[cutoff:]
@@ -95,7 +95,7 @@ class Monitor(object):
             yield 0, text[cutoff:]
 
     def _add_throughput(self, y, x, width, op, title, available, used):
-        """ Write a single throughput measure to a row """
+        """Write a single throughput measure to a row"""
         percent = float(used) / available
         self.win.addstr(y, x, "[")
         # Because we have disabled scrolling, writing the lower right corner
@@ -114,7 +114,7 @@ class Monitor(object):
             x += len(text)
 
     def refresh(self, fetch_data):
-        """ Redraw the display """
+        """Redraw the display"""
         self.win.erase()
         height, width = getmaxyx()
         if curses.is_term_resized(height, width):

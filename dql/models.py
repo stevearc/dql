@@ -12,7 +12,7 @@ from .exceptions import EngineRuntimeError
 
 
 def format_throughput(available: float, used: Optional[float] = None) -> str:
-    """ Format the read/write throughput for display """
+    """Format the read/write throughput for display"""
     if available == 0:
         if used is not None:
             return "{0:.0f}/∞".format(used)
@@ -49,7 +49,7 @@ class QueryIndex(object):
         self.attributes = attributes
 
     def projects_all_attributes(self, attrs: Optional[Iterable[str]]) -> bool:
-        """ Return True if the index projects all the attributes """
+        """Return True if the index projects all the attributes"""
         if self.attributes is None:
             return True
         # If attrs is None we are checking if the index projects ALL
@@ -63,12 +63,12 @@ class QueryIndex(object):
 
     @property
     def scannable(self) -> bool:
-        """ Only global indexes can be scanned """
+        """Only global indexes can be scanned"""
         return self.is_global
 
     @classmethod
     def from_table_index(cls, table: Table, index: BaseIndex) -> "QueryIndex":
-        """ Factory method """
+        """Factory method"""
         attributes = None
         if index.range_key is None:
             range_key = None
@@ -124,14 +124,14 @@ class TableField(object):
 
     @property
     def schema(self):
-        """ The DQL syntax for creating this item """
+        """The DQL syntax for creating this item"""
         if self.key_type is None:
             return "%s %s" % (self.name, self.data_type)
         else:
             return "%s %s %s KEY" % (self.name, self.data_type, self.key_type)
 
     def to_index(self, index_type, index_name, includes=None):
-        """ Create an index field from this field """
+        """Create an index field from this field"""
         return IndexField(self.name, self.data_type, index_type, index_name, includes)
 
     def __repr__(self):
@@ -163,7 +163,7 @@ class TableField(object):
 
 class IndexField(TableField):
 
-    """ A TableField that is also part of a Local Secondary Index """
+    """A TableField that is also part of a Local Secondary Index"""
 
     def __init__(self, name, data_type, index_type, index_name, includes=None):
         super(IndexField, self).__init__(name, data_type, "INDEX")
@@ -176,7 +176,7 @@ class IndexField(TableField):
 
     @property
     def schema(self) -> str:
-        """ The DQL syntax for creating this item """
+        """The DQL syntax for creating this item"""
         schema = "%s %s %s %s('%s'" % (
             self.name,
             self.data_type,
@@ -213,7 +213,7 @@ class IndexField(TableField):
 
 class GlobalIndexMeta(object):
 
-    """ Container for global index data """
+    """Container for global index data"""
 
     def __init__(self, index: GlobalIndex):
         self._index = index
@@ -232,39 +232,39 @@ class GlobalIndexMeta(object):
 
     @property
     def name(self) -> str:
-        """ Getter for name """
+        """Getter for name"""
         return self._index.name
 
     @property
     def index_type(self):
-        """ Getter for index_type """
+        """Getter for index_type"""
         if self._index.projection_type == "KEYS_ONLY":
             return "KEYS"
         return self._index.projection_type
 
     @property
     def status(self):
-        """ Getter for status """
+        """Getter for status"""
         return self._index.status
 
     @property
     def includes(self) -> Optional[List[str]]:
-        """ Getter for includes """
+        """Getter for includes"""
         return self._index.include_fields
 
     @property
     def throughput(self) -> Optional[Throughput]:
-        """ Getter for throughput """
+        """Getter for throughput"""
         return self._index.throughput
 
     @property
     def item_count(self):
-        """ Getter for item_count """
+        """Getter for item_count"""
         return self._index.item_count
 
     @property
     def size(self):
-        """ Getter for size """
+        """Getter for size"""
         return self._index.size
 
     def __repr__(self):
@@ -279,7 +279,7 @@ class GlobalIndexMeta(object):
         )
 
     def pformat(self, consumed_capacity=None):
-        """ Pretty format for insertion into table pformat """
+        """Pretty format for insertion into table pformat"""
         consumed_capacity = consumed_capacity or {}
         lines = []
         parts = ["GLOBAL", self.index_type, "INDEX", self.name]
@@ -308,7 +308,7 @@ class GlobalIndexMeta(object):
 
     @property
     def schema(self) -> str:
-        """ The DQL fragment for constructing this index """
+        """The DQL fragment for constructing this index"""
         if self.status == "DELETING" or self.hash_key is None:
             return ""
         parts = ["GLOBAL", self.index_type, "INDEX"]
@@ -328,7 +328,7 @@ class GlobalIndexMeta(object):
         return hash(self.name)
 
     def __eq__(self, other):
-        """ Check if schemas are equivalent """
+        """Check if schemas are equivalent"""
         return isinstance(other, GlobalIndexMeta) and self._index == other._index
 
     def __ne__(self, other):
@@ -370,37 +370,37 @@ class TableMeta(object):
 
     @property
     def name(self) -> str:
-        """ Getter for name """
+        """Getter for name"""
         return self._table.name
 
     @property
     def is_on_demand(self) -> bool:
-        """ Getter for is_on_demand """
+        """Getter for is_on_demand"""
         return self._table.is_on_demand
 
     @property
     def throughput(self) -> Optional[Throughput]:
-        """ Getter for throughput """
+        """Getter for throughput"""
         return self._table.throughput
 
     @property
     def status(self) -> TableStatusType:
-        """ Getter for status """
+        """Getter for status"""
         return self._table.status
 
     @property
     def decreases_today(self):
-        """ Getter for decreases_today """
+        """Getter for decreases_today"""
         return self._table.decreases_today
 
     @property
     def item_count(self) -> int:
-        """ Getter for item_count """
+        """Getter for item_count"""
         return self._table.item_count
 
     @property
     def size(self) -> int:
-        """ Getter for size """
+        """Getter for size"""
         return self._table.size
 
     def iter_query_indexes(self) -> Iterator[QueryIndex]:
@@ -450,14 +450,14 @@ class TableMeta(object):
         return matches
 
     def get_index(self, index_name: str) -> QueryIndex:
-        """ Get a specific index by name """
+        """Get a specific index by name"""
         try:
             return self.get_indexes()[index_name]
         except KeyError:
             raise EngineRuntimeError("Unknown index %r" % index_name)
 
     def get_indexes(self) -> Dict[str, QueryIndex]:
-        """ Get a dict of index names to index """
+        """Get a dict of index names to index"""
         ret = {}
         for index in self.iter_query_indexes():
             ret[index.name] = index
@@ -465,7 +465,7 @@ class TableMeta(object):
 
     @classmethod
     def from_description(cls, table: Table) -> "TableMeta":
-        """ Factory method that uses the dynamo3 'describe' return value """
+        """Factory method that uses the dynamo3 'describe' return value"""
         attrs = {}
         for attr in table.attribute_definitions:
             field = TableField(attr.name, TYPES_REV[attr.data_type])
@@ -490,7 +490,7 @@ class TableMeta(object):
 
     @property
     def primary_key_attributes(self):
-        """ Get the names of the primary key attributes as a tuple """
+        """Get the names of the primary key attributes as a tuple"""
         if self.hash_key is None:
             raise ValueError("Missing hash key")
         if self.range_key is None:
@@ -499,7 +499,7 @@ class TableMeta(object):
             return (self.hash_key.name, self.range_key.name)
 
     def primary_key_tuple(self, item: Dict) -> Union[Tuple[str], Tuple[str, str]]:
-        """ Get the primary key tuple from an item """
+        """Get the primary key tuple from an item"""
         if self.hash_key is None:
             raise ValueError("Missing hash key")
         if self.range_key is None:
@@ -520,7 +520,7 @@ class TableMeta(object):
         if isinstance(hkey, dict):
 
             def decode(val):
-                """ Convert Decimals back to primitives """
+                """Convert Decimals back to primitives"""
                 if isinstance(val, Decimal):
                     return float(val)
                 return val
@@ -539,7 +539,7 @@ class TableMeta(object):
 
     @property
     def total_read_throughput(self) -> Optional[float]:
-        """ Combined read throughput of table and global indexes """
+        """Combined read throughput of table and global indexes"""
         if self.throughput is None:
             return None
         total = self.throughput.read
@@ -550,7 +550,7 @@ class TableMeta(object):
 
     @property
     def total_write_throughput(self) -> Optional[float]:
-        """ Combined write throughput of table and global indexes """
+        """Combined write throughput of table and global indexes"""
         if self.throughput is None:
             return None
         total = self.throughput.write
@@ -569,7 +569,7 @@ class TableMeta(object):
         return hash(self.name)
 
     def __eq__(self, other):
-        """ Check if schemas are equivalent """
+        """Check if schemas are equivalent"""
         return (
             isinstance(other, TableMeta)
             and self._table == other._table
@@ -583,7 +583,7 @@ class TableMeta(object):
 
     @property
     def schema(self) -> str:
-        """ The DQL query that will construct this table's schema """
+        """The DQL query that will construct this table's schema"""
         attrs = self.attrs.copy()
         if self.hash_key is None:
             raise ValueError("Missing hash key")
@@ -604,7 +604,7 @@ class TableMeta(object):
         return prefix + " ".join([g.schema for g in self.global_indexes.values()]) + ";"
 
     def pformat(self) -> str:
-        """ Pretty string format """
+        """Pretty string format"""
         lines = []
         lines.append(("%s (%s)" % (self.name, self.status)).center(50, "-"))
         lines.append("items: {0:,} ({1:,} bytes)".format(self.item_count, self.size))
