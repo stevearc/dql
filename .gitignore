@@ -41,6 +41,7 @@ dql_env
 *.db
 .vscode
 .idea
+.mypy_cache
 
 # docs
 _build
