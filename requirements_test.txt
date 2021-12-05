@@ -1,3 +1,5 @@
+types-python-dateutil
+types-mock
 nose
 mock
 black

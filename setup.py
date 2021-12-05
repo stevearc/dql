@@ -13,6 +13,7 @@ REQUIREMENTS = [
     "python-dateutil",
     "botocore>=1.17.55",
     "rich>=6.1.1",
+    "typing_extensions",
 ]
 
 REQUIREMENTS_TEST = open(os.path.join(HERE, "requirements_test.txt")).readlines()
