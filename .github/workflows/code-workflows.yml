@@ -2,7 +2,7 @@ name: Code workflows
 on: [push]
 jobs:
   lint-job:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: [3.8]
@@ -19,10 +19,9 @@ jobs:
           tox-args:
             -e py38-lint
 
-
   test-job:
     needs: lint-job
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9]
@@ -35,3 +34,32 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Running tests for ${{ matrix.python-version }} with tox
         uses: ymyzk/run-tox-gh-actions@main
+
+  build-job:
+    needs: test-job
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Running build for ${{ matrix.python-version }} with tox
+        uses: ymyzk/run-tox-gh-actions@main
+        with:
+          tox-args:
+            -e package
+      - name: Saving Artifacts.
+        uses: actions/upload-artifact@v2
+        with:
+          name: dql-executable
+          path: dist/dql
+      # - name: Publish package
+      #   uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      #   with:
+      #     user: __token__
+      #     password: ${{ secrets.PYPI_API_TOKEN }}
