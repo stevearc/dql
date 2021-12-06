@@ -3,7 +3,7 @@ types-mock
 nose
 mock
 snapshottest
-black
+black==21.12b0
 mypy
 pylint==2.3.1
 isort>=4.2.5,<5

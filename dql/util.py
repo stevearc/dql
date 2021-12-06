@@ -21,7 +21,6 @@ try:
         size = get_terminal_size()
         return size[1], size[0]
 
-
 except ImportError:
     try:
         import struct
