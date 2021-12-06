@@ -1,5 +1,5 @@
 name: Code workflows
-on: [push]
+on: [push, pull_request]
 jobs:
   lint-job:
     runs-on: ubuntu-20.04
