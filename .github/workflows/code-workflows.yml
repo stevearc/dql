@@ -1,4 +1,4 @@
-name: GitHub Actions Demo
+name: Code workflows
 on: [push]
 jobs:
   lint-job:
@@ -13,12 +13,12 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox tox-gh-actions
-      - name: Test with tox
-        run: tox -e py38-lint
+      - name: Run tox with run-tox-gh-actions
+        uses: ymyzk/run-tox-gh-actions@main
+        with:
+          tox-args:
+            -e py38-lint
+
 
   test-job:
     needs: lint-job
@@ -33,9 +33,5 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox tox-gh-actions
-      - name: Test with tox
-        run: tox
+      - name: Run tox with run-tox-gh-actions
+        uses: ymyzk/run-tox-gh-actions@main
