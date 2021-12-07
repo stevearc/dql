@@ -5,8 +5,8 @@ DQL
 :Downloads: http://pypi.python.org/pypi/dql
 :Source: https://github.com/stevearc/dql
 
-.. |build| image:: https://travis-ci.org/stevearc/dql.png?branch=master
-.. _build: https://travis-ci.org/stevearc/dql
+.. |build| image:: https://github.com/stevearc/dql/actions/workflows/code-workflows.yml/badge.svg
+.. _build: https://github.com/stevearc/dql/actions/workflows/code-workflows.yml
 .. |coverage| image:: https://coveralls.io/repos/stevearc/dql/badge.png?branch=master
 .. _coverage: https://coveralls.io/r/stevearc/dql?branch=master
 
