@@ -8,7 +8,7 @@ from dql import Engine
 
 class BaseSystemTest(unittest.TestCase):
 
-    """ Base class for system tests """
+    """Base class for system tests"""
 
     dynamo: DynamoDBConnection = None
 
@@ -25,11 +25,11 @@ class BaseSystemTest(unittest.TestCase):
             self.dynamo.delete_table(tablename)
 
     def query(self, command):
-        """ Shorthand because I'm lazy """
+        """Shorthand because I'm lazy"""
         return self.engine.execute(command)
 
     def make_table(self, name="foobar", hash_key="id", range_key="bar", index=None):
-        """ Shortcut for making a simple table """
+        """Shortcut for making a simple table"""
         rng = ""
         if range_key is not None:
             rng = ",%s NUMBER RANGE KEY" % range_key

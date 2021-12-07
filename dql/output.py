@@ -25,14 +25,14 @@ console = Console()
 
 
 def truncate(string, length, ellipsis="…"):
-    """ Truncate a string to a length, ending with '...' if it overflows """
+    """Truncate a string to a length, ending with '...' if it overflows"""
     if len(string) > length:
         return string[: length - len(ellipsis)] + ellipsis
     return string
 
 
 def make_list(obj):
-    """ Turn an object into a list if it isn't already """
+    """Turn an object into a list if it isn't already"""
     if isinstance(obj, list):
         return obj
     else:
@@ -40,13 +40,13 @@ def make_list(obj):
 
 
 def wrap(string, length, indent):
-    """ Wrap a string at a line length """
+    """Wrap a string at a line length"""
     newline = "\n" + " " * indent
     return newline.join((string[i : i + length] for i in range(0, len(string), length)))
 
 
 def serialize_json_var_lossy_float(obj):
-    """ Serialize custom types to JSON """
+    """Serialize custom types to JSON"""
     if isinstance(obj, Decimal):
         return float(obj)
     elif isinstance(obj, bytes):
@@ -60,21 +60,21 @@ def serialize_json_var_lossy_float(obj):
 
 
 def serialize_json_var(obj):
-    """ Serialize custom types to JSON """
+    """Serialize custom types to JSON"""
     if isinstance(obj, Decimal):
         return str(obj)
     return serialize_json_var_lossy_float(obj)
 
 
 def format_json(json_object, indent, default):
-    """ Pretty-format json data """
+    """Pretty-format json data"""
     indent_str = "\n" + " " * indent
     json_str = json.dumps(json_object, indent=2, default=default)
     return indent_str.join(json_str.split("\n"))
 
 
 def delta_to_str(rd):
-    """ Convert a relativedelta to a human-readable string """
+    """Convert a relativedelta to a human-readable string"""
     parts = []
     if rd.days > 0:
         parts.append("%d day%s" % (rd.days, plural(rd.days)))
@@ -92,7 +92,7 @@ def delta_to_str(rd):
 
 class BaseFormat(object):
 
-    """ Base class for formatters """
+    """Base class for formatters"""
 
     def __init__(
         self, results, ostream, width="auto", pagesize="auto", lossy_json_float=True
@@ -105,7 +105,7 @@ class BaseFormat(object):
 
     @property
     def _default_json_serializer(self):
-        """ Getter for _default_json_serializer """
+        """Getter for _default_json_serializer"""
         if self._lossy_json_float:
             return serialize_json_var_lossy_float
         else:
@@ -113,26 +113,26 @@ class BaseFormat(object):
 
     @property
     def width(self):
-        """ The display width """
+        """The display width"""
         if self._width == "auto":
             return getmaxyx()[1]
         return self._width
 
     @property
     def pagesize(self):
-        """ The number of results to display at a time """
+        """The number of results to display at a time"""
         if self._pagesize == "auto":
             return getmaxyx()[0] - 5
         return self._pagesize
 
     def pre_write(self):
-        """ Called once before writing the very first record """
+        """Called once before writing the very first record"""
 
     def post_write(self):
-        """ Called once after writing all records """
+        """Called once after writing all records"""
 
     def display(self):
-        """ Write results to an output stream """
+        """Write results to an output stream"""
         total = 0
         count = 0
         for i, result in enumerate(self._results):
@@ -154,7 +154,7 @@ class BaseFormat(object):
             self.post_write()
 
     def wait(self):
-        """ Block for user input """
+        """Block for user input"""
         text = input(
             "Press return for next %d result%s (or type 'all'):"
             % (self.pagesize, plural(self.pagesize))
@@ -166,11 +166,11 @@ class BaseFormat(object):
                 self._pagesize = int(text)
 
     def write(self, result):
-        """ Write a single result and stick it in an output stream """
+        """Write a single result and stick it in an output stream"""
         raise NotImplementedError
 
     def format_field(self, field):
-        """ Format a single Dynamo value """
+        """Format a single Dynamo value"""
         if field is None:
             return "NULL"
         elif isinstance(field, TypeError):
@@ -198,7 +198,7 @@ class BaseFormat(object):
 
 class ExpandedFormat(BaseFormat):
 
-    """ A layout that puts item attributes on separate lines """
+    """A layout that puts item attributes on separate lines"""
 
     @property
     def pagesize(self):
@@ -233,7 +233,7 @@ class ExpandedFormat(BaseFormat):
 
 class ColumnFormat(BaseFormat):
 
-    """ A layout that puts item attributes in columns """
+    """A layout that puts item attributes in columns"""
 
     def __init__(self, *args, **kwargs):
         super(ColumnFormat, self).__init__(*args, **kwargs)
@@ -259,14 +259,14 @@ class ColumnFormat(BaseFormat):
         self._header = header
 
     def _write_header(self):
-        """ Write out the table header """
+        """Write out the table header"""
         self._ostream.write(len(self._header) * "-" + "\n")
         self._ostream.write(self._header)
         self._ostream.write("\n")
         self._ostream.write(len(self._header) * "-" + "\n")
 
     def _write_footer(self):
-        """ Write out the table footer """
+        """Write out the table footer"""
         self._ostream.write(len(self._header) * "-" + "\n")
 
     def pre_write(self):
@@ -276,7 +276,7 @@ class ColumnFormat(BaseFormat):
         self._write_footer()
 
     def wait(self):
-        """ Block for user input """
+        """Block for user input"""
         self._write_footer()
         super(ColumnFormat, self).wait()
         self._write_header()
@@ -305,7 +305,7 @@ class JsonFormat(BaseFormat):
 
 class SmartFormat(object):
 
-    """ A layout that chooses column/expanded format intelligently """
+    """A layout that chooses column/expanded format intelligently"""
 
     _sub_formatter: BaseFormat
 
@@ -318,13 +318,13 @@ class SmartFormat(object):
             self._sub_formatter = fmt
 
     def display(self):
-        """ Write results to an output stream """
+        """Write results to an output stream"""
         self._sub_formatter.display()
 
 
 class SmartBuffer(object):
 
-    """ A buffer that wraps another buffer and encodes unicode strings. """
+    """A buffer that wraps another buffer and encodes unicode strings."""
 
     def __init__(self, buf):
         self._buffer = buf
@@ -334,19 +334,19 @@ class SmartBuffer(object):
             self.encoding = "utf-8"
 
     def write(self, arg):
-        """ Write a string or bytes object to the buffer """
+        """Write a string or bytes object to the buffer"""
         if isinstance(arg, str):
             arg = arg.encode(self.encoding)
         return self._buffer.write(arg)
 
     def flush(self):
-        """ flush the buffer """
+        """flush the buffer"""
         return self._buffer.flush()
 
 
 @contextlib.contextmanager
 def less_display():
-    """ Use smoke and mirrors to acquire 'less' for pretty paging """
+    """Use smoke and mirrors to acquire 'less' for pretty paging"""
     # here's some magic. We want the nice paging from 'less', so we write
     # the output to a file and use subprocess to run 'less' on the file.
     # But the file might have sensitive data, so open it in 0600 mode.
@@ -367,5 +367,5 @@ def less_display():
 
 @contextlib.contextmanager
 def stdout_display():
-    """ Print results straight to stdout """
+    """Print results straight to stdout"""
     yield SmartBuffer(sys.stdout.buffer)

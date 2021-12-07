@@ -5,7 +5,7 @@ from dynamo3 import RateLimit
 
 
 class TableLimits(object):
-    """ Wrapper around :class:`dynamo3.RateLimit` """
+    """Wrapper around :class:`dynamo3.RateLimit`"""
 
     def __init__(self):
         self.total = {}
@@ -14,14 +14,14 @@ class TableLimits(object):
         self.tables = {}
 
     def _compute_limit(self, limit, throughput):
-        """ Compute a percentage limit or return a point limit """
+        """Compute a percentage limit or return a point limit"""
         if limit[-1] == "%":
             return throughput * float(limit[:-1]) / 100.0
         else:
             return float(limit)
 
     def get_limiter(self, table_descriptions):
-        """ Construct a RateLimit object from the throttle declarations """
+        """Construct a RateLimit object from the throttle declarations"""
         table_caps = {}
         for table in table_descriptions:
             limit = self.tables.get(table.name) or self.default
@@ -65,21 +65,21 @@ class TableLimits(object):
     __nonzero__ = __bool__
 
     def _set_limit(self, data, key, read, write):
-        """ Set a limit or delete if non provided """
+        """Set a limit or delete if non provided"""
         if read != "0" or write != "0":
             data[key] = {"read": read, "write": write}
         elif key in data:
             del data[key]
 
     def set_default_limit(self, read="0", write="0"):
-        """ Set the default table/index limit """
+        """Set the default table/index limit"""
         if read == "0" and write == "0":
             self.default = {}
             return
         self.default = {"read": read, "write": write}
 
     def set_total_limit(self, read="0", write="0"):
-        """ Set the total throughput limit """
+        """Set the total throughput limit"""
         if read == "0" and write == "0":
             self.total = {}
             return
@@ -88,18 +88,18 @@ class TableLimits(object):
         self.total = {"read": read, "write": write}
 
     def set_table_limit(self, tablename, read="0", write="0"):
-        """ Set the limit on a table """
+        """Set the limit on a table"""
         self._set_limit(self.tables, tablename, read, write)
 
     def set_index_limit(self, tablename, indexname, read="0", write="0"):
-        """ Set the limit on a global index """
+        """Set the limit on a global index"""
         index_data = self.indexes.setdefault(tablename, {})
         self._set_limit(index_data, indexname, read, write)
         if not index_data:
             del self.indexes[tablename]
 
     def load(self, data):
-        """ Load the configuration from a save() dict """
+        """Load the configuration from a save() dict"""
         self.total = data.get("total", {})
         self.default = data.get("default", {})
         self.tables = {}
@@ -142,11 +142,11 @@ class TableLimits(object):
             return "No throttle"
 
     def save(self):
-        """ Wrapper around __json__ """
+        """Wrapper around __json__"""
         return self.__json__()
 
     def __json__(self, *_):
-        """ I dunno, I guess I thought this was useful. """
+        """I dunno, I guess I thought this was useful."""
         return {
             "tables": self.tables,
             "indexes": self.indexes,

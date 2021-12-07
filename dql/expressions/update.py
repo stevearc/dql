@@ -21,14 +21,14 @@ def field_or_value(clause):
 
 class UpdateExpression(Expression):
 
-    """ Entry point for Update expressions """
+    """Entry point for Update expressions"""
 
     def __init__(self, expressions):
         self.expressions = expressions
 
     @classmethod
     def from_update(cls, update):
-        """ Factory for creating an Update expression """
+        """Factory for creating an Update expression"""
         expressions = []
         if update.set_expr:
             expressions.append(UpdateSetMany.from_clause(update.set_expr))
@@ -46,7 +46,7 @@ class UpdateExpression(Expression):
 
 class UpdateSetMany(Expression):
 
-    """ Expression fragment for multiple set statements """
+    """Expression fragment for multiple set statements"""
 
     def __init__(self, updates):
         super(UpdateSetMany, self).__init__()
@@ -54,7 +54,7 @@ class UpdateSetMany(Expression):
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         updates = [UpdateSetOne.from_clause(subclause) for subclause in clause]
         return cls(updates)
 
@@ -78,7 +78,7 @@ class SetFunction(Expression):
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         return cls(clause[0], field_or_value(clause[1]), field_or_value(clause[2]))
 
     def build(self, visitor):
@@ -94,7 +94,7 @@ class SetFunction(Expression):
 
 class UpdateSetOne(Expression):
 
-    """ Expression fragment for a single SET statement """
+    """Expression fragment for a single SET statement"""
 
     def __init__(self, field, value1, op=None, value2=None):
         self.field = field
@@ -104,7 +104,7 @@ class UpdateSetOne(Expression):
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         field = clause[0]
         value1 = field_or_value(clause[1])
         op = None
@@ -124,14 +124,14 @@ class UpdateSetOne(Expression):
 
 class UpdateRemove(Expression):
 
-    """ Expression fragment for a REMOVE statement """
+    """Expression fragment for a REMOVE statement"""
 
     def __init__(self, fields):
         self.fields = fields
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         return cls(clause.asList())
 
     def build(self, visitor):
@@ -141,14 +141,14 @@ class UpdateRemove(Expression):
 
 class UpdateAdd(Expression):
 
-    """ Expression fragment for an ADD statement """
+    """Expression fragment for an ADD statement"""
 
     def __init__(self, updates):
         self.updates = updates
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         return cls([FieldValue.from_clause(c) for c in clause])
 
     def build(self, visitor):
@@ -158,14 +158,14 @@ class UpdateAdd(Expression):
 
 class UpdateDelete(Expression):
 
-    """ Expression fragment for a DELETE statement """
+    """Expression fragment for a DELETE statement"""
 
     def __init__(self, updates):
         self.updates = updates
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         return cls([FieldValue.from_clause(c) for c in clause])
 
     def build(self, visitor):
@@ -175,7 +175,7 @@ class UpdateDelete(Expression):
 
 class FieldValue(Expression):
 
-    """ A field-value pair used in an expression """
+    """A field-value pair used in an expression"""
 
     def __init__(self, field, value):
         self.field = field
@@ -183,7 +183,7 @@ class FieldValue(Expression):
 
     @classmethod
     def from_clause(cls, clause):
-        """ Factory method """
+        """Factory method"""
         return cls(clause[0], resolve(clause[1]))
 
     def build(self, visitor):

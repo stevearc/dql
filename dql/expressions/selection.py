@@ -13,7 +13,7 @@ from .visitor import dummy_visitor
 
 
 def add(a, b):
-    """ Add two values, ignoring None """
+    """Add two values, ignoring None"""
     if a is None:
         if b is None:
             return None
@@ -25,7 +25,7 @@ def add(a, b):
 
 
 def sub(a, b):
-    """ Subtract two values, ignoring None """
+    """Subtract two values, ignoring None"""
     if a is None:
         if b is None:
             return None
@@ -37,7 +37,7 @@ def sub(a, b):
 
 
 def mul(a, b):
-    """ Multiply two values, ignoring None """
+    """Multiply two values, ignoring None"""
     if a is None:
         if b is None:
             return None
@@ -49,7 +49,7 @@ def mul(a, b):
 
 
 def div(a, b):
-    """ Divide two values, ignoring None """
+    """Divide two values, ignoring None"""
     if a is None:
         if b is None:
             return None
@@ -64,7 +64,7 @@ OP_MAP = {"+": add, "-": sub, "*": mul, "/": div}
 
 
 def parse_expression(clause):
-    """ For a clause that could be a field, value, or expression """
+    """For a clause that could be a field, value, or expression"""
     if isinstance(clause, Expression):
         return clause
     elif hasattr(clause, "getName") and clause.getName() != "field":
@@ -80,7 +80,7 @@ def parse_expression(clause):
 
 class SelectionExpression(Expression):
 
-    """ Entry point for Selection expressions """
+    """Entry point for Selection expressions"""
 
     def __init__(self, expressions, is_count=False):
         self.expressions = expressions
@@ -88,7 +88,7 @@ class SelectionExpression(Expression):
         self._all_fields = None
 
     def convert(self, item, sanitize=False):
-        """ Convert an item into an OrderedDict with the selected fields """
+        """Convert an item into an OrderedDict with the selected fields"""
         if not self.expressions:
             return item
         ret: Dict[str, Any] = OrderedDict()
@@ -98,7 +98,7 @@ class SelectionExpression(Expression):
 
     @classmethod
     def from_selection(cls, selection):
-        """ Factory for creating a Selection expression """
+        """Factory for creating a Selection expression"""
         expressions: List[Expression] = []
         # Have to special case the '*' and 'COUNT(*)' selections
         if selection[0] == "*":
@@ -127,14 +127,14 @@ class SelectionExpression(Expression):
 
     @property
     def all_fields(self):
-        """ A set of all fields that are required by this statement """
+        """A set of all fields that are required by this statement"""
         if self._all_fields is None:
             self._all_fields = self.build(dummy_visitor)
         return self._all_fields
 
     @property
     def all_keys(self):
-        """ The keys, in order, that are selected by the statement """
+        """The keys, in order, that are selected by the statement"""
         return [e.key for e in self.expressions]
 
     def __str__(self):
@@ -142,7 +142,7 @@ class SelectionExpression(Expression):
 
 
 class NamedExpression(Expression):
-    """ Wrapper around AttributeSelection that holds the alias (if any) """
+    """Wrapper around AttributeSelection that holds the alias (if any)"""
 
     def __init__(self, expr, alias=None):
         self.expr = expr
@@ -150,7 +150,7 @@ class NamedExpression(Expression):
 
     @classmethod
     def from_statement(cls, statement):
-        """ Parse the selection expression and alias from a statement """
+        """Parse the selection expression and alias from a statement"""
         alias = None
         if statement.alias:
             alias = statement.alias[0]
@@ -158,14 +158,14 @@ class NamedExpression(Expression):
 
     @property
     def key(self):
-        """ The name that this will occupy in the final result dict """
+        """The name that this will occupy in the final result dict"""
         if self.alias:
             return self.alias
         else:
             return str(self.expr)
 
     def populate(self, item, ret, sanitize):
-        """ Evaluate the child expression and put result into return value """
+        """Evaluate the child expression and put result into return value"""
         value = self.expr.evaluate(item)
         if sanitize and isinstance(value, TypeError):
             return
@@ -182,7 +182,7 @@ class NamedExpression(Expression):
 
 
 class AttributeSelection(Expression):
-    """ A tree of select expressions """
+    """A tree of select expressions"""
 
     def __init__(self, expr1, op=None, expr2=None):
         self.expr1 = expr1
@@ -191,7 +191,7 @@ class AttributeSelection(Expression):
 
     @classmethod
     def from_statement(cls, statement):
-        """ Factory for creating a Attribute expression """
+        """Factory for creating a Attribute expression"""
         components = list(statement)
         if len(components) == 1:
             return cls(parse_expression(components[0]))
@@ -224,7 +224,7 @@ class AttributeSelection(Expression):
         return fields
 
     def evaluate(self, item):
-        """ Evaluate this expression for a partiular item """
+        """Evaluate this expression for a partiular item"""
         if self.expr2 is None:
             return self.expr1.evaluate(item)
         v1, v2 = self.expr1.evaluate(item), self.expr2.evaluate(item)
@@ -240,11 +240,11 @@ class AttributeSelection(Expression):
 
 
 class SelectFunction(Expression):
-    """ Base class for special select functions """
+    """Base class for special select functions"""
 
     @classmethod
     def from_statement(cls, statement):
-        """ Create a selection function from a statement """
+        """Create a selection function from a statement"""
         if statement[0] in ["TS", "TIMESTAMP", "UTCTIMESTAMP", "UTCTS"]:
             return TimestampFunction.from_statement(statement)
         elif statement[0] in ["NOW", "UTCNOW"]:
@@ -253,12 +253,12 @@ class SelectFunction(Expression):
             raise SyntaxError("Unknown function %r" % statement[0])
 
     def evaluate(self, item):
-        """ Evaluate this expression for a partiular item """
+        """Evaluate this expression for a partiular item"""
         raise NotImplementedError
 
 
 class NowFunction(SelectFunction):
-    """ Function to grab the current time """
+    """Function to grab the current time"""
 
     def __init__(self, utc):
         self.utc = utc
@@ -284,7 +284,7 @@ class NowFunction(SelectFunction):
 
 
 class TimestampFunction(SelectFunction):
-    """ Function that parses a field or literal as a datetime """
+    """Function that parses a field or literal as a datetime"""
 
     def __init__(self, expr, utc):
         self.expr = expr

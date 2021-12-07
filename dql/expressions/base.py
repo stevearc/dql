@@ -8,10 +8,10 @@ PATH_PATTERN = re.compile(r"\w+|\[(\d+)\]")
 
 class Expression(object):
 
-    """ Base class for all expressions and expression fragments """
+    """Base class for all expressions and expression fragments"""
 
     def build(self, visitor):
-        """ Build string expression, using the visitor to encode values """
+        """Build string expression, using the visitor to encode values"""
         raise NotImplementedError
 
     def __str__(self):
@@ -20,7 +20,7 @@ class Expression(object):
 
 class Field(Expression):
 
-    """ Wrapper for a field in an expression """
+    """Wrapper for a field in an expression"""
 
     def __init__(self, field):
         self.field = field
@@ -29,7 +29,7 @@ class Field(Expression):
         return visitor.get_field(self.field)
 
     def evaluate(self, item):
-        """ Pull the field off the item """
+        """Pull the field off the item"""
         try:
             for match in PATH_PATTERN.finditer(self.field):
                 path = match.group(0)
@@ -56,7 +56,7 @@ class Field(Expression):
 
 class Value(Expression):
 
-    """ Wrapper for a value in an expression """
+    """Wrapper for a value in an expression"""
 
     def __init__(self, val):
         self.value = val
@@ -65,7 +65,7 @@ class Value(Expression):
         return visitor.get_value(self.value)
 
     def evaluate(self, item):
-        """ Values evaluate to themselves regardless of the item """
+        """Values evaluate to themselves regardless of the item"""
         return self.value
 
     def __hash__(self):

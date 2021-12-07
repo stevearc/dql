@@ -13,6 +13,7 @@ REQUIREMENTS = [
     "python-dateutil",
     "botocore>=1.17.55",
     "rich>=6.1.1",
+    "typing_extensions",
 ]
 
 REQUIREMENTS_TEST = open(os.path.join(HERE, "requirements_test.txt")).readlines()
@@ -20,7 +21,7 @@ REQUIREMENTS_TEST = open(os.path.join(HERE, "requirements_test.txt")).readlines(
 if __name__ == "__main__":
     setup(
         name="dql",
-        version="0.6.1",
+        version="0.6.2-dev0",
         description="DynamoDB Query Language",
         long_description=README + "\n\n" + CHANGES,
         classifiers=[

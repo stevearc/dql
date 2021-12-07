@@ -20,12 +20,12 @@ from pyparsing import (
 
 
 def upkey(name):
-    """ Shortcut for creating an uppercase keyword """
+    """Shortcut for creating an uppercase keyword"""
     return Keyword(name, caseless=True).setParseAction(upcaseTokens)
 
 
 def function(name, *args, **kwargs):
-    """ Construct a parser for a standard function format """
+    """Construct a parser for a standard function format"""
     if isinstance(name, str):
         if kwargs.get("caseless"):
             name = upkey(name)
@@ -110,14 +110,14 @@ ts_functions = (
 
 
 def quoted(body):
-    """ Quote an item with ' or " """
+    """Quote an item with ' or " """
     return (Suppress('"') + body + Suppress('"')) | (
         Suppress("'") + body + Suppress("'")
     )
 
 
 def make_interval(long_name, short_name):
-    """ Create an interval segment """
+    """Create an interval segment"""
     return Group(
         Regex("(-+)?[0-9]+")
         + (

@@ -10,7 +10,7 @@ from urllib.request import urlretrieve
 
 
 def make_virtualenv(env):
-    """ Create a virtualenv """
+    """Create a virtualenv"""
     if find_executable("virtualenv") is not None:
         cmd = ["virtualenv", env]
     else:
@@ -19,7 +19,7 @@ def make_virtualenv(env):
 
 
 def main():
-    """ Build a standalone dql executable """
+    """Build a standalone dql executable"""
     venv_dir = tempfile.mkdtemp()
     try:
         make_virtualenv(venv_dir)

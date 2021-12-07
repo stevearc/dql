@@ -14,23 +14,23 @@ from . import BaseSystemTest
 
 class TestQueries(BaseSystemTest):
 
-    """ System tests for queries """
+    """System tests for queries"""
 
     def test_drop(self):
-        """ DROP statement should drop a table """
+        """DROP statement should drop a table"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("DROP TABLE foobar")
         table = self.dynamo.describe_table("foobar")
         self.assertIsNone(table)
 
     def test_drop_if_exists(self):
-        """ DROP IF EXISTS shouldn't fail if no table """
+        """DROP IF EXISTS shouldn't fail if no table"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("DROP TABLE foobar")
         self.query("DROP TABLE IF EXISTS foobar")
 
     def test_explain_drop(self):
-        """ EXPLAIN DROP """
+        """EXPLAIN DROP"""
         self.query("EXPLAIN DROP TABLE foobar")
         ret = self.engine._call_list
         self.assertEqual(len(ret), 1)
@@ -38,7 +38,7 @@ class TestQueries(BaseSystemTest):
         self.assertEqual(ret[0][1]["TableName"], "foobar")
 
     def test_dump(self):
-        """ DUMP SCHEMA generates 'create' statements """
+        """DUMP SCHEMA generates 'create' statements"""
         self.query(
             "CREATE TABLE test (id STRING HASH KEY, bar NUMBER RANGE "
             "KEY, ts NUMBER INDEX('ts-index'), "
@@ -57,7 +57,7 @@ class TestQueries(BaseSystemTest):
         self.assertEqual(original, new)
 
     def test_dump_tables(self):
-        """ DUMP SCHEMA generates 'create' statements for specific tables """
+        """DUMP SCHEMA generates 'create' statements for specific tables"""
         self.query("CREATE TABLE test (id STRING HASH KEY)")
         self.query("CREATE TABLE test2 (id STRING HASH KEY)")
         schema = self.query("DUMP SCHEMA test2")
@@ -69,7 +69,7 @@ class TestQueries(BaseSystemTest):
         self.assertIsNone(ret)
 
     def test_multiple_statements(self):
-        """ Engine can execute multiple queries separated by ';' """
+        """Engine can execute multiple queries separated by ';'"""
         result = self.engine.execute(
             """
             CREATE TABLE test (id STRING HASH KEY);
@@ -84,31 +84,31 @@ class TestQueries(BaseSystemTest):
 
 
 class TestAlter(BaseSystemTest):
-    """ Tests for ALTER """
+    """Tests for ALTER"""
 
     def test_alter_throughput(self):
-        """ Can alter throughput of a table """
+        """Can alter throughput of a table"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         desc = self.engine.describe("foobar", refresh=True)
         self.assertEqual(desc.throughput, Throughput(2, 2))
 
     def test_alter_throughput_partial_star(self):
-        """ Can alter just read or just write throughput by passing in '*' """
+        """Can alter just read or just write throughput by passing in '*'"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, *)")
         desc = self.engine.describe("foobar", refresh=True)
         self.assertEqual(desc.throughput, Throughput(2, 1))
 
     def test_alter_billing_mode(self):
-        """ Can change a provisioned table to on-demand """
+        """Can change a provisioned table to on-demand"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 1))")
         self.query("ALTER TABLE foobar SET THROUGHPUT (0, 0)")
         desc = self.engine.describe("foobar", refresh=True, require=True)
         self.assertTrue(desc.is_on_demand)
 
     def test_alter_billing_mode_provisioned(self):
-        """ Can change an on-demand table to provisioned """
+        """Can change an on-demand table to provisioned"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY)")
         self.query("ALTER TABLE foobar SET THROUGHPUT (2, 3)")
         desc = self.engine.describe("foobar", refresh=True, require=True)
@@ -116,7 +116,7 @@ class TestAlter(BaseSystemTest):
         self.assertEqual(desc.throughput, Throughput(2, 3))
 
     def test_alter_index_throughput(self):
-        """ Can alter throughput of a global index """
+        """Can alter throughput of a global index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
             "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))"
@@ -127,7 +127,7 @@ class TestAlter(BaseSystemTest):
         self.assertEqual(index.throughput, Throughput(2, 2))
 
     def test_alter_drop(self):
-        """ ALTER can drop an index """
+        """ALTER can drop an index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
             "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))"
@@ -141,7 +141,7 @@ class TestAlter(BaseSystemTest):
             self.assertEqual(len(desc.global_indexes.keys()), 0)
 
     def test_alter_create(self):
-        """ ALTER can create an index """
+        """ALTER can create an index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1))"
         )
@@ -158,7 +158,7 @@ class TestAlter(BaseSystemTest):
         self.assertEqual(index.throughput, Throughput(2, 3))
 
     def test_explain_throughput(self):
-        """ EXPLAIN ALTER """
+        """EXPLAIN ALTER"""
         self.make_table()
         self.query("EXPLAIN ALTER TABLE foobar SET THROUGHPUT (2, 2)")
         ret = self.engine._call_list
@@ -167,7 +167,7 @@ class TestAlter(BaseSystemTest):
         self.assertTrue("ProvisionedThroughput" in ret[0][1])
 
     def test_explain_create_index(self):
-        """ EXPLAIN ALTER create index """
+        """EXPLAIN ALTER create index"""
         self.query(
             "EXPLAIN ALTER TABLE foobar CREATE GLOBAL INDEX('foo_index', baz STRING)"
         )
@@ -177,7 +177,7 @@ class TestAlter(BaseSystemTest):
         self.assertTrue("GlobalSecondaryIndexUpdates" in ret[0][1])
 
     def test_alter_create_if_not_exists(self):
-        """ ALTER create index can fail silently """
+        """ALTER create index can fail silently"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER) "
             "GLOBAL INDEX ('foo_index', foo, THROUGHPUT(1, 1))"
@@ -193,38 +193,38 @@ class TestAlter(BaseSystemTest):
         self.assertEqual(index.hash_key.name, "foo")
 
     def test_alter_drop_if_exists(self):
-        """ ALTER drop index can fail silently """
+        """ALTER drop index can fail silently"""
         self.make_table()
         self.query("ALTER TABLE foobar DROP INDEX foo_index IF EXISTS")
 
 
 class TestInsert(BaseSystemTest):
 
-    """ Tests for INSERT """
+    """Tests for INSERT"""
 
     def test_insert(self):
-        """ INSERT should create items """
+        """INSERT should create items"""
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         items = list(self.dynamo.scan(table))
         self.assertCountEqual(items, [{"id": "a", "bar": 1}, {"id": "b", "bar": 2}])
 
     def test_insert_binary(self):
-        """ INSERT can insert binary values """
+        """INSERT can insert binary values"""
         self.query("CREATE TABLE foobar (id BINARY HASH KEY)")
         self.query("INSERT INTO foobar (id) VALUES (b'a')")
         items = list(self.dynamo.scan("foobar"))
         self.assertEqual(items, [{"id": Binary(b"a")}])
 
     def test_insert_keywords(self):
-        """ INSERT can specify data in keyword=arg form """
+        """INSERT can specify data in keyword=arg form"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=1), (id='b', baz=4)")
         items = list(self.dynamo.scan(table))
         self.assertCountEqual(items, [{"id": "a", "bar": 1}, {"id": "b", "baz": 4}])
 
     def test_insert_timestamps(self):
-        """ INSERT can insert timestamps """
+        """INSERT can insert timestamps"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=NOW() + interval '1 hour')")
         ret = list(self.dynamo.scan(table))[0]
@@ -232,7 +232,7 @@ class TestInsert(BaseSystemTest):
         self.assertTrue(abs(int(now + 60 * 60) - int(ret["bar"])) <= 1)
 
     def test_explain(self):
-        """ EXPLAIN INSERT """
+        """EXPLAIN INSERT"""
         self.query("EXPLAIN INSERT INTO foobar (id) VALUES ('a')")
         ret = self.engine._call_list
         self.assertEqual(len(ret), 1)
@@ -241,10 +241,10 @@ class TestInsert(BaseSystemTest):
 
 class TestSelect(BaseSystemTest):
 
-    """ Tests for SELECT """
+    """Tests for SELECT"""
 
     def test_hash_key(self):
-        """ SELECT filters by hash key """
+        """SELECT filters by hash key"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a'")
@@ -252,7 +252,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1}])
 
     def test_consistent(self):
-        """ SELECT can force consistent read """
+        """SELECT can force consistent read"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a')")
         results = self.query("SELECT CONSISTENT * FROM foobar WHERE id = 'a'")
@@ -260,7 +260,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a"}])
 
     def test_hash_range(self):
-        """ SELECT filters by hash and range keys """
+        """SELECT filters by hash and range keys"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' and bar = 1")
@@ -268,7 +268,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1}])
 
     def test_get(self):
-        """ SELECT statement can fetch items directly """
+        """SELECT statement can fetch items directly"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         results = self.query("SELECT * FROM foobar KEYS IN " "('a', 1), ('b', 2)")
@@ -276,7 +276,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1}, {"id": "b", "bar": 2}])
 
     def test_reverse(self):
-        """ SELECT can reverse order of results """
+        """SELECT can reverse order of results"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('a', 2)")
         results = self.query("SELECT * FROM foobar WHERE id = 'a' ASC")
@@ -286,7 +286,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(results, rev_results)
 
     def test_hash_index(self):
-        """ SELECT filters by indexes """
+        """SELECT filters by indexes"""
         self.make_table(index="ts")
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), ('a', 2, 200)"
@@ -298,7 +298,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1, "ts": 100}])
 
     def test_smart_index(self):
-        """ SELECT auto-selects correct index name """
+        """SELECT auto-selects correct index name"""
         self.make_table(index="ts")
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), " "('a', 2, 200)"
@@ -308,7 +308,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1, "ts": 100}])
 
     def test_smart_global_index(self):
-        """ SELECT auto-selects correct global index name """
+        """SELECT auto-selects correct global index name"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo STRING "
             "RANGE KEY, bar NUMBER INDEX('bar-index'), baz STRING) "
@@ -322,7 +322,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "foo": "a", "bar": 1, "baz": "a"}])
 
     def test_limit(self):
-        """ SELECT can specify limit """
+        """SELECT can specify limit"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), " "('a', 2, 200)"
@@ -331,7 +331,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(len(list(results)), 1)
 
     def test_scan_item_limit(self):
-        """ SELECT can provide a LIMIT and SCAN LIMIT """
+        """SELECT can provide a LIMIT and SCAN LIMIT"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), "
@@ -343,7 +343,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(len(list(results)), 0)
 
     def test_attrs(self):
-        """ SELECT can fetch only certain attrs """
+        """SELECT can fetch only certain attrs"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, order) VALUES "
@@ -354,7 +354,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"order": "first"}])
 
     def test_begins_with(self):
-        """ SELECT can filter attrs that begin with a string """
+        """SELECT can filter attrs that begin with a string"""
         self.query("CREATE TABLE foobar (id NUMBER HASH KEY, " "bar STRING RANGE KEY)")
         self.query("INSERT INTO foobar (id, bar) VALUES " "(1, 'abc'), (1, 'def')")
         results = self.query(
@@ -364,7 +364,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": 1, "bar": "abc"}])
 
     def test_between(self):
-        """ SELECT can filter attrs that are between values"""
+        """SELECT can filter attrs that are between values"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES " "('a', 5), ('a', 10)")
         results = self.query(
@@ -374,7 +374,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 5}])
 
     def test_filter(self):
-        """ SELECT can filter results before returning them """
+        """SELECT can filter results before returning them"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES " "('a', 1, 1), ('a', 2, 2)"
@@ -384,7 +384,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1, "baz": 1}])
 
     def test_filter_and(self):
-        """ SELECT can use multi-conditional filter on results """
+        """SELECT can use multi-conditional filter on results"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, foo, bar, baz) VALUES "
@@ -397,7 +397,7 @@ class TestSelect(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "foo": 1, "bar": 1, "baz": 1}])
 
     def test_filter_or(self):
-        """ SELECT can use multi-conditional OR filter on results """
+        """SELECT can use multi-conditional OR filter on results"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, foo, bar, baz) VALUES "
@@ -416,7 +416,7 @@ class TestSelect(BaseSystemTest):
         )
 
     def test_count(self):
-        """ SELECT can items """
+        """SELECT can items"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), " "('a', 2)")
         count = self.query("SELECT count(*) FROM foobar WHERE id = 'a'")
@@ -424,7 +424,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(count.scanned_count, 2)
 
     def test_count_smart_index(self):
-        """ SELECT count(*) auto-selects correct index name """
+        """SELECT count(*) auto-selects correct index name"""
         self.make_table(index="ts")
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), " "('a', 2, 200)"
@@ -434,7 +434,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(count.scanned_count, 1)
 
     def test_count_filter(self):
-        """ SELECT count(*) can use conditional filter on results """
+        """SELECT count(*) can use conditional filter on results"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, foo, bar) VALUES " "('a', 1, 1), ('a', 2, 2)"
@@ -444,7 +444,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(count.scanned_count, 2)
 
     def test_explain_select(self):
-        """ EXPLAIN SELECT """
+        """EXPLAIN SELECT"""
         self.make_table(range_key=None)
         self.query("EXPLAIN SELECT * FROM foobar WHERE id = 'a'")
         ret = self.engine._call_list
@@ -452,7 +452,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(ret[0][0], "query")
 
     def test_explain_select_keys_in(self):
-        """ EXPLAIN SELECT KEYS IN"""
+        """EXPLAIN SELECT KEYS IN"""
         self.make_table(range_key=None)
         self.query("EXPLAIN SELECT * FROM foobar KEYS IN 'a', 'b'")
         ret = self.engine._call_list
@@ -460,7 +460,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(ret[0][0], "batch_get_item")
 
     def test_order_by_index(self):
-        """ SELECT data ORDER BY range key """
+        """SELECT data ORDER BY range key"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar) VALUES " "('a', 1), ('a', 3), ('a', 2)"
@@ -475,7 +475,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(ret, expected)
 
     def test_order_by(self):
-        """ SELECT data ORDER BY non-range key """
+        """SELECT data ORDER BY non-range key"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES "
@@ -493,7 +493,7 @@ class TestSelect(BaseSystemTest):
         self.assertEqual(list(ret), expected)
 
     def test_select_non_projected(self):
-        """ SELECT can get attributes not projected onto an index """
+        """SELECT can get attributes not projected onto an index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
             "GLOBAL KEYS INDEX ('gindex', foo)"
@@ -507,14 +507,14 @@ class TestSelect(BaseSystemTest):
 
 class TestSelectScan(BaseSystemTest):
 
-    """ Tests for SELECT that involve doing a table scan """
+    """Tests for SELECT that involve doing a table scan"""
 
     def setUp(self):
         super(TestSelectScan, self).setUp()
         self.engine.allow_select_scan = True
 
     def _run(self, query, expected):
-        """ Test the query both with SELECT and SCAN """
+        """Test the query both with SELECT and SCAN"""
         for cmd in ["SELECT", "SCAN"]:
             results = self.query(cmd + " " + query)
             results = list(results)
@@ -524,31 +524,31 @@ class TestSelectScan(BaseSystemTest):
                 self.assertCountEqual(results, expected)
 
     def test_scan(self):
-        """ SELECT scan gets all results in a table """
+        """SELECT scan gets all results in a table"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self._run("* FROM foobar", [{"id": "a", "bar": 1}, {"id": "b", "bar": 2}])
 
     def test_filter(self):
-        """ SELECT scan can filter results """
+        """SELECT scan can filter results"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self._run("* FROM foobar WHERE bar = 2", [{"id": "b", "bar": 2}])
 
     def test_limit(self):
-        """ SELECT scan can limit results """
+        """SELECT scan can limit results"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self._run("* FROM foobar LIMIT 1", 1)
 
     def test_scan_limit(self):
-        """ SELECT scan can limit the number of items scanned """
+        """SELECT scan can limit the number of items scanned"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self._run("* FROM foobar SCAN LIMIT 1", 1)
 
     def test_begins_with(self):
-        """ SELECT scan can filter attrs that begin with a string """
+        """SELECT scan can filter attrs that begin with a string"""
         self.query("CREATE TABLE foobar (id NUMBER HASH KEY, " "bar STRING RANGE KEY)")
         self.query("INSERT INTO foobar (id, bar) VALUES " "(1, 'abc'), (1, 'def')")
         self._run(
@@ -556,13 +556,13 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_between(self):
-        """ SELECT scan can filter attrs that are between values"""
+        """SELECT scan can filter attrs that are between values"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES " "('a', 5), ('a', 10)")
         self._run("* FROM foobar WHERE bar BETWEEN 1 AND 8", [{"id": "a", "bar": 5}])
 
     def test_null(self):
-        """ SELECT scan can filter if an attr is null """
+        """SELECT scan can filter if an attr is null"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
@@ -571,7 +571,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_attribute_not_exists_quoted(self):
-        """ Quoted syntax for attribut_not_exists query """
+        """Quoted syntax for attribut_not_exists query"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
@@ -580,7 +580,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_not_null(self):
-        """ SELECT scan can filter if an attr is not null """
+        """SELECT scan can filter if an attr is not null"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
@@ -590,7 +590,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_attribute_exists_quoted(self):
-        """ Quoted syntax for attribute_exists query """
+        """Quoted syntax for attribute_exists query"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5)")
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1)")
@@ -600,13 +600,13 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_in(self):
-        """ SELECT scan can filter if an attr is in a set """
+        """SELECT scan can filter if an attr is in a set"""
         self.make_table()
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 5), ('a', 2)")
         self._run("* FROM foobar WHERE bar IN (1, 3, 5)", [{"id": "a", "bar": 5}])
 
     def test_contains(self):
-        """ SELECT scan can filter if a set contains an item """
+        """SELECT scan can filter if a set contains an item"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES "
@@ -618,7 +618,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_filter_and(self):
-        """ SELECT scan can use multi-conditional filter """
+        """SELECT scan can use multi-conditional filter"""
         self.make_table()
         self.query("INSERT INTO foobar (id, foo, bar) VALUES ('a', 1, 1), ('b', 1, 2)")
         self._run(
@@ -626,7 +626,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_filter_or(self):
-        """ SELECT scan can use multi-conditional OR filter """
+        """SELECT scan can use multi-conditional OR filter"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, foo, bar) VALUES " "('a', 1, 1), ('b', 2, 2)"
@@ -637,7 +637,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_filter_nested(self):
-        """ SELECT scan can use nested conditional filters """
+        """SELECT scan can use nested conditional filters"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, foo, bar) VALUES "
@@ -649,7 +649,7 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_scan_global(self):
-        """ SELECT scan can scan a global index """
+        """SELECT scan can scan a global index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
             "GLOBAL KEYS INDEX ('gindex', foo)"
@@ -658,7 +658,7 @@ class TestSelectScan(BaseSystemTest):
         self._run("* FROM foobar USING gindex", [{"id": "a", "foo": "a"}])
 
     def test_scan_global_with_constraints(self):
-        """ SELECT scan can scan a global index and filter """
+        """SELECT scan can scan a global index and filter"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo STRING) "
             "GLOBAL KEYS INDEX ('gindex', foo)"
@@ -669,14 +669,14 @@ class TestSelectScan(BaseSystemTest):
         )
 
     def test_filter_list(self):
-        """ SELECT scan can filter based on elements in a list """
+        """SELECT scan can filter based on elements in a list"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1, 2]), ('b', [2, 3])")
         self.engine.reserved_words = None
         self._run("* FROM foobar WHERE bar[0] = 2", [{"id": "b", "bar": [2, 3]}])
 
     def test_filter_map(self):
-        """ SELECT scan can filter based on values in a map """
+        """SELECT scan can filter based on values in a map"""
         self.make_table(range_key=None)
         self.query(
             "INSERT INTO foobar (id, bar) VALUES ('a', {'b': 1}), ('b', {'b': 2})"
@@ -685,7 +685,7 @@ class TestSelectScan(BaseSystemTest):
         self._run("* FROM foobar WHERE bar.b = 2", [{"id": "b", "bar": {"b": 2}}])
 
     def test_explain_scan(self):
-        """ EXPLAIN SELECT """
+        """EXPLAIN SELECT"""
         self.make_table(range_key=None)
         self.query("EXPLAIN SELECT * FROM foobar WHERE bar = 'a'")
         ret = self.engine._call_list
@@ -693,79 +693,79 @@ class TestSelectScan(BaseSystemTest):
         self.assertEqual(ret[0][0], "scan")
 
     def test_field_ne_field(self):
-        """ SELECT can filter fields compared to other fields """
+        """SELECT can filter fields compared to other fields"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), ('b', 2, 3)")
         self._run("* FROM foobar WHERE bar != baz", [{"id": "b", "bar": 2, "baz": 3}])
 
     def test_select_filter_timestamp(self):
-        """ SELECT can filter by timestamp """
+        """SELECT can filter by timestamp"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=now() + interval '1 hour')")
         ret = list(self.query("SCAN * FROM foobar WHERE bar > NOW()"))
         self.assertEqual(len(ret), 1)
 
     def test_select_alias(self):
-        """ SELECT can alias selected fields """
+        """SELECT can alias selected fields"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=5)")
         self._run("id, bar as baz FROM foobar", [{"id": "a", "baz": 5}])
 
     def test_select_operation(self):
-        """ SELECT can perform simple arithmetic """
+        """SELECT can perform simple arithmetic"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=5, baz=3)")
         self._run("bar + baz as ret FROM foobar", [{"ret": 8}])
 
     def test_select_none_operation(self):
-        """ SELECT operations ignore None values """
+        """SELECT operations ignore None values"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=5)")
         self._run("bar + baz as ret FROM foobar", [{"ret": 5}])
 
     def test_select_type_error_operation(self):
-        """ SELECT operations with bad values return TypeError """
+        """SELECT operations with bad values return TypeError"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=5, baz=(1, 2))")
         ret = list(self.query("SCAN bar + baz as ret FROM foobar"))[0]
         self.assertTrue(isinstance(ret["ret"], TypeError))
 
     def test_nested_operation(self):
-        """ SELECT can perform nested operations """
+        """SELECT can perform nested operations"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', foo=10, bar=5, baz=3)")
         self._run("foo - (bar - baz) as ret FROM foobar", [{"ret": 8}])
 
     def test_select_timestamp(self):
-        """ SELECT can convert values to timestamps """
+        """SELECT can convert values to timestamps"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=NOW())")
         ret = list(self.query("SCAN ts(bar) as bar FROM foobar"))[0]
         self.assertTrue(isinstance(ret["bar"], datetime))
 
     def test_select_timestamp_ms(self):
-        """ SELECT can convert millisecond values to timestamps """
+        """SELECT can convert millisecond values to timestamps"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=ms(NOW()))")
         ret = list(self.query("SCAN ts(bar) as bar FROM foobar"))[0]
         self.assertTrue(isinstance(ret["bar"], datetime))
 
     def test_select_timestamp_literal(self):
-        """ SELECT can parse timestamp literals """
+        """SELECT can parse timestamp literals"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=4)")
         ret = list(self.query("SCAN ts('2015-12-5') as d FROM foobar"))[0]
         self.assertTrue(isinstance(ret["d"], datetime))
 
     def test_select_now(self):
-        """ SELECT can get the current time """
+        """SELECT can get the current time"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=4)")
         ret = list(self.query("SCAN now() as d FROM foobar"))[0]
         self.assertTrue(isinstance(ret["d"], datetime))
 
     def test_select_timedelta(self):
-        """ SELECT can subtract dates to get a timedelta """
+        """SELECT can subtract dates to get a timedelta"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', bar=now())")
         ret = list(self.query("SCAN now() - ts(bar) as d FROM foobar"))[0]
@@ -774,10 +774,10 @@ class TestSelectScan(BaseSystemTest):
 
 class TestCreate(BaseSystemTest):
 
-    """ Tests for CREATE """
+    """Tests for CREATE"""
 
     def test_create(self):
-        """ CREATE statement should make a table """
+        """CREATE statement should make a table"""
         self.query(
             """
             CREATE TABLE foobar (owner STRING HASH KEY,
@@ -798,18 +798,18 @@ class TestCreate(BaseSystemTest):
         )
 
     def test_create_throughput(self):
-        """ CREATE statement can specify throughput """
+        """CREATE statement can specify throughput"""
         self.query("CREATE TABLE foobar (id STRING HASH KEY, THROUGHPUT (1, 2))")
         desc = self.engine.describe("foobar")
         self.assertEqual(desc.throughput, Throughput(1, 2))
 
     def test_create_if_not_exists(self):
-        """ CREATE IF NOT EXISTS shouldn't fail if table exists """
+        """CREATE IF NOT EXISTS shouldn't fail if table exists"""
         self.query("CREATE TABLE foobar (owner STRING HASH KEY)")
         self.query("CREATE TABLE IF NOT EXISTS foobar (owner STRING HASH KEY)")
 
     def test_create_keys_index(self):
-        """ Can create a keys-only index """
+        """Can create a keys-only index"""
         self.query(
             """
             CREATE TABLE foobar (owner STRING HASH KEY,
@@ -823,7 +823,7 @@ class TestCreate(BaseSystemTest):
         )
 
     def test_create_include_index(self):
-        """ Can create an include-only index """
+        """Can create an include-only index"""
         self.query(
             """
             CREATE TABLE foobar (owner STRING HASH KEY,
@@ -838,7 +838,7 @@ class TestCreate(BaseSystemTest):
         )
 
     def test_create_global_indexes(self):
-        """ Can create with global indexes """
+        """Can create with global indexes"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY, THROUGHPUT (1, 1)) "
             "GLOBAL INDEX ('myindex', foo, id, THROUGHPUT (1, 2))"
@@ -852,7 +852,7 @@ class TestCreate(BaseSystemTest):
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_index_types(self):
-        """ Global indexes can specify the attribute types """
+        """Global indexes can specify the attribute types"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER RANGE KEY, THROUGHPUT (1, 1)) "
             "GLOBAL INDEX ('myindex', foo number, baz string, THROUGHPUT (1, 2))"
@@ -866,7 +866,7 @@ class TestCreate(BaseSystemTest):
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_index_no_range(self):
-        """ Can create global index with no range key """
+        """Can create global index with no range key"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1)) "
             "GLOBAL ALL INDEX ('myindex', foo, THROUGHPUT (1, 2))"
@@ -879,7 +879,7 @@ class TestCreate(BaseSystemTest):
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_keys_index(self):
-        """ Can create a global keys-only index """
+        """Can create a global keys-only index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1)) "
             "GLOBAL KEYS INDEX ('myindex', foo, THROUGHPUT (1, 2))"
@@ -892,7 +892,7 @@ class TestCreate(BaseSystemTest):
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_global_include_index(self):
-        """ Can create a global include-only index """
+        """Can create a global include-only index"""
         self.query(
             "CREATE TABLE foobar (id STRING HASH KEY, foo NUMBER, THROUGHPUT (1, 1)) "
             "GLOBAL INCLUDE INDEX ('myindex', foo, ['bar', 'baz'], THROUGHPUT (1, 2))"
@@ -907,7 +907,7 @@ class TestCreate(BaseSystemTest):
         self.assertEqual(desc.global_indexes, {"myindex": gindex})
 
     def test_create_explain(self):
-        """ EXPLAIN CREATE """
+        """EXPLAIN CREATE"""
         self.query("EXPLAIN CREATE TABLE foobar (id STRING HASH KEY)")
         ret = self.engine._call_list
         self.assertEqual(len(ret), 1)
@@ -916,10 +916,10 @@ class TestCreate(BaseSystemTest):
 
 class TestUpdate(BaseSystemTest):
 
-    """ Tests for UPDATE """
+    """Tests for UPDATE"""
 
     def test_update(self):
-        """ UPDATE sets attributes """
+        """UPDATE sets attributes"""
         table = self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -931,7 +931,7 @@ class TestUpdate(BaseSystemTest):
         )
 
     def test_update_where(self):
-        """ UPDATE sets attributes when clause is true """
+        """UPDATE sets attributes when clause is true"""
         table = self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -943,7 +943,7 @@ class TestUpdate(BaseSystemTest):
         )
 
     def test_update_count(self):
-        """ UPDATE returns number of records updated """
+        """UPDATE returns number of records updated"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -952,7 +952,7 @@ class TestUpdate(BaseSystemTest):
         self.assertEqual(count, 1)
 
     def test_update_where_in(self):
-        """ UPDATE can update items by their primary keys """
+        """UPDATE can update items by their primary keys"""
         table = self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -964,7 +964,7 @@ class TestUpdate(BaseSystemTest):
         )
 
     def test_update_in_condition(self):
-        """ UPDATE can alert items using KEYS IN and WHERE """
+        """UPDATE can alert items using KEYS IN and WHERE"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query(
@@ -974,7 +974,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 3}, {"id": "b", "bar": 2}])
 
     def test_update_keys_count(self):
-        """ UPDATE returns number of records updated with KEYS IN """
+        """UPDATE returns number of records updated with KEYS IN"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -983,7 +983,7 @@ class TestUpdate(BaseSystemTest):
         self.assertEqual(ret, 2)
 
     def test_update_increment(self):
-        """ UPDATE can increment attributes """
+        """UPDATE can increment attributes"""
         table = self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -996,7 +996,7 @@ class TestUpdate(BaseSystemTest):
         )
 
     def test_update_add(self):
-        """ UPDATE can add elements to set """
+        """UPDATE can add elements to set"""
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, ())")
         self.query("UPDATE foobar ADD baz (1)")
@@ -1005,7 +1005,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 1, "baz": set([1, 2, 3])}])
 
     def test_update_delete(self):
-        """ UPDATE can delete elements from set """
+        """UPDATE can delete elements from set"""
         table = self.make_table()
         self.query("INSERT INTO foobar (id, bar, baz) VALUES " "('a', 1, (1, 2, 3, 4))")
         self.query("UPDATE foobar DELETE baz (2)")
@@ -1014,7 +1014,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 1, "baz": set([4])}])
 
     def test_update_remove(self):
-        """ UPDATE can remove attributes """
+        """UPDATE can remove attributes"""
         table = self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -1024,7 +1024,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 1}, {"id": "b", "bar": 2}])
 
     def test_update_returns(self):
-        """ UPDATE can specify what the query returns """
+        """UPDATE can specify what the query returns"""
         self.make_table()
         self.query(
             "INSERT INTO foobar (id, bar, baz) VALUES ('a', 1, 1), " "('b', 2, 2)"
@@ -1034,7 +1034,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 1}, {"id": "b", "bar": 2}])
 
     def test_update_soft(self):
-        """ UPDATE can set a field if it doesn't exist """
+        """UPDATE can set a field if it doesn't exist"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', NULL)")
         self.query("UPDATE foobar SET bar = if_not_exists(bar, 2)")
@@ -1042,7 +1042,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 1}, {"id": "b", "bar": 2}])
 
     def test_update_append(self):
-        """ UPDATE can append to a list """
+        """UPDATE can append to a list"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1])")
         self.query("UPDATE foobar SET bar = list_append(bar, [2])")
@@ -1050,7 +1050,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": [1, 2]}])
 
     def test_update_prepend(self):
-        """ UPDATE can prepend to a list """
+        """UPDATE can prepend to a list"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', [1])")
         self.query("UPDATE foobar SET bar = list_append([2], bar)")
@@ -1058,7 +1058,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": [2, 1]}])
 
     def test_update_condition(self):
-        """ UPDATE can conditionally update """
+        """UPDATE can conditionally update"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("UPDATE foobar SET bar = 3 WHERE bar < 2")
@@ -1066,7 +1066,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 3}, {"id": "b", "bar": 2}])
 
     def test_update_index(self):
-        """ UPDATE can query an index for the items to update """
+        """UPDATE can query an index for the items to update"""
         table = self.make_table(index="ts")
         self.query("INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100)")
         self.query("UPDATE foobar SET ts = 3 WHERE id = 'a' USING ts-index")
@@ -1074,7 +1074,7 @@ class TestUpdate(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "a", "bar": 1, "ts": 3}])
 
     def test_explain_update(self):
-        """ EXPLAIN UPDATE """
+        """EXPLAIN UPDATE"""
         self.make_table()
         self.query("EXPLAIN UPDATE foobar SET baz = 1 WHERE id = 'a'")
         ret = self.engine._call_list
@@ -1084,7 +1084,7 @@ class TestUpdate(BaseSystemTest):
         self.assertEqual(update[0], "update_item")
 
     def test_explain_update_get(self):
-        """ EXPLAIN UPDATE batch get item """
+        """EXPLAIN UPDATE batch get item"""
         self.make_table(range_key=None)
         self.query("EXPLAIN UPDATE foobar SET baz = 1 KEYS IN 'a', 'b'")
         ret = self.engine._call_list
@@ -1092,7 +1092,7 @@ class TestUpdate(BaseSystemTest):
         self.assertEqual(ret[0][0], "update_item")
 
     def test_explain_update_scan(self):
-        """ EXPLAIN UPDATE scan """
+        """EXPLAIN UPDATE scan"""
         self.make_table(range_key=None)
         self.query("EXPLAIN UPDATE foobar SET baz = 1 where bar='a'")
         ret = self.engine._call_list
@@ -1102,7 +1102,7 @@ class TestUpdate(BaseSystemTest):
         self.assertEqual(update[0], "update_item")
 
     def test_update_bool(self):
-        """ UPDATE sets boolean attributes """
+        """UPDATE sets boolean attributes"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', true)")
         self.query("UPDATE foobar SET bar = false")
@@ -1112,10 +1112,10 @@ class TestUpdate(BaseSystemTest):
 
 class TestDelete(BaseSystemTest):
 
-    """ Tests for DELETE """
+    """Tests for DELETE"""
 
     def test_delete(self):
-        """ DELETE removes items """
+        """DELETE removes items"""
         table = self.make_table(index="ts")
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar")
@@ -1123,7 +1123,7 @@ class TestDelete(BaseSystemTest):
         self.assertEqual(len(items), 0)
 
     def test_delete_where(self):
-        """ DELETE can update conditionally """
+        """DELETE can update conditionally"""
         table = self.make_table(index="ts")
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar WHERE id = 'a' and bar = 1")
@@ -1131,7 +1131,7 @@ class TestDelete(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "b", "bar": 2}])
 
     def test_delete_in(self):
-        """ DELETE can specify KEYS IN """
+        """DELETE can specify KEYS IN"""
         table = self.make_table(index="ts")
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar KEYS IN ('a', 1)")
@@ -1139,7 +1139,7 @@ class TestDelete(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "b", "bar": 2}])
 
     def test_delete_in_filter(self):
-        """ DELETE can specify KEYS IN with WHERE """
+        """DELETE can specify KEYS IN with WHERE"""
         table = self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id, bar) VALUES ('a', 1), ('b', 2)")
         self.query("DELETE FROM foobar KEYS IN 'a', 'b' WHERE bar = 1")
@@ -1147,7 +1147,7 @@ class TestDelete(BaseSystemTest):
         self.assertCountEqual(items, [{"id": "b", "bar": 2}])
 
     def test_delete_smart_index(self):
-        """ DELETE statement auto-selects correct index name """
+        """DELETE statement auto-selects correct index name"""
         table = self.make_table(index="ts")
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 100), " "('a', 2, 200)"
@@ -1157,7 +1157,7 @@ class TestDelete(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "bar": 1, "ts": 100}])
 
     def test_delete_using(self):
-        """ DELETE statement can specify an index """
+        """DELETE statement can specify an index"""
         table = self.make_table(index="ts")
         self.query(
             "INSERT INTO foobar (id, bar, ts) VALUES ('a', 1, 0), " "('a', 2, 5)"
@@ -1167,7 +1167,7 @@ class TestDelete(BaseSystemTest):
         self.assertEqual(len(items), 0)
 
     def test_explain_delete_query(self):
-        """ EXPLAIN DELETE query """
+        """EXPLAIN DELETE query"""
         self.make_table()
         self.query("EXPLAIN DELETE FROM foobar WHERE id = 'a'")
         ret = self.engine._call_list
@@ -1177,7 +1177,7 @@ class TestDelete(BaseSystemTest):
         self.assertEqual(update[0], "delete_item")
 
     def test_explain_delete_get(self):
-        """ EXPLAIN DELETE batch get item """
+        """EXPLAIN DELETE batch get item"""
         self.make_table(range_key=None)
         self.query("EXPLAIN DELETE FROM foobar KEYS IN 'a', 'b'")
         ret = self.engine._call_list
@@ -1185,7 +1185,7 @@ class TestDelete(BaseSystemTest):
         self.assertEqual(ret[0][0], "delete_item")
 
     def test_explain_delete_scan(self):
-        """ EXPLAIN DELETE scan """
+        """EXPLAIN DELETE scan"""
         self.make_table(range_key=None)
         self.query("EXPLAIN DELETE FROM foobar")
         ret = self.engine._call_list
@@ -1196,10 +1196,10 @@ class TestDelete(BaseSystemTest):
 
 
 class TestRegressions(BaseSystemTest):
-    """ Regression tests """
+    """Regression tests"""
 
     def test_filter_banned_word(self):
-        """ Filtering with a banned word replaces the word """
+        """Filtering with a banned word replaces the word"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', hash=1), (id='b', hash=4)")
         results = self.query("SCAN * FROM foobar WHERE hash in (1, 2, 3)")
@@ -1207,7 +1207,7 @@ class TestRegressions(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "hash": 1}])
 
     def test_filter_with_dash(self):
-        """ Filtering on a field with a dash replaces the word """
+        """Filtering on a field with a dash replaces the word"""
         self.make_table(range_key=None)
         self.query("INSERT INTO foobar (id='a', my-field=1), (id='b', my-field=4)")
         results = self.query("SCAN * FROM foobar WHERE my-field = 1")
@@ -1215,7 +1215,7 @@ class TestRegressions(BaseSystemTest):
         self.assertCountEqual(results, [{"id": "a", "my-field": 1}])
 
     def test_count_on_index(self):
-        """ Can select count(*) on an INCLUDE index """
+        """Can select count(*) on an INCLUDE index"""
         self.query(
             """
             CREATE TABLE foobar (

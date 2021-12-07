@@ -6,7 +6,7 @@ import os
 from .cli import DQLClient
 from .engine import Engine, FragmentEngine
 
-__version__ = "0.6.1"
+__version__ = "0.6.2-dev0"
 __all__ = ["Engine", "FragmentEngine", "DQLClient"]
 
 LOG_CONFIG = {
@@ -26,7 +26,7 @@ LOG_CONFIG = {
 
 
 def main():
-    """ Start the DQL client. """
+    """Start the DQL client."""
     parse = argparse.ArgumentParser(description=main.__doc__)
     parse.add_argument("-c", "--command", help="Run this command and exit")
     region = os.environ.get("AWS_REGION", "us-west-1")

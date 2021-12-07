@@ -17,10 +17,9 @@ try:
     from shutil import get_terminal_size  # pylint: disable=E0611
 
     def getmaxyx():
-        """ Get the terminal height and width """
+        """Get the terminal height and width"""
         size = get_terminal_size()
         return size[1], size[0]
-
 
 except ImportError:
     try:
@@ -29,7 +28,7 @@ except ImportError:
         from termios import TIOCGWINSZ
 
         def getmaxyx():
-            """ Get the terminal height and width """
+            """Get the terminal height and width"""
             try:
                 return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
             except KeyError:
@@ -43,22 +42,22 @@ except ImportError:
     except ImportError:
         # Windows doesn't have fcntl or termios, so fall back to defaults.
         def getmaxyx():
-            """ Get the terminal height and width """
+            """Get the terminal height and width"""
             return 25, 80
 
 
 def plural(value, append="s"):
-    """ Helper function for pluralizing text """
+    """Helper function for pluralizing text"""
     return "" if value == 1 else append
 
 
 def unwrap(value):
-    """ Unwrap a quoted string """
+    """Unwrap a quoted string"""
     return value[1:-1]
 
 
 def resolve(val):
-    """ Convert a pyparsing value to the python type """
+    """Convert a pyparsing value to the python type"""
     name = val.getName()
     if name == "number":
         try:
@@ -93,14 +92,14 @@ def resolve(val):
 
 
 def dt_to_ts(value: Union[datetime, int, float]) -> float:
-    """ If value is a datetime, convert to timestamp """
+    """If value is a datetime, convert to timestamp"""
     if not isinstance(value, datetime):
         return value
     return calendar.timegm(value.utctimetuple()) + value.microsecond / 1000000.0
 
 
 def eval_function(value):
-    """ Evaluate a timestamp function """
+    """Evaluate a timestamp function"""
     name, args = value[0], value[1:]
     if name == "NOW":
         return datetime.utcnow().replace(tzinfo=tzutc())
@@ -115,7 +114,7 @@ def eval_function(value):
 
 
 def eval_interval(interval):
-    """ Evaluate an interval expression """
+    """Evaluate an interval expression"""
     kwargs: Dict = {
         "years": 0,
         "months": 0,
@@ -152,7 +151,7 @@ def eval_interval(interval):
 
 
 def eval_expression(value):
-    """ Evaluate a full time expression """
+    """Evaluate a full time expression"""
     start = eval_function(value.ts_expression[0])
     interval = eval_interval(value.ts_expression[2])
     op = value.ts_expression[1]

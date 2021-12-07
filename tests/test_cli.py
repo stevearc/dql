@@ -19,7 +19,7 @@ from . import BaseSystemTest
 
 
 class UniqueCollection(object):
-    """ Wrapper to make equality tests simpler """
+    """Wrapper to make equality tests simpler"""
 
     def __init__(self, items):
         self._items = set(items)
@@ -36,7 +36,7 @@ class UniqueCollection(object):
 
 class BaseCLITest(TestCase):
 
-    """ Base class for CLI tests """
+    """Base class for CLI tests"""
 
     dynamo: DynamoDBConnection = None
     cli: DQLClient
@@ -77,21 +77,21 @@ class BaseCLITest(TestCase):
 
 class TestCli(BaseCLITest):
 
-    """ Tests for the CLI """
+    """Tests for the CLI"""
 
     def assert_prints(self, command, message):
-        """ Assert that a cli command will print a message to the console """
+        """Assert that a cli command will print a message to the console"""
         out = StringIO()
         with patch("sys.stdout", out):
             self.cli.onecmd(command)
         self.assertEqual(out.getvalue().strip(), message.strip())
 
     def test_repl_command_args(self):
-        """ The @repl_command decorator parses arguments and passes them in """
+        """The @repl_command decorator parses arguments and passes them in"""
 
         @repl_command
         def testfunc(zelf, first, second):
-            """ Test cli command """
+            """Test cli command"""
             self.assertEqual(zelf, self)
             self.assertEqual(first, "a")
             self.assertEqual(second, "b")
@@ -99,11 +99,11 @@ class TestCli(BaseCLITest):
         testfunc(self, "a b")  # pylint: disable=E1120
 
     def test_repl_command_kwargs(self):
-        """ The @repl_command decorator parses kwargs and passes them in """
+        """The @repl_command decorator parses kwargs and passes them in"""
 
         @repl_command
         def testfunc(zelf, first, second=None):
-            """ Test cli command """
+            """Test cli command"""
             self.assertEqual(zelf, self)
             self.assertEqual(first, "a")
             self.assertEqual(second, "b")
@@ -111,7 +111,7 @@ class TestCli(BaseCLITest):
         testfunc(self, "a second=b")
 
     def test_help_docs(self):
-        """ There is a help command for every DQL query type """
+        """There is a help command for every DQL query type"""
         import dql.help
 
         for name in dir(dql.help):
@@ -124,7 +124,7 @@ class TestCli(BaseCLITest):
 
 class TestCliCommands(BaseCLITest):
 
-    """ Tests that run the 'dql --command' """
+    """Tests that run the 'dql --command'"""
 
     def _run_command(self, command: str) -> str:
         stream = BytesIO()
@@ -150,7 +150,7 @@ class TestCliCommands(BaseCLITest):
         return ret
 
     def test_scan_table(self):
-        """ Can create, insert, and scan from table """
+        """Can create, insert, and scan from table"""
         lines = self._run_dql_command(
             """
         CREATE TABLE foobar (id STRING HASH KEY);
@@ -184,7 +184,7 @@ class TestCliCommands(BaseCLITest):
         )
 
     def test_ls(self):
-        """ Snapshot test for ls format """
+        """Snapshot test for ls format"""
         self._run_dql_command(
             """
         CREATE TABLE foobar (
@@ -198,7 +198,7 @@ class TestCliCommands(BaseCLITest):
         self.assertMatchSnapshot(output)
 
     def test_ls_with_multiple_tables(self):
-        """ Snapshot test for ls format """
+        """Snapshot test for ls format"""
         self._run_dql_command(
             """
         CREATE TABLE foo (
