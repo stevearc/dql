@@ -760,10 +760,34 @@ class DQLClient(cmd.Cmd):
         return self.onecmd("exit")
 
     @repl_command
+    def do_clear(self):
+        return self._do_clear()
+
+    @repl_command
+    def do_cls(self):
+        return self._do_clear()
+
+    def _do_clear(self):
+        """
+        Clear the screen by scrolling window to place the input line at the top.
+        Does the following steps:
+        - Put 2 empty lines
+        - Draw a horizontal rule
+        - Clear the screen natively
+        - Remove "clear"/"cls" from history
+        """
+        print()
+        print()
+        console.rule()
+        os.system('cls' if os.name in ('nt', 'dos') else 'clear')
+        self.history_manager.remove_items(n=1)
+
+    @repl_command
     def do_exit(self):
         """Exit"""
         self.running = False
         print()
+        self.history_manager.remove_items(n=1)  # remove "exit" from history
         self.history_manager.try_to_write_history()
         return True
 
