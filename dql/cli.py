@@ -779,7 +779,7 @@ class DQLClient(cmd.Cmd):
         print()
         print()
         console.rule()
-        os.system('cls' if os.name in ('nt', 'dos') else 'clear')
+        os.system("cls" if os.name in ("nt", "dos") else "clear")
         self.history_manager.remove_items(n=1)
 
     @repl_command
