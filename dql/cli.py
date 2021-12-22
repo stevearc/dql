@@ -761,10 +761,12 @@ class DQLClient(cmd.Cmd):
 
     @repl_command
     def do_clear(self):
+        """Clear the screen. Add a visual break (2 spaces and 1 horizontal rule)."""
         return self._do_clear()
 
     @repl_command
     def do_cls(self):
+        """Clear the screen. Add a visual break (2 spaces and 1 horizontal rule)."""
         return self._do_clear()
 
     def _do_clear(self):
