@@ -55,3 +55,25 @@ class HistoryManager(object):
             else:
                 # append will fail if the file does not exist.
                 readline.append_history_file(new_history_length, history_file)
+
+    def remove_items(self, n=1):
+        """Remove items from current session's in-memory history."""
+        if n <= 0:
+            return
+
+        try:
+            import readline
+        except ImportError:
+            # Windows doesn't have readline, so gracefully ignore.
+            return
+
+        current_history_length = readline.get_current_history_length()
+        if current_history_length - n >= self._initial_history_length:
+            for _ in range(n):
+                # pop n items from history list
+                readline.remove_history_item(readline.get_current_history_length() - 1)
+        else:
+            raise Exception(
+                f"Requested history item removal is not in current session history range. "
+                f"({self._initial_history_length}, {current_history_length})"
+            )

@@ -7,6 +7,8 @@ Changelog
 * Added: Run tests with python 3.9
 * Chore: general cleanup & lint fixes
 * Chore: removing travis-ci; adding github workflows
+* Added: `clear` & `cls` commands.
+* Updated: clear, cls, exit commands are no longer tracked in history.
 
 0.6.1
 -----

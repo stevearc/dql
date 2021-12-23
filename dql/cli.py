@@ -757,15 +757,44 @@ class DQLClient(cmd.Cmd):
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
         """Exit"""
-        return self.onecmd("exit")
+        return self._common_exit()
 
     @repl_command
-    def do_exit(self):
-        """Exit"""
+    def do_clear(self):
+        """Clear the screen. Add a visual break (2 spaces and 1 horizontal rule)."""
+        return self._do_clear()
+
+    @repl_command
+    def do_cls(self):
+        """Clear the screen. Add a visual break (2 spaces and 1 horizontal rule)."""
+        return self._do_clear()
+
+    def _do_clear(self):
+        """
+        Clear the screen by scrolling window to place the input line at the top.
+        Does the following steps:
+        - Put 2 empty lines
+        - Draw a horizontal rule
+        - Clear the screen natively
+        - Remove "clear"/"cls" from history
+        """
+        print()
+        print()
+        console.rule()
+        os.system("cls" if os.name in ("nt", "dos") else "clear")
+        self.history_manager.remove_items(n=1)
+
+    def _common_exit(self):
         self.running = False
         print()
         self.history_manager.try_to_write_history()
         return True
+
+    @repl_command
+    def do_exit(self):
+        """Exit"""
+        self.history_manager.remove_items(n=1)  # remove "exit" from history
+        return self._common_exit()
 
     def run_command(
         self, command: str, use_json: bool = False, raise_exceptions: bool = False
