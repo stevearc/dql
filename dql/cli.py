@@ -757,7 +757,7 @@ class DQLClient(cmd.Cmd):
     @repl_command
     def do_EOF(self):  # pylint: disable=C0103
         """Exit"""
-        return self.onecmd("exit")
+        return self._common_exit()
 
     @repl_command
     def do_clear(self):
@@ -784,14 +784,17 @@ class DQLClient(cmd.Cmd):
         os.system("cls" if os.name in ("nt", "dos") else "clear")
         self.history_manager.remove_items(n=1)
 
+    def _common_exit(self):
+        self.running = False
+        print()
+        self.history_manager.try_to_write_history()
+        return True
+
     @repl_command
     def do_exit(self):
         """Exit"""
-        self.running = False
-        print()
         self.history_manager.remove_items(n=1)  # remove "exit" from history
-        self.history_manager.try_to_write_history()
-        return True
+        return self._common_exit()
 
     def run_command(
         self, command: str, use_json: bool = False, raise_exceptions: bool = False
