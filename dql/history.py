@@ -65,7 +65,7 @@ class HistoryManager(object):
             import readline
         except ImportError:
             # Windows doesn't have readline, so gracefully ignore.
-            pass
+            return
 
         current_history_length = readline.get_current_history_length()
         if current_history_length - n >= self._initial_history_length:
