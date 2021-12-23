@@ -18,16 +18,15 @@ for DynamoDB. You should investigate that first to see if it addresses your
 needs.
 
 Getting Started
-===============
-The easiest way to use DQL is to download and run the install script::
+---------------
+Installation can be done in a variety of ways
 
-    curl -o install.py https://raw.githubusercontent.com/stevearc/dql/master/bin/install.py
-    python install.py
+* An executable `pex <https://github.com/pantsbuild/pex>`__ file is available on `the release page <https://github.com/stevearc/dql/releases>`__.
+* You can run a script to generate the pex file yourself: ``curl -o- install.py https://raw.githubusercontent.com/stevearc/dql/master/bin/install.py | python``
+* With pip: ``pip install dql``
 
-This will create a standalone ``dql`` file that you can run. If you would
-instead like to install it with pip::
-
-    pip install dql
+Examples
+--------
 
 Here are some basic DQL examples to get you going:
 
