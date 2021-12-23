@@ -23,7 +23,7 @@ project = u'dql'
 copyright = u'2013, Steven Arcangeli'
 github_user = u'stevearc'
 
-release = '0.6.2-dev0'
+release = '0.6.2'
 version = '.'.join(release.split('.')[:2])
 
 exclude_patterns = ['_build']
