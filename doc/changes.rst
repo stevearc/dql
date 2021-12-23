@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.6.2 - Unreleased
+------------------
+* Fix: Issue with missing dependency (typing_extensions) made apparent by python 3.9
+* Added: Run tests with python 3.9
+* Chore: general cleanup & lint fixes
+* Chore: removing travis-ci; adding github workflows
+* Added: `clear` & `cls` commands.
+* Updated: clear, cls, exit commands are no longer tracked in history.
+
 0.6.1
 -----
 * Feature: Retain query history across sessions. (#40)

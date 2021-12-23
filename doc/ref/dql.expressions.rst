@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    dql.expressions.base
    dql.expressions.constraint
@@ -16,6 +17,6 @@ Module contents
 ---------------
 
 .. automodule:: dql.expressions
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

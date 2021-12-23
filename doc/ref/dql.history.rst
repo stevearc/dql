@@ -1,7 +1,7 @@
-dql.monitor module
+dql.history module
 ==================
 
-.. automodule:: dql.monitor
+.. automodule:: dql.history
    :members:
    :undoc-members:
    :show-inheritance:
