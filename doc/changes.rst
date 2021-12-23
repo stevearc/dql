@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.6.2 - Unreleased
-------------------
+0.6.2
+-----
 * Fix: Issue with missing dependency (typing_extensions) made apparent by python 3.9
 * Added: Run tests with python 3.9
 * Chore: general cleanup & lint fixes
